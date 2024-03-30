@@ -369,8 +369,8 @@ def pareto1_to_Norm(W):
 
 if norm_pareto == 'standard':
 
-    norm_to_Pareto = norm_to_stdPareto_vec
-    pareto_to_Norm = stdPareto_to_Norm_vec
+    g = norm_to_stdPareto_vec
+    ginv = stdPareto_to_Norm_vec
 
     dRW = RW_inte.dRW_standard_Pareto_nugget_vec
     pRW = RW_inte.pRW_standard_Pareto_nugget_vec
@@ -380,80 +380,86 @@ if norm_pareto == 'standard':
 # %% Likelihood
 # Likelihood
 
-# marginal censored (log) likelihood at 1 time
-def marg_log_likelihood_1t(Y, X, p, u_vec, scale_vec, shape_vec, phi_vec, gamma_vec, tau):
-    # other than tau and p,
-    # all parameters are (Ns,) vectors, the sites at time t
+# marginal censored (log) likelihood of Y at 1 time
+def Y_censored_ll_1t(Y, p, u_vec, scale_vec, shape_vec,     # marginal observation and parameter
+                     R_vec, Z_vec, phi_vec, gamma_vec, tau, # coupla model parameter
+                     X, X_star, censored_idx, exceed_idx):  # things to facilitate computation
+    # Note: 
+    #   X_star = (R_vec ** phi_vec) * g(Z_vec)
+    #   X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_vec, tau)
+    #   censored_idx = np.where(Y <= u_vec)[0]
+    #   exceed_idx   = np.where(Y > u_vec)[0]
     if(isinstance(Y, (int, np.int64, float))): 
         Y = np.array([Y], dtype='float64')
+    
+    # log likelihood of the censored sites
+    censored_ll = scipy.stats.norm.logcdf((qRW(p, phi_vec[censored_idx], gamma_vec[censored_idx], tau) - X_star[censored_idx])/tau)
 
-    # censored
-    censored_idx = np.where(Y <= u_vec)[0]
-    censored_loglik = scipy.stats.norm.logcdf((qRW(p, 
-                                                   phi_vec[censored_idx], 
-                                                   gamma_vec[censored_idx], 
-                                                   tau) - X[censored_idx])/tau)
+    # log likelihood of the exceedance sites
+    exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) + \
+                                   np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) - \
+                                   dRW(X[exceed_idx], phi_vec[exceed_idx], gamma_vec[exceed_idx], tau)
+    
+    return np.sum(censored_ll) + np.sum(exceed_ll)
 
-    # threshold exceeded
-    exceed_idx = np.where(Y > u_vec)[0]
-    qX_pY = qRW(pCGP(Y[exceed_idx],
-                     p,
-                     u_vec[exceed_idx],
-                     scale_vec[exceed_idx],
-                     shape_vec[exceed_idx]), 
-                phi_vec[exceed_idx],
-                gamma_vec[exceed_idx],
-                tau)
-    exceed_loglik = scipy.stats.norm.logpdf(qX_pY, loc = X[exceed_idx], scale = tau) + \
-                        np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) - \
-                        dRW(qX_pY, phi_vec[exceed_idx], gamma_vec[exceed_idx], tau)
+# full conditional likelihood of smooth process X_star
+def X_star_conditional_ll_1t(X_star, R_vec, phi_vec, K, # original Pr(X_star | R_vec, phi_vec, K)
+                             Z_vec):                    # things to facilitate computation
+    # Note:
+    #   Z_vec = ginv(X_star/R_vec**phi_vec)
 
-    return np.sum(censored_loglik) + np.sum(exceed_loglik)
+    # log of the D-dimensional joint gaussian density
+    D_gauss_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov=K) # lgo D-dimensional joint gaussian density
 
-# marginal censored (log) likelihood by parts, for plot and debug
-def marg_log_likelihood_1t_detail(Y, X, p, u_vec, scale_vec, shape_vec, phi_vec, gamma_vec, tau):
-    # other than tau and p,
-    # all parameters are (Ns,) vectors, the sites at time t
-    if(isinstance(Y, (int, np.int64, float))): 
-        Y = np.array([Y], dtype='float64')
+    # log of the (determinant of) Jacobian
+    log_J      = len(Z_vec)/2 * np.log(2*np.pi) + 0.5 * np.sum(np.square(Z_vec)) - np.sum(phi_vec * np.log(R_vec) + 2 * np.log(g(Z_vec)))
 
-    # censored
-    censored_idx = np.where(Y <= u_vec)[0]
-    censored_loglik = scipy.stats.norm.logcdf((qRW(p, 
-                                                   phi_vec[censored_idx], 
-                                                   gamma_vec[censored_idx], 
-                                                   tau) - X[censored_idx])/tau)
+    return np.sum(D_gauss_ll) + log_J
 
-    # threshold exceeded
-    exceed_idx = np.where(Y > u_vec)[0]
-    qX_pY = qRW(pCGP(Y[exceed_idx],
-                     p,
-                     u_vec[exceed_idx],
-                     scale_vec[exceed_idx],
-                     shape_vec[exceed_idx]), 
-                phi_vec[exceed_idx],
-                gamma_vec[exceed_idx],
-                tau)
-    exceed_loglik_1 = scipy.stats.norm.logpdf(qX_pY, loc = X[exceed_idx], scale = tau)
-    exceed_loglik_2 = np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx]))
-    exceed_loglik_3 = - dRW(qX_pY, phi_vec[exceed_idx], gamma_vec[exceed_idx], tau)
 
-    return (np.sum(censored_loglik), np.sum(exceed_loglik_1), np.sum(exceed_loglik_2), np.sum(exceed_loglik_3))
+# def Y_censored_ll_1t(Y, X_star, p, u_vec, scale_vec, shape_vec, phi_vec, gamma_vec, tau):
+#     # other than tau and p,
+#     # all parameters are (Ns,) vectors, the sites at time t
+#     if(isinstance(Y, (int, np.int64, float))): 
+#         Y = np.array([Y], dtype='float64')
+
+#     # censored
+#     censored_idx = np.where(Y <= u_vec)[0]
+#     censored_loglik = scipy.stats.norm.logcdf((qRW(p, 
+#                                                    phi_vec[censored_idx], 
+#                                                    gamma_vec[censored_idx], 
+#                                                    tau) - X_star[censored_idx])/tau)
+
+#     # threshold exceeded
+#     exceed_idx = np.where(Y > u_vec)[0]
+#     X = qRW(pCGP(Y[exceed_idx],
+#                  p,
+#                  u_vec[exceed_idx],
+#                  scale_vec[exceed_idx],
+#                  shape_vec[exceed_idx]), 
+#             phi_vec[exceed_idx],
+#             gamma_vec[exceed_idx],
+#             tau)
+#     exceed_loglik = scipy.stats.norm.logpdf(X, loc = X_star[exceed_idx], scale = tau) + \
+#                         np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) - \
+#                         dRW(X, phi_vec[exceed_idx], gamma_vec[exceed_idx], tau)
+
+#     return np.sum(censored_loglik) + np.sum(exceed_loglik)
 
 
 # %% Imputation for missing data
 # imputaiton for missing data -----------------------------------------------------------------------------------------
 
-def impute_1t(miss_index, obs_index, Y_vec, X_vec, p, u_vec, sigma_vec, ksi_vec, phi_vec, gamma_vec, tau, R_vec, K):
+def impute_1t_(miss_index, obs_index, 
+              R_vec, Z_vec, phi_vec, gamma_vec, tau, K, # Ingredients
+              p, u_vec, sigma_vec, ksi_vec,             # Marginal data parameters
+              random_generator):                        # for generating epsilons
 
     if len(miss_index) == 0:
         return (None, None)
 
     # Calculate conditional mean and covariance
-    phi_vec_obs = phi_vec[obs_index]
-    R_vec_obs   = R_vec[obs_index]
-    X_obs       = X_vec[obs_index]
-    Z_obs       = pareto_to_Norm(X_obs/R_vec_obs**phi_vec_obs)
+    Z_obs     = Z_vec[obs_index]
     K11       = K[miss_index,:][:,miss_index] # shape(miss, miss)
     K12       = K[miss_index,:][:,obs_index]  # shape(miss, obs)
     K21       = K[obs_index,:][:,miss_index]  # shape(obs, miss)
@@ -472,9 +478,19 @@ def impute_1t(miss_index, obs_index, Y_vec, X_vec, p, u_vec, sigma_vec, ksi_vec,
     Z_miss = scipy.stats.multivariate_normal.rvs(mean = cond_mean, cov = cond_cov)
 
     # Generate X and Y
-    X_miss = R_vec_miss**phi_vec_miss * norm_to_Pareto(Z_miss)
+    X_star_miss = R_vec_miss**phi_vec_miss * g(Z_miss)
+    X_miss      = X_star_miss + scipy.stats.norm.rvs(loc = 0, scale = tau, size = len(miss_index), random_state = random_generator)
     Y_miss = qCGP(pRW(X_miss, phi_vec_miss, gamma_vec_miss, tau), 
                   p,
                   u_vec_miss, sigma_vec_miss, ksi_vec_miss)
 
-    return (X_miss,Y_miss)
+    return (Z_miss, X_star_miss, X_miss, Y_miss)
+
+def impute_Y_1t(miss_idx, obs_idx,
+                R_vec, Z_vec, phi_vec, gamma_vec, tau, K,
+                p, u_vec, sigma_vec, ksi_vec,
+                random_generator):
+    # initial imputation is coded inside the sampler
+    # this is for during the MCMC updates (i.e. when K changes)
+    
+    pass
