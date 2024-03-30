@@ -82,8 +82,12 @@ if __name__ == "__main__":
 
     # isometric knot grid
     N_outer_grid = 9
-    x_pos                    = np.linspace(minX + 1, maxX + 1, num = int(2*np.sqrt(N_outer_grid)))
-    y_pos                    = np.linspace(minY + 1, maxY + 1, num = int(2*np.sqrt(N_outer_grid)))
+    h_dist_between_knots     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid))-1)
+    v_dist_between_knots     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid))-1)
+    x_pos                    = np.linspace(minX + h_dist_between_knots/2, maxX + h_dist_between_knots/2, 
+                                           num = int(2*np.sqrt(N_outer_grid)))
+    y_pos                    = np.linspace(minY + v_dist_between_knots/2, maxY + v_dist_between_knots/2, 
+                                           num = int(2*np.sqrt(N_outer_grid)))
     x_outer_pos              = x_pos[0::2]
     x_inner_pos              = x_pos[1::2]
     y_outer_pos              = y_pos[0::2]
@@ -97,7 +101,7 @@ if __name__ == "__main__":
     knots_xy                 = knots_xy[knots_id_in_domain]
     knots_x                  = knots_xy[:,0]
     knots_y                  = knots_xy[:,1]
-    k                        = len(knots_id_in_domain)    
+    k                        = len(knots_id_in_domain)  
 
     # Copula Splines --------------------------------------------------------------------------------------------------
 
@@ -208,13 +212,13 @@ if __name__ == "__main__":
 
     # %% Generate Simulation Data ------------------------------------------------------------------------------------
     # Generate Simulation Data
-
+    np.random.seed(data_seed)
     # W = g(Z), Z ~ MVN(0, K)
     range_vec = gaussian_weight_matrix @ range_at_knots
     K         = ns_cov(range_vec = range_vec, sigsq_vec = sigsq_vec,
                         coords = sites_xy, kappa = nu, cov_model = "matern")
     Z         = scipy.stats.multivariate_normal.rvs(mean=np.zeros(shape=(Ns,)),cov=K,size=Nt).T
-    W         = norm_to_Pareto(Z) 
+    W         = g(Z) 
 
     # R^phi Scaling Factor
     phi_vec    = gaussian_weight_matrix @ phi_at_knots
@@ -240,7 +244,7 @@ if __name__ == "__main__":
     
     for t in np.arange(Nt): # single core version
         # CDF of the generated X
-        pX[:,t] = pRW(X_star[:,t], phi_vec, gamma_vec, tau)
+        pX[:,t] = pRW(X[:,t], phi_vec, gamma_vec, tau)
         censored_idx = np.where(pX[:,t] <= p)[0]
         exceed_idx   = np.where(pX[:,t] > p)[0]
 
