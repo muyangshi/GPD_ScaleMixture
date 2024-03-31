@@ -393,7 +393,7 @@ def Y_censored_ll_1t(Y, p, u_vec, scale_vec, shape_vec,     # marginal observati
         Y = np.array([Y], dtype='float64')
     
     # log likelihood of the censored sites
-    censored_ll = scipy.stats.norm.logcdf((qRW(p, phi_vec[censored_idx], gamma_vec[censored_idx], tau) - X_star[censored_idx])/tau)
+    censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
 
     # log likelihood of the exceedance sites
     exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) + \
@@ -409,43 +409,12 @@ def X_star_conditional_ll_1t(X_star, R_vec, phi_vec, K, # original Pr(X_star | R
     #   Z_vec = ginv(X_star/R_vec**phi_vec)
 
     # log of the D-dimensional joint gaussian density
-    D_gauss_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov=K) # lgo D-dimensional joint gaussian density
+    D_gauss_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov=K) # log D-dimensional joint gaussian density
 
     # log of the (determinant of) Jacobian
     log_J      = len(Z_vec)/2 * np.log(2*np.pi) + 0.5 * np.sum(np.square(Z_vec)) - np.sum(phi_vec * np.log(R_vec) + 2 * np.log(g(Z_vec)))
 
     return np.sum(D_gauss_ll) + log_J
-
-
-# def Y_censored_ll_1t(Y, X_star, p, u_vec, scale_vec, shape_vec, phi_vec, gamma_vec, tau):
-#     # other than tau and p,
-#     # all parameters are (Ns,) vectors, the sites at time t
-#     if(isinstance(Y, (int, np.int64, float))): 
-#         Y = np.array([Y], dtype='float64')
-
-#     # censored
-#     censored_idx = np.where(Y <= u_vec)[0]
-#     censored_loglik = scipy.stats.norm.logcdf((qRW(p, 
-#                                                    phi_vec[censored_idx], 
-#                                                    gamma_vec[censored_idx], 
-#                                                    tau) - X_star[censored_idx])/tau)
-
-#     # threshold exceeded
-#     exceed_idx = np.where(Y > u_vec)[0]
-#     X = qRW(pCGP(Y[exceed_idx],
-#                  p,
-#                  u_vec[exceed_idx],
-#                  scale_vec[exceed_idx],
-#                  shape_vec[exceed_idx]), 
-#             phi_vec[exceed_idx],
-#             gamma_vec[exceed_idx],
-#             tau)
-#     exceed_loglik = scipy.stats.norm.logpdf(X, loc = X_star[exceed_idx], scale = tau) + \
-#                         np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) - \
-#                         dRW(X, phi_vec[exceed_idx], gamma_vec[exceed_idx], tau)
-
-#     return np.sum(censored_loglik) + np.sum(exceed_loglik)
-
 
 # %% Imputation for missing data
 # imputaiton for missing data -----------------------------------------------------------------------------------------
