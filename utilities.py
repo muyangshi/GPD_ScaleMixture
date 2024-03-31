@@ -381,14 +381,16 @@ if norm_pareto == 'standard':
 # Likelihood
 
 # marginal censored (log) likelihood of Y at 1 time
-def Y_censored_ll_1t(Y, p, u_vec, scale_vec, shape_vec,     # marginal observation and parameter
-                     R_vec, Z_vec, phi_vec, gamma_vec, tau, # coupla model parameter
-                     X, X_star, censored_idx, exceed_idx):  # things to facilitate computation
+def Y_censored_ll_1t(Y, p, u_vec, scale_vec, shape_vec,         # marginal observation and parameter
+                     R_vec, Z_vec, phi_vec, gamma_vec, tau,     # coupla model parameter
+                     X, X_star, dX, censored_idx, exceed_idx):  # things to facilitate computation
     # Note: 
     #   X_star = (R_vec ** phi_vec) * g(Z_vec)
     #   X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_vec, tau)
     #   censored_idx = np.where(Y <= u_vec)[0]
     #   exceed_idx   = np.where(Y > u_vec)[0]
+    #   If necessary, 
+    #       dRW can be optimized too (by passing a dedicate argument for it)
     if(isinstance(Y, (int, np.int64, float))): 
         Y = np.array([Y], dtype='float64')
     
@@ -398,7 +400,7 @@ def Y_censored_ll_1t(Y, p, u_vec, scale_vec, shape_vec,     # marginal observati
     # log likelihood of the exceedance sites
     exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) + \
                                    np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) - \
-                                   dRW(X[exceed_idx], phi_vec[exceed_idx], gamma_vec[exceed_idx], tau)
+                                   np.log(dX[exceed_idx])
     
     return np.sum(censored_ll) + np.sum(exceed_ll)
 
