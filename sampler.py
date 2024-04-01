@@ -721,7 +721,6 @@ if __name__ == "__main__":
     ## ---- GPD covariate coefficients --> GPD surface ----
     Beta_logsigma_current = comm.bcast(Beta_logsigma_init, root = 0)
     Beta_ksi_current      = comm.bcast(Beta_ksi_init, root = 0)
-    # Loc_matrix_current    = (C_mu0.T @ Beta_mu0_current).T
     Scale_matrix_current  = np.exp((C_logsigma.T @ Beta_logsigma_current).T)
     Shape_matrix_current  = (C_ksi.T @ Beta_ksi_current).T
 
@@ -798,9 +797,11 @@ if __name__ == "__main__":
                                       X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) + \
                       X_star_conditional_ll_1t(X_star_1t_current, R_vec_current, phi_vec_current, K_current,
                                                Z_1t_current)
-
-    if not np.isfinite(llik_1t_current):
-        print('initial likelihood non finite', 'rank:', rank)
+    
+    if np.isfinite(llik_1t_current): 
+        llik_1t_current_gathered = comm.gather(llik_1t_current, root = 0)
+        if rank == 0: loglik_trace[0, 0] = np.sum(llik_1t_current_gathered)
+    else: print('initial likelihood non finite', 'rank:', rank)
 
     for iter in range(start_iter, n_iters):
         # %% Update St
@@ -813,16 +814,16 @@ if __name__ == "__main__":
             unchange_idx = np.array([x for x in range(k) if x not in change_idx])
 
             S_proposal_log             = S_current_log.copy()
-            S_proposal_log[change_idx] = np.sqrt(sigma_m_sq_St[i]) * random_generator.normal(0.0, 1.0, size = 1)
+            S_proposal_log[change_idx] = S_proposal_log[change_idx] + np.sqrt(sigma_m_sq_St[i]) * random_generator.normal(0.0, 1.0, size = 1)
             
             R_vec_proposal             = wendland_weight_matrix @ np.exp(S_proposal_log)
             X_star_1t_proposal         = (R_vec_proposal ** phi_vec_current) * g(Z_1t_current)
 
             # Data Likelihood -----------------------------------------------------------------------------------------
             llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_matrix[:,rank], Scale_matrix_current[:,rank], Shape_matrix_current[:,0],
-                                      R_vec_proposal, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
-                                      X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) + \
-                               X_star_conditional_ll_1t(X_star_1t_proposal, R_vec_proposal, phi_vec_current, K_current,
+                                                R_vec_proposal, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+                                                X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
+                             + X_star_conditional_ll_1t(X_star_1t_proposal, R_vec_proposal, phi_vec_current, K_current,
                                                         Z_1t_current)
 
             # Prior Density -------------------------------------------------------------------------------------------
@@ -835,8 +836,8 @@ if __name__ == "__main__":
             if np.isfinite(r) and r >= u:
                 num_accepted_St[i] += 1
                 S_current_log       = S_proposal_log.copy()
-                R_vec_current       = wendland_weight_matrix @ S_current_log
-                X_star_1t_current   = X_star_1t_proposal.copy()
+                R_vec_current       = wendland_weight_matrix @ np.exp(S_current_log)
+                X_star_1t_current   = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
                 llik_1t_current     = llik_1t_proposal
 
             S_current_log_gathered = comm.gather(S_current_log, root = 0)
@@ -850,6 +851,20 @@ if __name__ == "__main__":
 
         llik_1t_current_gathered = comm.gather(llik_1t_current, root = 0)
         if rank == 0: loglik_trace[iter, 0] = np.sum(llik_1t_current_gathered)
+
+        censored_ll_1t, exceed_ll_1t = Y_censored_ll_1t_detail(Y_1t_current, p, u_matrix[:,rank], Scale_matrix_current[:,rank], Shape_matrix_current[:,0],
+                                                               R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+                                                               X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current)
+        D_gauss_ll_1t, log_J_1_1t, log_J_2_1t = X_star_conditional_ll_1t_detail(X_star_1t_current, R_vec_current, phi_vec_current, K_current, Z_1t_current)
+        censored_ll_gathered = comm.gather(censored_ll_1t, root = 0)
+        exceed_ll_gathered   = comm.gather(exceed_ll_1t,   root = 0)
+        D_gauss_ll_gathered  = comm.gather(D_gauss_ll_1t,  root = 0)
+        log_J_1_gathered     = comm.gather(log_J_1_1t,     root = 0)
+        log_J_2_gathered     = comm.gather(log_J_2_1t,     root = 0)
+        if rank == 0: loglik_detail_trace[iter, :] = np.sum(np.array([censored_ll_gathered, exceed_ll_gathered,
+                                                                      D_gauss_ll_gathered, log_J_1_gathered, log_J_2_gathered]), 
+                                                            axis = 1)
+
         comm.Barrier()
 
         # %% Adaptive Update tunings
@@ -903,6 +918,7 @@ if __name__ == "__main__":
                 xs_thin2 = np.arange(len(xs_thin)) # index 1, 2, 3, ...
 
                 loglik_trace_thin              = loglik_trace[0:iter:10,:]
+                loglik_detail_trace_thin       = loglik_detail_trace[0:iter:10,:]
                 S_trace_log_thin               = S_trace_log[0:iter:10,:,:]
 
                 # ---- log-likelihood ----
@@ -912,6 +928,19 @@ if __name__ == "__main__":
                 plt.xlabel('iter thinned by 10')
                 plt.ylabel('loglikelihood')
                 plt.savefig('trace_loglik.pdf')
+                plt.close()
+
+                # ---- log-likelihood in detail ----
+                plt.subplots()
+                labels = ['censored_ll', 'exceed_ll', 'D_gauss_ll', 'log_J_1', 'log_J_2']
+                for i in range(5):
+                    plt.plot(xs_thin2, loglik_detail_trace_thin[:,i], label = labels[i])
+                    plt.annotate(labels[i], xy=(xs_thin2[-1], loglik_detail_trace_thin[:,i][-1]))
+                plt.title('traceplot for detail log likelihood')
+                plt.xlabel('iter thinned by 10')
+                plt.ylabel('log likelihood')
+                plt.legend(loc = 'upper left')
+                plt.savefig('trace_detailed_loglik.pdf')
                 plt.close()
 
                 # ---- S_t ----
