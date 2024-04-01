@@ -45,7 +45,7 @@ if __name__ == "__main__":
     # Numbers - Ns, Nt ------------------------------------------------------------------------------------------------   
     np.random.seed(data_seed)
     Nt = 24 # number of time replicates
-    Ns = 300 # number of sites/stations
+    Ns = 100 # number of sites/stations
     Time = np.linspace(-Nt/2, Nt/2-1, Nt)/np.std(np.linspace(-Nt/2, Nt/2-1, Nt), ddof=1)
 
     # missing indicator matrix ----------------------------------------------------------------------------------------
@@ -342,8 +342,8 @@ if __name__ == "__main__":
     # %% Plot Generated Surfaces --------------------------------------------------------------------------------------
 
     # 0. Grids for plots
-    plotgrid_res_x = 50
-    plotgrid_res_y = 75
+    plotgrid_res_x = 150
+    plotgrid_res_y = 175
     plotgrid_res_xy = plotgrid_res_x * plotgrid_res_y
     plotgrid_x = np.linspace(minX,maxX,plotgrid_res_x)
     plotgrid_y = np.linspace(minY,maxY,plotgrid_res_y)
