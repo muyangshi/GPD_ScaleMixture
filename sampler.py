@@ -54,12 +54,12 @@ if __name__ == "__main__":
             print('Setting start_iter to 1')
         start_iter = 1
     
-    if norm_pareto == 'shifted': n_iters = 2000
-    if norm_pareto == 'standard': n_iters = 20000
+    if norm_pareto == 'shifted': n_iters = 5000
+    if norm_pareto == 'standard': n_iters = 5000
 
     # %% Load Simulated Dataset ---------------------------------------------------------------------------------------
 
-    Y                  = np.load('Y_sc2_t24_s300_truth.npy')
+    Y                  = np.load('Y_sc2_t24_s100_truth.npy')
     logsigma_estimates = np.load('logsigma_matrix.npy')[:,0]
     ksi_estimates      = np.load('ksi_matrix.npy')[:,0]
     stations           = np.load('sites_xy.npy')
@@ -79,9 +79,6 @@ if __name__ == "__main__":
     # threshold probability and quantile
     p        = 0.9
     u_matrix = np.full(shape = (Ns, Nt), fill_value = np.nanquantile(Y, p)) # threshold u on Y, i.e. p = Pr(Y <= u)
-    # Note:
-    #   censored_idx_1t and exceed_idx_1t might change, because of the missing sites
-    #   their imputed value may sometimes exceed and sometimes below threshold
 
     # missing indicator -----------------------------------------------------------------------------------------------
     miss_matrix = np.isnan(Y)
@@ -329,7 +326,7 @@ if __name__ == "__main__":
                                                   cov  = tau**2,
                                                   size = Nt).T
     X_star       = R_phi * W
-    X            = X_star + nuggets
+    X_truth      = X_star + nuggets
 
     # %% Plot Parameter Surfaces --------------------------------------------------------------------------------------
     # Plot Parameter Surface
@@ -530,7 +527,8 @@ if __name__ == "__main__":
         Beta_ksi_cov            = 1e-7 * np.identity(Beta_ksi_m)
         sigma_Beta_logsigma_cov = 1
         sigma_Beta_ksi_cov      = 1
-        S_log_cov               = np.tile(((2.4**2)/k)*np.eye(k)[:,:,None], reps = (1,1,Nt))
+        # S_log_cov               = np.tile(((2.4**2)/k)*np.eye(k)[:,:,None], reps = (1,1,Nt))
+        S_log_cov               = np.tile(        0.05*np.eye(k)[:,:,None], reps = (1,1,Nt))
 
         # with trial run
         import proposal_cov
@@ -657,7 +655,7 @@ if __name__ == "__main__":
         Y_trace                   = np.full(shape = (n_iters, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
         tau_trace                 = np.full(shape = (n_iters, 1), fill_value = np.nan)               if rank == 0 else None
         Z_trace                   = np.full(shape = (n_iters, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
-        X_star_trace              = np.full(shape = (n_iters, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
+        # X_star_trace              = np.full(shape = (n_iters, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
         # X_trace                   = np.full(shape = (n_iters, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
     else:
         loglik_trace              = np.load('loglik_trace.npy')              if rank == 0 else None
@@ -672,7 +670,7 @@ if __name__ == "__main__":
         Y_trace                   = np.load('Y_trace.npy')                   if rank == 0 else None
         tau_trace                 = np.load('tau_trace.npy')                 if rank == 0 else None
         Z_trace                   = np.load('Z_trace.npy')                   if rank == 0 else None
-        X_star_trace              = np.load('X_star_trace.npy')
+        # X_star_trace              = np.load('X_star_trace.npy')
         # X_trace                   = np.load('X_trace.npy')
 
     # Initialize Parameters
@@ -688,7 +686,7 @@ if __name__ == "__main__":
         Y_matrix_init            = Y                   if rank == 0 else None
         tau_init                 = tau                 if rank == 0 else None
         Z_init                   = Z                   if rank == 0 else None
-        X_star_init              = X_star              if rank == 0 else None
+        # X_star_init              = X_star              if rank == 0 else None
         # X_init                   = X                   if rank == 0 else None
         if rank == 0: # store initial value into first row of traceplot
             S_trace_log[0,:,:]             = S_matrix_init_log # matrix (k, Nt)
@@ -701,7 +699,7 @@ if __name__ == "__main__":
             Y_trace[0,:,:]                 = Y_matrix_init
             tau_trace[0,:]                 = tau_init
             Z_trace[0,:,:]                 = Z_init
-            X_star_trace[0,:,:]            = X_star_init
+            # X_star_trace[0,:,:]            = X_star_init
             # X_trace[0,:,:]                 = X_init
     else:
         last_iter = start_iter - 1
@@ -715,52 +713,52 @@ if __name__ == "__main__":
         Y_matrix_init            = Y_trace[last_iter,:,:]                 if rank == 0 else None
         tau_init                 = tau_trace[last_iter,:]                 if rank == 0 else None
         Z_init                   = Z_trace[last_iter,:,:]                 if rank == 0 else None
-        X_star_init              = X_star_trace[last_iter,:,:]            if rank == 0 else None
+        # X_star_init              = X_star_trace[last_iter,:,:]            if rank == 0 else None
         # X_init                   = X_trace[last_iter,:,:]                 if rank == 0 else None
     
     # Set Current Values
-    ## ---- log(S) --------------------------------------------------------------------------------------------
-    # note: directly comm.scatter an numpy nd array along an axis is tricky,
-    #       hence we first "redundantly" broadcast an entire S_matrix then split
-    S_matrix_init_log = comm.bcast(S_matrix_init_log, root = 0) # matrix (k, Nt)
-    S_current_log     = np.array(S_matrix_init_log[:,rank]) # vector (k,)
-    R_vec_current     = wendland_weight_matrix @ np.exp(S_current_log)
-
-    ## ---- Z ---------------------------------------------------------------------------------------------------------
-    Z_matrix_init = comm.bcast(Z_init, root = 0)    # matrix (Ns, Nt)
-    Z_1t_current = np.array(Z_matrix_init[:,rank]) # vector (Ns,)
-
-    ## ---- phi ------------------------------------------------------------------------------------------------
-    phi_knots_current = comm.bcast(phi_knots_init, root = 0)
-    phi_vec_current   = gaussian_weight_matrix @ phi_knots_current
-
-    ## ---- range_vec (length_scale) ---------------------------------------------------------------------------
-    range_knots_current = comm.bcast(range_knots_init, root = 0)
-    range_vec_current   = gaussian_weight_matrix @ range_knots_current
-    K_current           = ns_cov(range_vec = range_vec_current,
-                                 sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = "matern")
-    cholesky_matrix_current = scipy.linalg.cholesky(K_current, lower = False)
-
-    ## ---- Nugget Variance std: tau ---------------------------------------------------------------------------
-    tau_current = comm.bcast(tau_init, root = 0)
-
-    ## ---- GEV covariate coefficients --> GEV surface ----------------------------------------------------------
+    ## Marginal Model -------------------------------------------------------------------------------------------------
+    ## ---- GPD covariate coefficients --> GPD surface ----
     Beta_logsigma_current = comm.bcast(Beta_logsigma_init, root = 0)
     Beta_ksi_current      = comm.bcast(Beta_ksi_init, root = 0)
     # Loc_matrix_current    = (C_mu0.T @ Beta_mu0_current).T
     Scale_matrix_current  = np.exp((C_logsigma.T @ Beta_logsigma_current).T)
     Shape_matrix_current  = (C_ksi.T @ Beta_ksi_current).T
 
-    ## ---- GEV covariate coefficients prior variance -----------------------------------------------------------
+    ## ---- GPD covariate coefficients prior variance ----
     sigma_Beta_logsigma_current = comm.bcast(sigma_Beta_logsigma_init, root = 0)
     sigma_Beta_ksi_current      = comm.bcast(sigma_Beta_ksi_init, root = 0)
 
-    ## ---- X_star ----------------------------------------------------------------------------------------------------
-    X_star_init       = comm.bcast(X_star_init, root = 0)
-    X_star_1t_current = X_star_init[:,rank]
-    # X_star_1t_current = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
+    ## Copula Model ---------------------------------------------------------------------------------------------------
+    ## ---- S Stable ----
+    # note: directly comm.scatter an numpy nd array along an axis is tricky,
+    #       hence we first "redundantly" broadcast an entire S_matrix then split
+    S_matrix_init_log = comm.bcast(S_matrix_init_log, root = 0) # matrix (k, Nt)
+    S_current_log     = np.array(S_matrix_init_log[:,rank]) # vector (k,)
+    R_vec_current     = wendland_weight_matrix @ np.exp(S_current_log)
 
-    ## ---- Y (Ns, Nt) ------------------------------------------------------------------------------------------------
+    ## ---- Z ----
+    Z_matrix_init = comm.bcast(Z_init, root = 0)    # matrix (Ns, Nt)
+    Z_1t_current = np.array(Z_matrix_init[:,rank]) # vector (Ns,)
+
+    ## ---- phi ----
+    phi_knots_current = comm.bcast(phi_knots_init, root = 0)
+    phi_vec_current   = gaussian_weight_matrix @ phi_knots_current
+
+    ## ---- range_vec (length_scale) ----
+    range_knots_current = comm.bcast(range_knots_init, root = 0)
+    range_vec_current   = gaussian_weight_matrix @ range_knots_current
+    K_current           = ns_cov(range_vec = range_vec_current,
+                                 sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = "matern")
+    cholesky_matrix_current = scipy.linalg.cholesky(K_current, lower = False)
+
+    ## ---- Nugget standard deviation: tau ----
+    tau_current = comm.bcast(tau_init, root = 0)
+
+    ## ---- X_star ----
+    X_star_1t_current = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
+
+    ## ---- Y (Ns, Nt) ----
     Y_matrix_init = comm.bcast(Y_matrix_init, root = 0) # (Ns, Nt)
     Y_1t_current  = Y_matrix_init[:,rank]               # (Ns,)
     
@@ -778,18 +776,13 @@ if __name__ == "__main__":
 
     # Note:
     #   The censor/exceedance index NEED TO CHANGE whenever we do imputation
-    censored_idx_1t = np.where(Y_1t_current <= u_matrix[:,rank])[0]
-    exceed_idx_1t   = np.where(Y_1t_current  > u_matrix[:,rank])[0]
+    censored_idx_1t_current = np.where(Y_1t_current <= u_matrix[:,rank])[0]
+    exceed_idx_1t_current   = np.where(Y_1t_current  > u_matrix[:,rank])[0]
 
-    ## ---- X_1t (Ns,) ------------------------------------------------------------------------------------------------
-    # Note:
-    #   Actually we don't care about X that are below the threshold (WHEN WE HAVE THE FULL DATASET)
-    #   As their contribution to the likelihood is fixed, we can save those marginal transformation calculation
-    #   We still need to do this because of missing site could be above or below the threshold
-    #   So the "right" way to do it might be calculate the missing sites + exceedance observe site
-    #   (skip for observed censored sites)
-    X_1t_current = qRW(pCGP(Y_1t_current, p, u_matrix[:,rank], Scale_matrix_current[:,rank], Shape_matrix_current[:,rank]),
-                       phi_vec_current, gamma_vec, tau_current)
+    ## ---- X_1t (Ns,) ----
+    X_1t_current  = qRW(pCGP(Y_1t_current, p, u_matrix[:,rank], Scale_matrix_current[:,rank], Shape_matrix_current[:,rank]),
+                        phi_vec_current, gamma_vec, tau_current)
+    dX_1t_current = dRW(X_1t_current, phi_vec_current, gamma_vec, tau_current)
    
 
     # %% Metropolis-Hasting Updates -----------------------------------------------------------------------------------
@@ -800,110 +793,142 @@ if __name__ == "__main__":
         start_time = time.time()
         print('started on:', strftime('%Y-%m-%d %H:%M:%S', localtime(time.time())))
 
-    lik_1t_current = Y_censored_ll_1t(Y_1t_current, p, u_matrix[:,rank], Scale_matrix_current[:,rank], Shape_matrix_current[:,0],
+    llik_1t_current = Y_censored_ll_1t(Y_1t_current, p, u_matrix[:,rank], Scale_matrix_current[:,rank], Shape_matrix_current[:,0],
                                       R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
-                                      X_1t_current, X_star_1t_current, censored_idx_1t, exceed_idx_1t) + \
-                     X_star_conditional_ll_1t(X_star_1t_current, R_vec_current, phi_vec_current, K_current,
-                                              Z_1t_current)
+                                      X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) + \
+                      X_star_conditional_ll_1t(X_star_1t_current, R_vec_current, phi_vec_current, K_current,
+                                               Z_1t_current)
 
-    prior_1t_current = np.sum(scipy.stats.levy.logpdf(np.exp(S_current_log), scale = gamma) + S_current_log)
+    if not np.isfinite(llik_1t_current):
+        print('initial likelihood non finite', 'rank:', rank)
 
-    if not np.isfinite(lik_1t_current) or not np.isfinite(prior_1t_current):
-        print('initial values lead to none finite likelihood')
-        print('rank:',rank)
-        print('lik_1t_current:',lik_1t_current)
-        print('prior_1t_current of S:',prior_1t_current)
+    for iter in range(start_iter, n_iters):
+        # %% Update St
+        ###########################################################
+        #### ----- Update St ----- Parallelized Across Nt time ####
+        ###########################################################
+        for i in range(k):
+            # propose new Stable St at knot i (No need truncation now?) -----------------------------------------------
+            change_idx = np.array([i])
+            unchange_idx = np.array([x for x in range(k) if x not in change_idx])
 
-#     for iter in range(start_iter, n_iters):
-#         # %% Update St
-#         ###########################################################
-#         #### ----- Update St ----- Parallelized Across Nt time ####
-#         ###########################################################
-#         if norm_pareto == 'standard':
-#             for i in range(k):
-#                 # Calculate Truncation --------------------------------------------------------------------------------
-#                 change_indices   = np.array([i])
-#                 unchange_indices = np.array([x for x in range(k) if x not in change_indices])
-#                 s_in_r       = np.where(wendland_weight_matrix[:,change_indices].ravel() != 0)[0]
-#                 S_k_log      = S_current_log[unchange_indices]
-#                 ub_trunc     = np.log(np.min((X_star_1t_current[s_in_r]**(1/phi_vec_current[s_in_r]) - wendland_weight_matrix[s_in_r,:][:,unchange_indices] @ np.exp(S_k_log)) / wendland_weight_matrix[s_in_r,:][:,change_indices].ravel()))
-#                 ub           = (ub_trunc - S_current_log[change_indices]) / np.sqrt(sigma_m_sq_St[i])
-#                 # lb           = (np.log(0) - S_current_log[change_indices]) / np.sqrt(sigma_m_sq_St[i])
-#                 lb           = np.array([np.NINF])
-#                 RV_truncnorm = scipy.stats.truncnorm(a = lb, b = ub,
-#                                                      loc = S_current_log[change_indices],
-#                                                      scale = np.sqrt(sigma_m_sq_St[i]))
-#                 # Propose New Stable S --------------------------------------------------------------------------------
-#                 S_proposal_log                 = S_current_log.copy()
-#                 S_proposal_log[change_indices] = RV_truncnorm.rvs(size = len(change_indices), random_state = random_generator)
-                
-#                 # Hastings Ratio --------------------------------------------------------------------------------------
-#                 ## g(log(S') | log(S))
-#                 hasting_denom_log              = RV_truncnorm.logpdf(x = S_proposal_log[change_indices])[0]
+            S_proposal_log             = S_current_log.copy()
+            S_proposal_log[change_idx] = np.sqrt(sigma_m_sq_St[i]) * random_generator.normal(0.0, 1.0, size = 1)
             
-#                 ## g(log(S) | log(S'))
-#                 ub_new = (ub_trunc - S_proposal_log[change_indices]) / np.sqrt(sigma_m_sq_St[i]) # note that for St, X_star doesn't change, so ub_trunc_new doesn't change
-#                 RV_truncnorm_new = scipy.stats.truncnorm(a = lb, b = ub_new,
-#                                                          loc = S_proposal_log[change_indices],
-#                                                          scale = np.sqrt(sigma_m_sq_St[i]))
-#                 hasting_num_log = RV_truncnorm_new.logpdf(x = S_current_log[change_indices])[0]
+            R_vec_proposal             = wendland_weight_matrix @ np.exp(S_proposal_log)
+            X_star_1t_proposal         = (R_vec_proposal ** phi_vec_current) * g(Z_1t_current)
 
-#                 # Conditional log likelihood --------------------------------------------------------------------------
-#                 R_vec_current = wendland_weight_matrix @ np.exp(S_current_log)
-#                 if iter == 1: # otherwise lik_1t_current will be inherited
-#                     lik_1t_current = marg_log_likelihood_1t(Y_matrix[:,rank], X_star_1t_current, 
-#                                                             p, u_matrix[:,rank], Scale_matrix_current[:,rank], Shape_matrix_current[:,rank], 
-#                                                             phi_vec_current, gamma_vec, tau_current)
-#                 # log-prior density
-#                 prior_1t_current = np.sum(scipy.stats.levy.logpdf(np.exp(S_current_log), scale = gamma) + S_current_log)
+            # Data Likelihood -----------------------------------------------------------------------------------------
+            llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_matrix[:,rank], Scale_matrix_current[:,rank], Shape_matrix_current[:,0],
+                                      R_vec_proposal, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+                                      X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) + \
+                               X_star_conditional_ll_1t(X_star_1t_proposal, R_vec_proposal, phi_vec_current, K_current,
+                                                        Z_1t_current)
 
-#                 # Conditional log likelihood at Proposal --------------------------------------------------------------
-#                 R_vec_proposal = wendland_weight_matrix @ np.exp(S_proposal_log)
-#                 lik_1t_proposal = marg_transform_data_mixture_likelihood_1t(Y_matrix[:,rank], X_star_1t_current, 
-#                                                                 Loc_matrix_current[:,rank], Scale_matrix_current[:,rank], Shape_matrix_current[:,rank], 
-#                                                                 phi_vec_current, gamma_vec, R_vec_proposal, cholesky_matrix_current)
-#                 prior_1t_proposal = np.sum(scipy.stats.levy.logpdf(np.exp(S_proposal_log), scale = gamma) + S_proposal_log)
+            # Prior Density -------------------------------------------------------------------------------------------
+            lprior_1t_current  = np.sum(scipy.stats.levy.logpdf(np.exp(S_current_log),  scale = gamma) + S_current_log)
+            lprior_1t_proposal = np.sum(scipy.stats.levy.logpdf(np.exp(S_proposal_log), scale = gamma) + S_proposal_log)
 
-#                 u = random_generator.uniform()
-#                 if not all(np.isfinite([lik_1t_proposal, prior_1t_proposal, hasting_num_log, lik_1t_current, prior_1t_current, hasting_denom_log])):
-#                     ratio = 0
-#                 else:
-#                     ratio = np.exp(lik_1t_proposal + prior_1t_proposal + hasting_num_log - 
-#                                    lik_1t_current - prior_1t_current - hasting_denom_log)
-#                 if not np.isfinite(ratio):
-#                     ratio = 0
-#                 if u > ratio:
-#                     St_accepted = False
-#                     S_update_log = S_current_log
-#                 else:
-#                     St_accepted = True
-#                     S_update_log = S_proposal_log
-#                     num_accepted_St[i] += 1
-                
-#                 S_update_log_gathered = comm.gather(S_update_log, root = 0)
-#                 if rank == 0:
-#                     S_trace_log[iter,:,:] = np.vstack(S_update_log_gathered).T
-                
-#                 S_current_log = S_update_log
-#                 R_vec_current = wendland_weight_matrix @ np.exp(S_current_log)
+            # Update --------------------------------------------------------------------------------------------------
+            r = np.exp(llik_1t_proposal + lprior_1t_proposal - llik_1t_current - lprior_1t_current)
+            u = random_generator.uniform()
+            if np.isfinite(r) and r >= u:
+                num_accepted_St[i] += 1
+                S_current_log       = S_proposal_log.copy()
+                R_vec_current       = wendland_weight_matrix @ S_current_log
+                X_star_1t_current   = X_star_1t_proposal.copy()
+                llik_1t_current     = llik_1t_proposal
 
-#                 if St_accepted:
-#                     lik_1t_current = lik_1t_proposal
-                
-#                 comm.Barrier()
+            S_current_log_gathered = comm.gather(S_current_log, root = 0)
+            if rank == 0: S_trace_log[iter,:,:]  = np.vstack(S_current_log_gathered).T
+        
+        comm.Barrier()
+        # %% After iteration likelihood
+        ######################################################################
+        #### ----- Keeping track of likelihood after this iteration ----- ####
+        ######################################################################
 
+        llik_1t_current_gathered = comm.gather(llik_1t_current, root = 0)
+        if rank == 0: loglik_trace[iter, 0] = np.sum(llik_1t_current_gathered)
+        comm.Barrier()
 
+        # %% Adaptive Update tunings
+        #####################################################
+        ###### ----- Adaptive Update autotunings ----- ######
+        #####################################################
 
-# with open('iter.pkl', 'wb') as file:
-#     pickle.dump(iter, file)
+        if iter % adapt_size == 0:
 
-# with open('sigma_m_sq.pkl', 'wb') as file:
-#     pickle.dump(sigma_m_sq, file)
+            gamma1 = 1 / ((iter/adapt_size + offset) ** c_1)
+            gamma2 = c_0 * gamma1
 
-# with open('Sigma_0.pkl', 'wb') as file:
-#     pickle.dump(Sigma_0, file)
+            # St
+            if norm_pareto == 'standard':
+                for i in range(k):
+                    r_hat              = num_accepted_St[i]/adapt_size
+                    num_accepted_St[i] = 0
+                    log_sigma_m_sq_hat = np.log(sigma_m_sq_St[i]) + gamma2 * (r_hat - r_opt)
+                    sigma_m_sq_St[i]   = np.exp(log_sigma_m_sq_hat)
+                comm.Barrier()
+                sigma_m_sq_St_list     = comm.gather(sigma_m_sq_St, root = 0)
 
-# with open('sigma_m_sq_Rt_list.pkl', 'wb') as file:
-#     pickle.dump(sigma_m_sq_Rt_list, file)
+        comm.Barrier()
 
-# np.save('u_matrix', u_matrix)
+        # %% Midway Printing, Drawings, and Savings
+        ##############################################
+        ###    Printing, Drawings, Savings       #####
+        ##############################################
+
+        if rank == 0:
+
+            if iter % 10 == 0:
+                print(iter)
+                end_time = time.time()
+                print('elapsed: ', round(end_time - start_time, 1), 'seconds')
+
+            if iter % 25 == 0 or iter == n_iters-1:
+                np.save('loglik_trace',loglik_trace)
+                np.save('S_trace_log', S_trace_log)
+
+                with open('iter.pkl', 'wb')               as file: pickle.dump(iter, file)
+                with open('sigma_m_sq.pkl', 'wb')         as file: pickle.dump(sigma_m_sq, file)
+                with open('Sigma_0.pkl', 'wb')            as file: pickle.dump(Sigma_0, file)
+                with open('sigma_m_sq_St_list.pkl', 'wb') as file: pickle.dump(sigma_m_sq_St_list, file)
+
+                # %% Printing -----------------------------------------------------------------------------------------
+                # Printing --------------------------------------------------------------------------------------------
+                # Print traceplot thinned by 10
+                xs       = np.arange(iter)
+                xs_thin  = xs[0::10] # index 1, 11, 21, ...
+                xs_thin2 = np.arange(len(xs_thin)) # index 1, 2, 3, ...
+
+                loglik_trace_thin              = loglik_trace[0:iter:10,:]
+                S_trace_log_thin               = S_trace_log[0:iter:10,:,:]
+
+                # ---- log-likelihood ----
+                plt.subplots()
+                plt.plot(xs_thin2, loglik_trace_thin)
+                plt.title('traceplot for log-likelihood')
+                plt.xlabel('iter thinned by 10')
+                plt.ylabel('loglikelihood')
+                plt.savefig('trace_loglik.pdf')
+                plt.close()
+
+                # ---- S_t ----
+
+                for t in range(Nt):
+                    label_by_knot = ['knot ' + str(knot) for knot in range(k)]
+                    plt.subplots()
+                    plt.plot(xs_thin2, S_trace_log_thin[:,:,t], label = label_by_knot)
+                    plt.legend(loc = 'upper left')
+                    plt.title('traceplot for log(St) at t=' + str(t))
+                    plt.xlabel('iter thinned by 10')
+                    plt.ylabel('log(St)s')
+                    plt.savefig('St'+str(t)+'.pdf')
+                    plt.close()
+            
+            if iter == n_iters - 1:
+                print(iter)
+                end_time = time.time()
+                print('elapsed: ', round(end_time - start_time, 1), 'seconds')
+                print('FINISHED.')
