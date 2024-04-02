@@ -79,6 +79,7 @@ if __name__ == "__main__":
     # threshold probability and quantile
     p        = 0.9
     u_matrix = np.full(shape = (Ns, Nt), fill_value = np.nanquantile(Y, p)) # threshold u on Y, i.e. p = Pr(Y <= u)
+    u_vec    = u_matrix[:,rank]
 
     # missing indicator -----------------------------------------------------------------------------------------------
     miss_matrix = np.isnan(Y)
@@ -189,11 +190,11 @@ if __name__ == "__main__":
         
         # scale
         Beta_logsigma = np.linalg.lstsq(a=C_logsigma[:,:,0].T, b=logsigma_estimates,rcond=None)[0]
-        sigma_matrix = np.exp((C_logsigma.T @ Beta_logsigma).T)
+        sigma_vec     = np.exp((C_logsigma.T @ Beta_logsigma).T)[:,rank]
 
         # shape
-        Beta_ksi      = np.linalg.lstsq(a=C_ksi[:,:,0].T, b=ksi_estimates,rcond=None)[0]
-        ksi_matrix   = (C_ksi.T @ Beta_ksi).T
+        Beta_ksi = np.linalg.lstsq(a=C_ksi[:,:,0].T, b=ksi_estimates,rcond=None)[0]
+        ksi_vec  = ((C_ksi.T @ Beta_ksi).T)[:,rank]
 
         # regularization
         sigma_Beta_logsigma = 1
@@ -261,7 +262,7 @@ if __name__ == "__main__":
                 obs_idx_1t  = np.where(miss_matrix[:,t] == False)[0]
 
                 pY_1t = pCGP(Y[obs_idx_1t, t], p,
-                             u_matrix[obs_idx_1t,t], sigma_matrix[obs_idx_1t,t], ksi_matrix[obs_idx_1t,t])
+                             u_vec[obs_idx_1t], sigma_vec[obs_idx_1t], ksi_vec[obs_idx_1t])
 
                 # S_at_knots[:,t] = np.min(qRW(pY_1t[obs_idx_1t], phi_vec[obs_idx_1t], gamma_vec[obs_idx_1t], tau
                 #                                 ) / 2)**(1/phi_at_knots)
@@ -272,7 +273,7 @@ if __name__ == "__main__":
             comm.Barrier()
             obs_idx_1t  = np.where(miss_matrix[:,rank] == False)[0]
             pY_1t = pCGP(Y[obs_idx_1t, rank], p,
-                         u_matrix[obs_idx_1t,rank], sigma_matrix[obs_idx_1t,rank], ksi_matrix[obs_idx_1t,rank])
+                         u_vec[obs_idx_1t], sigma_vec[obs_idx_1t], ksi_vec[obs_idx_1t])
             X_1t  = qRW(pY_1t[obs_idx_1t], phi_vec[obs_idx_1t], gamma_vec[obs_idx_1t], tau)
             # S_1t  = np.min(X_1t/2) ** (1/phi_at_knots)
             S_1t  = np.median(X_1t / W[obs_idx_1t, rank]) ** (1/phi_at_knots)
@@ -294,14 +295,12 @@ if __name__ == "__main__":
     np.random.seed(data_seed)
 
     u_matrix = np.full(shape = (Ns, Nt), fill_value = 20.0)
+    u_vec    = u_matrix[:,rank]
 
     Beta_logsigma       = np.array([0.0, 0.25])
     Beta_ksi            = np.array([0.0, 0.1])
     sigma_Beta_logsigma = 1
     sigma_Beta_ksi      = 1
-
-    sigma_matrix = np.exp((C_logsigma.T @ Beta_logsigma).T)
-    ksi_matrix   = (C_ksi.T @ Beta_ksi).T
 
     range_at_knots = np.sqrt(0.3*knots_x + 0.4*knots_y)/2 # range for spatial Matern Z
     phi_at_knots = 0.65 - np.sqrt((knots_x-5.1)**2/5 + (knots_y-5.3)**2/4)/11.6
@@ -427,9 +426,8 @@ if __name__ == "__main__":
     
     
         # 5. GP Surfaces
-        logsigma_matrix = (C_logsigma.T @ Beta_logsigma).T
-        sigma_matrix    = np.exp(logsigma_matrix)
-        ksi_matrix      = (C_ksi.T @ Beta_ksi).T
+        logsigma_vec = ((C_logsigma.T @ Beta_logsigma).T)[:,rank]
+        ksi_vec      = ((C_ksi.T @ Beta_ksi).T)[:,rank]
 
         def my_ceil(a, precision=0):
             return np.true_divide(np.ceil(a * 10**precision), 10**precision)
@@ -439,14 +437,14 @@ if __name__ == "__main__":
 
         # Scale # -------------------------------------------------------------------------------------
         ## logsigma(s) plot stations
-        vmin = min(my_floor(min(logsigma_estimates), 1), my_floor(min(logsigma_matrix[:,0]), 1))
-        vmax = max(my_ceil(max(logsigma_estimates), 1), my_ceil(max(logsigma_matrix[:,0]), 1))
+        vmin = min(my_floor(min(logsigma_estimates), 1), my_floor(min(logsigma_vec), 1))
+        vmax = max(my_ceil(max(logsigma_estimates), 1), my_ceil(max(logsigma_vec), 1))
         divnorm = matplotlib.colors.TwoSlopeNorm(vcenter = (vmin + vmax)/2, vmin = vmin, vmax = vmax)
         fig, ax = plt.subplots(1,2)
         logsigma_scatter = ax[0].scatter(sites_x, sites_y, s = 10, cmap = 'bwr', c = logsigma_estimates, norm = divnorm)
         ax[0].set_aspect('equal', 'box')
         ax[0].title.set_text('GEV logsigma estimates')
-        logsigma_est_scatter = ax[1].scatter(sites_x, sites_y, s = 10, cmap = 'bwr', c = logsigma_matrix[:,0], norm = divnorm)
+        logsigma_est_scatter = ax[1].scatter(sites_x, sites_y, s = 10, cmap = 'bwr', c = logsigma_vec, norm = divnorm)
         ax[1].set_aspect('equal','box')
         ax[1].title.set_text('spline logsigma fit')
         fig.subplots_adjust(right=0.8)
@@ -457,14 +455,14 @@ if __name__ == "__main__":
 
         # Shape # -------------------------------------------------------------------------------------
         # ksi(s) plot stations
-        vmin = min(my_floor(min(ksi_estimates), 1), my_floor(min(ksi_matrix[:,0]), 1))
-        vmax = max(my_ceil(max(ksi_estimates), 1), my_ceil(max(ksi_matrix[:,0]), 1))
+        vmin = min(my_floor(min(ksi_estimates), 1), my_floor(min(ksi_vec), 1))
+        vmax = max(my_ceil(max(ksi_estimates), 1), my_ceil(max(ksi_vec), 1))
         divnorm = matplotlib.colors.TwoSlopeNorm(vcenter = (vmin + vmax)/2, vmin = vmin, vmax = vmax)
         fig, ax = plt.subplots(1,2)
         ksi_scatter = ax[0].scatter(sites_x, sites_y, s = 10, cmap = 'bwr', c = ksi_estimates, norm = divnorm)
         ax[0].set_aspect('equal', 'box')
         ax[0].title.set_text('GEV ksi estimates')
-        ksi_est_scatter = ax[1].scatter(sites_x, sites_y, s = 10, cmap = 'bwr', c = ksi_matrix[:,0], norm = divnorm)
+        ksi_est_scatter = ax[1].scatter(sites_x, sites_y, s = 10, cmap = 'bwr', c = ksi_vec, norm = divnorm)
         ax[1].set_aspect('equal','box')
         ax[1].title.set_text('spline ksi fit')
         fig.subplots_adjust(right=0.8)
@@ -721,8 +719,8 @@ if __name__ == "__main__":
     ## ---- GPD covariate coefficients --> GPD surface ----
     Beta_logsigma_current = comm.bcast(Beta_logsigma_init, root = 0)
     Beta_ksi_current      = comm.bcast(Beta_ksi_init, root = 0)
-    Scale_matrix_current  = np.exp((C_logsigma.T @ Beta_logsigma_current).T)
-    Shape_matrix_current  = (C_ksi.T @ Beta_ksi_current).T
+    Scale_vec_current     = np.exp((C_logsigma.T @ Beta_logsigma_current).T)[:,rank]
+    Shape_vec_current     = ((C_ksi.T @ Beta_ksi_current).T)[:,rank]
 
     ## ---- GPD covariate coefficients prior variance ----
     sigma_Beta_logsigma_current = comm.bcast(sigma_Beta_logsigma_init, root = 0)
@@ -766,7 +764,7 @@ if __name__ == "__main__":
         X_1t_imputed = X_star_1t_current[miss_idx_1t] + \
                        scipy.stats.norm.rvs(loc = 0, scale = tau_current, size = len(miss_idx_1t), random_state = random_generator)
         Y_1t_imputed = qCGP(pRW(X_1t_imputed, phi_vec_current[miss_idx_1t], gamma_vec[miss_idx_1t], tau_current),
-                            p, u_matrix[miss_idx_1t,rank], Scale_matrix_current[miss_idx_1t,rank], Shape_matrix_current[miss_idx_1t,rank])
+                            p, u_vec[miss_idx_1t], Scale_vec_current[miss_idx_1t], Shape_vec_current[miss_idx_1t])
         Y_1t_current[miss_idx_1t] = Y_1t_imputed
         assert 0 == len(np.where(np.isnan(Y_1t_current))[0])
 
@@ -775,11 +773,11 @@ if __name__ == "__main__":
 
     # Note:
     #   The censor/exceedance index NEED TO CHANGE whenever we do imputation
-    censored_idx_1t_current = np.where(Y_1t_current <= u_matrix[:,rank])[0]
-    exceed_idx_1t_current   = np.where(Y_1t_current  > u_matrix[:,rank])[0]
+    censored_idx_1t_current = np.where(Y_1t_current <= u_vec)[0]
+    exceed_idx_1t_current   = np.where(Y_1t_current  > u_vec)[0]
 
     ## ---- X_1t (Ns,) ----
-    X_1t_current  = qRW(pCGP(Y_1t_current, p, u_matrix[:,rank], Scale_matrix_current[:,rank], Shape_matrix_current[:,rank]),
+    X_1t_current  = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
                         phi_vec_current, gamma_vec, tau_current)
     dX_1t_current = dRW(X_1t_current, phi_vec_current, gamma_vec, tau_current)
    
@@ -792,7 +790,7 @@ if __name__ == "__main__":
         start_time = time.time()
         print('started on:', strftime('%Y-%m-%d %H:%M:%S', localtime(time.time())))
 
-    llik_1t_current = Y_censored_ll_1t(Y_1t_current, p, u_matrix[:,rank], Scale_matrix_current[:,rank], Shape_matrix_current[:,0],
+    llik_1t_current = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                       R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
                                       X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) + \
                       X_star_conditional_ll_1t(X_star_1t_current, R_vec_current, phi_vec_current, K_current,
@@ -804,23 +802,22 @@ if __name__ == "__main__":
     else: print('initial likelihood non finite', 'rank:', rank)
 
     for iter in range(start_iter, n_iters):
-        # %% Update St
+        # %% Update St ------------------------------------------------------------------------------------------------
         ###########################################################
         #### ----- Update St ----- Parallelized Across Nt time ####
         ###########################################################
         for i in range(k):
             # propose new Stable St at knot i (No need truncation now?) -----------------------------------------------
             change_idx = np.array([i])
-            unchange_idx = np.array([x for x in range(k) if x not in change_idx])
 
             S_proposal_log             = S_current_log.copy()
-            S_proposal_log[change_idx] = S_proposal_log[change_idx] + np.sqrt(sigma_m_sq_St[i]) * random_generator.normal(0.0, 1.0, size = 1)
+            S_proposal_log[change_idx] = S_current_log[change_idx] + np.sqrt(sigma_m_sq_St[i]) * random_generator.normal(0.0, 1.0, size = 1)
             
             R_vec_proposal             = wendland_weight_matrix @ np.exp(S_proposal_log)
             X_star_1t_proposal         = (R_vec_proposal ** phi_vec_current) * g(Z_1t_current)
 
             # Data Likelihood -----------------------------------------------------------------------------------------
-            llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_matrix[:,rank], Scale_matrix_current[:,rank], Shape_matrix_current[:,0],
+            llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                                 R_vec_proposal, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
                                                 X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
                              + X_star_conditional_ll_1t(X_star_1t_proposal, R_vec_proposal, phi_vec_current, K_current,
@@ -840,10 +837,46 @@ if __name__ == "__main__":
                 X_star_1t_current   = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
                 llik_1t_current     = llik_1t_proposal
 
-            S_current_log_gathered = comm.gather(S_current_log, root = 0)
-            if rank == 0: S_trace_log[iter,:,:]  = np.vstack(S_current_log_gathered).T
+        S_current_log_gathered = comm.gather(S_current_log, root = 0)
+        if rank == 0: S_trace_log[iter,:,:]  = np.vstack(S_current_log_gathered).T
         
         comm.Barrier()
+
+        # %% Update Zt ------------------------------------------------------------------------------------------------
+        ###########################################################
+        ####                 Update Zt                         ####
+        ###########################################################
+        for i in range(Ns):
+            # propose new Zt at site i  -------------------------------------------------------------------------------
+            idx                = np.array([i])
+            Z_1t_proposal      = Z_1t_current.copy()
+            Z_1t_proposal[idx] = Z_1t_current[idx] + np.sqrt(sigma_m_sq_Zt[i]) * random_generator.normal(0.0, 1.0, size = 1)
+            X_star_1t_proposal = (R_vec_current ** phi_vec_current) * g(Z_1t_proposal)
+
+            # Data Likelihood -----------------------------------------------------------------------------------------
+            llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+                                                R_vec_current, Z_1t_proposal, phi_vec_current, gamma_vec, tau_current,
+                                                X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
+                             + X_star_conditional_ll_1t(X_star_1t_proposal, R_vec_current, phi_vec_current, K_current,
+                                                        Z_1t_proposal)
+            
+            # Update --------------------------------------------------------------------------------------------------
+            r = np.exp(llik_1t_proposal - llik_1t_current)
+            if np.isfinite(r) and r >= random_generator.uniform():
+                num_accepted_Zt[i] += 1
+                Z_1t_current      = Z_1t_proposal.copy()
+                X_star_1t_current = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
+                llik_1t_current   = llik_1t_proposal
+
+        Z_1t_current_gathered = comm.gather(Z_1t_current, root = 0)
+        if rank == 0: S_trace_log[iter,:,:]  = np.vstack(S_current_log_gathered).T
+        
+        comm.Barrier()
+
+
+
+
+
         # %% After iteration likelihood
         ######################################################################
         #### ----- Keeping track of likelihood after this iteration ----- ####
@@ -852,7 +885,7 @@ if __name__ == "__main__":
         llik_1t_current_gathered = comm.gather(llik_1t_current, root = 0)
         if rank == 0: loglik_trace[iter, 0] = np.sum(llik_1t_current_gathered)
 
-        censored_ll_1t, exceed_ll_1t = Y_censored_ll_1t_detail(Y_1t_current, p, u_matrix[:,rank], Scale_matrix_current[:,rank], Shape_matrix_current[:,0],
+        censored_ll_1t, exceed_ll_1t = Y_censored_ll_1t_detail(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                                                R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
                                                                X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current)
         D_gauss_ll_1t, log_J_1_1t, log_J_2_1t = X_star_conditional_ll_1t_detail(X_star_1t_current, R_vec_current, phi_vec_current, K_current, Z_1t_current)
@@ -896,12 +929,11 @@ if __name__ == "__main__":
 
         if rank == 0:
 
-            if iter % 10 == 0:
-                print(iter)
-                end_time = time.time()
-                print('elapsed: ', round(end_time - start_time, 1), 'seconds')
+            if iter % 10 == 0: print('iter', iter, 'elapsed: ', round(time.time() - start_time, 1), 'seconds')
 
             if iter % 25 == 0 or iter == n_iters-1:
+
+                # Saving ----------------------------------------------------------------------------------------------
                 np.save('loglik_trace',loglik_trace)
                 np.save('S_trace_log', S_trace_log)
 
@@ -910,13 +942,12 @@ if __name__ == "__main__":
                 with open('Sigma_0.pkl', 'wb')            as file: pickle.dump(Sigma_0, file)
                 with open('sigma_m_sq_St_list.pkl', 'wb') as file: pickle.dump(sigma_m_sq_St_list, file)
 
-                # %% Printing -----------------------------------------------------------------------------------------
-                # Printing --------------------------------------------------------------------------------------------
-                # Print traceplot thinned by 10
+                # Drawing ---------------------------------------------------------------------------------------------
+                
+                # ---- thinning ----
                 xs       = np.arange(iter)
                 xs_thin  = xs[0::10] # index 1, 11, 21, ...
                 xs_thin2 = np.arange(len(xs_thin)) # index 1, 2, 3, ...
-
                 loglik_trace_thin              = loglik_trace[0:iter:10,:]
                 loglik_detail_trace_thin       = loglik_detail_trace[0:iter:10,:]
                 S_trace_log_thin               = S_trace_log[0:iter:10,:,:]
