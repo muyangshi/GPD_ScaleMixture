@@ -527,6 +527,7 @@ if __name__ == "__main__":
         sigma_Beta_ksi_cov      = 1
         # S_log_cov               = np.tile(((2.4**2)/k)*np.eye(k)[:,:,None], reps = (1,1,Nt))
         S_log_cov               = np.tile(        0.05*np.eye(k)[:,:,None], reps = (1,1,Nt))
+        Z_cov                   = np.tile(             np.eye(Ns)[:,:,None],reps = (1,1,Nt))
 
         # with trial run
         import proposal_cov
@@ -537,31 +538,44 @@ if __name__ == "__main__":
         if proposal_cov.sigma_Beta_logsigma_cov is not None: sigma_Beta_logsigma_cov = proposal_cov.sigma_Beta_logsigma_cov
         if proposal_cov.sigma_Beta_ksi_cov is not None:      sigma_Beta_ksi_cov      = proposal_cov.sigma_Beta_ksi_cov
         if proposal_cov.S_log_cov is not None:               S_log_cov               = proposal_cov.S_log_cov
+        if proposal_cov.Z_cov is not None:                   Z_cov                   = proposal_cov.Z_cov
 
         assert k               == phi_cov.shape[0]
         assert k               == range_cov.shape[0]
         assert k               == S_log_cov.shape[0]
         assert Nt              == S_log_cov.shape[2]
+        assert Ns              == Z_cov.shape[0]
         assert Beta_logsigma_m == Beta_logsigma_cov.shape[0]
         assert Beta_ksi_m      == Beta_ksi_cov.shape[0]
 
-        # make parameter block (for block updates)
-        ## phi
-        phi_block_cov_dict = {}
-        for key in phi_block_idx_dict.keys():
-            start_idx                    = phi_block_idx_dict[key][0]
-            end_idx                      = phi_block_idx_dict[key][-1]+1
-            phi_block_cov_dict[key] = phi_cov[start_idx:end_idx, start_idx:end_idx]
+        # St: each Worker_t propose k S(t)s at time t
+        if rank == 0:
+            if norm_pareto == 'shifted': # Sk at 1t share the same scalar variance
+                sigma_m_sq_St_list = [np.mean(np.diag(S_log_cov[:,:,t])) for t in range(Nt)]
+            if norm_pareto == 'standard': # Each Sk has individual scalar variance
+                sigma_m_sq_St_list = [(np.diag(S_log_cov[:,:,t])) for t in range(Nt)]
+        else:
+            sigma_m_sq_St_list = None
+        sigma_m_sq_St = comm.scatter(sigma_m_sq_St_list, root = 0) if size>1 else sigma_m_sq_St_list[0]
 
-        ## range rho
-        range_block_cov_dict = {}
-        for key in range_block_idx_dict.keys():
-            start_idx                      = range_block_idx_dict[key][0]
-            end_idx                        = range_block_idx_dict[key][-1]+1
-            range_block_cov_dict[key] = range_cov[start_idx:end_idx, start_idx:end_idx]
+        # Zt
+        sigma_m_sq_Zt_list = [(np.diag(Z_cov[:,:,t])) for t in range(Nt)] if rank == 0 else None
+        sigma_m_sq_Zt      = comm.scatter(sigma_m_sq_Zt_list, root = 0) if size>1 else sigma_m_sq_Zt_list[0]
 
+        # phi, range, and marginal
+        if rank == 0:
+            # make parameter block (for block updates)
+            phi_block_cov_dict = {}
+            for key in phi_block_idx_dict.keys():
+                start_idx                    = phi_block_idx_dict[key][0]
+                end_idx                      = phi_block_idx_dict[key][-1]+1
+                phi_block_cov_dict[key] = phi_cov[start_idx:end_idx, start_idx:end_idx]
+            range_block_cov_dict = {}
+            for key in range_block_idx_dict.keys():
+                start_idx                      = range_block_idx_dict[key][0]
+                end_idx                        = range_block_idx_dict[key][-1]+1
+                range_block_cov_dict[key] = range_cov[start_idx:end_idx, start_idx:end_idx]
 
-        if rank == 0: # Handle phi, range, GEV on Worker 0
             # proposal variance scalar
             sigma_m_sq = {
                 'Beta_logsigma'       : (2.4**2)/Beta_logsigma_m,
@@ -581,20 +595,10 @@ if __name__ == "__main__":
             }
             Sigma_0.update(phi_block_cov_dict)
             Sigma_0.update(range_block_cov_dict)
-
-        # St: each Worker_t propose k S(t)s at time t
-        if rank == 0:
-            if norm_pareto == 'shifted': # Sk at 1t share the same scalar variance
-                sigma_m_sq_St_list = [np.mean(np.diag(S_log_cov[:,:,t])) for t in range(Nt)]
-            if norm_pareto == 'standard': # Each Sk has individual scalar variance
-                sigma_m_sq_St_list = [(np.diag(S_log_cov[:,:,t])) for t in range(Nt)]
-        else:
-            sigma_m_sq_St_list = None
-        sigma_m_sq_St = comm.scatter(sigma_m_sq_St_list, root = 0) if size>1 else sigma_m_sq_St_list[0]
     else: 
         # start_iter != 1, pickle load the Proposal Variance Scalar, Covariance Matrix
         
-        ## Proposal Variance Scalar for St
+        ## St
         if rank == 0:
             with open('sigma_m_sq_St_list.pkl', 'rb') as file:
                 sigma_m_sq_St_list = pickle.load(file)
@@ -602,25 +606,33 @@ if __name__ == "__main__":
             sigma_m_sq_St_list = None
         if size != 1: sigma_m_sq_St = comm.scatter(sigma_m_sq_St_list, root = 0)
 
+        ## Zt
+        if rank == 0: 
+            with open('sigma_m_sq_Zt_list.pkl', 'rb') as file: sigma_m_sq_Zt_list = pickle.load(file)
+        else:
+            sigma_m_sq_Zt_list = None
+        sigma_m_sq_Zt = comm.scatter(sigma_m_sq_Zt_list, root = 0) if size>1 else sigma_m_sq_Zt_list[0]
+
         ## Proposal Variance Scalar and Covariance Matrix for other variables
         if rank == 0:
-            with open('sigma_m_sq.pkl','rb') as file:
-                sigma_m_sq = pickle.load(file)
-            with open('Sigma_0.pkl', 'rb') as file:
-                Sigma_0    = pickle.load(file)
+            with open('sigma_m_sq.pkl','rb') as file: sigma_m_sq = pickle.load(file)
+            with open('Sigma_0.pkl', 'rb') as file:   Sigma_0    = pickle.load(file)
 
     # Adaptive Update: Counter ----------------------------------------------------------------------------------------
     
-    ## Counter for St   
+    ## St   
     if norm_pareto == 'shifted':     
         num_accepted_St_list = [0] * size if rank == 0 else None
         if size != 1: num_accepted_St = comm.scatter(num_accepted_St_list, root = 0)
 
     if norm_pareto == 'standard':
         num_accepted_St_list = [[0] * k] * size if rank == 0 else None
-        if size > 1: num_accepted_St = comm.scatter(num_accepted_St_list, root = 0)
-        if size == 1: num_accepted_St = num_accepted_St_list[0]
+        num_accepted_St      = comm.scatter(num_accepted_St_list, root= 0) if size>1 else num_accepted_St_list[0]
     
+    ## Zt
+    num_accepted_Zt_list = [[0] * Ns] * size if rank == 0 else None
+    num_accepted_Zt      = comm.scatter(num_accepted_Zt_list, root = 0) if size>1 else num_accepted_Zt_list[0]
+
     ## Counter for other variables
     if rank == 0:
         num_accepted = { # acceptance counter
@@ -869,7 +881,7 @@ if __name__ == "__main__":
                 llik_1t_current   = llik_1t_proposal
 
         Z_1t_current_gathered = comm.gather(Z_1t_current, root = 0)
-        if rank == 0: S_trace_log[iter,:,:]  = np.vstack(S_current_log_gathered).T
+        if rank == 0: Z_trace[iter,:,:]  = np.vstack(Z_1t_current_gathered).T
         
         comm.Barrier()
 
@@ -919,6 +931,15 @@ if __name__ == "__main__":
                     sigma_m_sq_St[i]   = np.exp(log_sigma_m_sq_hat)
                 comm.Barrier()
                 sigma_m_sq_St_list     = comm.gather(sigma_m_sq_St, root = 0)
+            
+            # Zt
+            for i in range(Ns):
+                r_hat              = num_accepted_Zt[i]/adapt_size
+                num_accepted_Zt[i] = 0
+                log_sigma_m_sq_hat = np.log(sigma_m_sq_Zt[i]) + gamma2 * (r_hat - r_opt)
+                sigma_m_sq_Zt[i]   = np.exp(log_sigma_m_sq_hat)
+            comm.Barrier()
+            sigma_m_sq_Zt_list = comm.gather(sigma_m_sq_Zt, root = 0)
 
         comm.Barrier()
 
@@ -936,11 +957,13 @@ if __name__ == "__main__":
                 # Saving ----------------------------------------------------------------------------------------------
                 np.save('loglik_trace',loglik_trace)
                 np.save('S_trace_log', S_trace_log)
+                np.save('Z_trace',Z_trace)
 
                 with open('iter.pkl', 'wb')               as file: pickle.dump(iter, file)
                 with open('sigma_m_sq.pkl', 'wb')         as file: pickle.dump(sigma_m_sq, file)
                 with open('Sigma_0.pkl', 'wb')            as file: pickle.dump(Sigma_0, file)
                 with open('sigma_m_sq_St_list.pkl', 'wb') as file: pickle.dump(sigma_m_sq_St_list, file)
+                with open('sigma_m_sq_Zt_list.pkl', 'wb') as file: pickle.dump(sigma_m_sq_Zt_list, file)
 
                 # Drawing ---------------------------------------------------------------------------------------------
                 
@@ -951,6 +974,7 @@ if __name__ == "__main__":
                 loglik_trace_thin              = loglik_trace[0:iter:10,:]
                 loglik_detail_trace_thin       = loglik_detail_trace[0:iter:10,:]
                 S_trace_log_thin               = S_trace_log[0:iter:10,:,:]
+                Z_trace_thin                   = Z_trace[0:iter:10,:,:]
 
                 # ---- log-likelihood ----
                 plt.subplots()
@@ -985,6 +1009,19 @@ if __name__ == "__main__":
                     plt.xlabel('iter thinned by 10')
                     plt.ylabel('log(St)s')
                     plt.savefig('St'+str(t)+'.pdf')
+                    plt.close()
+                
+                # ---- Z_t ---- (some randomly selected subset)
+                for t in range(Nt):
+                    selection = np.random.choice(np.arange(Ns), size = 10, replace = False)
+                    selection_label = np.array(['site ' + str(s) for s in selection])
+                    plt.subplots()
+                    plt.plot(xs_thin2, Z_trace_thin[:,selection,t], label = selection_label)
+                    plt.legend(loc = 'upper left')
+                    plt.title('traceplot for Zt at t=' + str(t))
+                    plt.xlabel('iter thinned by 10')
+                    plt.ylabel('Zt')
+                    plt.savefig('Zt'+str(t)+'.pdf')
                     plt.close()
             
             if iter == n_iters - 1:

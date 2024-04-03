@@ -410,13 +410,16 @@ def X_star_conditional_ll_1t(X_star, R_vec, phi_vec, K, # original Pr(X_star | R
     # Note:
     #   Z_vec = ginv(X_star/R_vec**phi_vec)
 
+    D = len(Z_vec)
+
     # log of the D-dimensional joint gaussian density
-    D_gauss_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov=K) # log D-dimensional joint gaussian density
+    D_gauss_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = np.zeros(D), cov=K) # log D-dimensional joint gaussian density
 
     # log of the (determinant of) Jacobian
-    log_J      = len(Z_vec)/2 * np.log(2*np.pi) + 0.5*np.sum(np.square(Z_vec)) - np.sum(phi_vec*np.log(R_vec) + 2*np.log(g(Z_vec)))
+    # log_J      = (D/2)*np.log(2*np.pi) + 0.5*np.sum(Z_vec**2) + np.sum(-phi_vec*np.log(R_vec) - 2*np.log(g(Z_vec)))
+    log_J      = (D/2)*np.log(2*np.pi) + 0.5*np.sum(Z_vec**2) + np.sum(phi_vec * np.log(R_vec)) - 2*np.sum(np.log(X_star))
 
-    return np.sum(D_gauss_ll) + log_J
+    return D_gauss_ll + log_J
 
 # marginal censored (log) likelihood of Y at 1 time
 def Y_censored_ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,         # marginal observation and parameter
@@ -444,18 +447,21 @@ def Y_censored_ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,         # margina
 
 # full conditional likelihood of smooth process X_star
 def X_star_conditional_ll_1t_detail(X_star, R_vec, phi_vec, K, # original Pr(X_star | R_vec, phi_vec, K)
-                             Z_vec):                    # things to facilitate computation
+                                    Z_vec):                    # things to facilitate computation
     # Note:
     #   Z_vec = ginv(X_star/R_vec**phi_vec)
 
+    D = len(Z_vec)
+
     # log of the D-dimensional joint gaussian density
-    D_gauss_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov=K) # log D-dimensional joint gaussian density
+    D_gauss_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = np.zeros(D), cov=K) # log D-dimensional joint gaussian density
 
     # log of the (determinant of) Jacobian
-    log_J_1      = len(Z_vec)/2 * np.log(2*np.pi) + 0.5*np.sum(np.square(Z_vec)) 
-    log_J_2      = - np.sum(phi_vec*np.log(R_vec) + 2*np.log(g(Z_vec)))
+    log_J_1 = (D/2)*np.log(2*np.pi) + 0.5*np.sum(np.square(Z_vec)) 
+    # log_J_2      = np.sum(-phi_vec*np.log(R_vec) - 2*np.log(g(Z_vec)))
+    log_J_2 = np.sum(phi_vec * np.log(R_vec)) - 2*np.sum(np.log(X_star))
 
-    return (np.sum(D_gauss_ll), log_J_1, log_J_2)
+    return (D_gauss_ll, log_J_1, log_J_2)
 
 # %% Imputation for missing data
 # imputaiton for missing data -----------------------------------------------------------------------------------------
