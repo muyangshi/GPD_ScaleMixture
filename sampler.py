@@ -802,11 +802,18 @@ if __name__ == "__main__":
         start_time = time.time()
         print('started on:', strftime('%Y-%m-%d %H:%M:%S', localtime(time.time())))
 
+    # # With Jacobian
+    # llik_1t_current = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+    #                                   R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+    #                                   X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) + \
+    #                   X_star_conditional_ll_1t(X_star_1t_current, R_vec_current, phi_vec_current, K_current,
+    #                                            Z_1t_current)
+    
+    # Without Jacobian
     llik_1t_current = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                      R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
-                                      X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) + \
-                      X_star_conditional_ll_1t(X_star_1t_current, R_vec_current, phi_vec_current, K_current,
-                                               Z_1t_current)
+                                       R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+                                       X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
+                    + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
     
     if np.isfinite(llik_1t_current): 
         llik_1t_current_gathered = comm.gather(llik_1t_current, root = 0)
@@ -829,12 +836,20 @@ if __name__ == "__main__":
             X_star_1t_proposal         = (R_vec_proposal ** phi_vec_current) * g(Z_1t_current)
 
             # Data Likelihood -----------------------------------------------------------------------------------------
+            
+            # # With Jacobian
+            # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+            #                                     R_vec_proposal, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+            #                                     X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
+            #                  + X_star_conditional_ll_1t(X_star_1t_proposal, R_vec_proposal, phi_vec_current, K_current,
+            #                                             Z_1t_current)
+            
+            # Without Jacobian
             llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                                 R_vec_proposal, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
                                                 X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
-                             + X_star_conditional_ll_1t(X_star_1t_proposal, R_vec_proposal, phi_vec_current, K_current,
-                                                        Z_1t_current)
-
+                             + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
+            
             # Prior Density -------------------------------------------------------------------------------------------
             lprior_1t_current  = np.sum(scipy.stats.levy.logpdf(np.exp(S_current_log),  scale = gamma) + S_current_log)
             lprior_1t_proposal = np.sum(scipy.stats.levy.logpdf(np.exp(S_proposal_log), scale = gamma) + S_proposal_log)
@@ -866,11 +881,19 @@ if __name__ == "__main__":
             X_star_1t_proposal = (R_vec_current ** phi_vec_current) * g(Z_1t_proposal)
 
             # Data Likelihood -----------------------------------------------------------------------------------------
+            
+            # # With Jacobian
+            # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+            #                                     R_vec_current, Z_1t_proposal, phi_vec_current, gamma_vec, tau_current,
+            #                                     X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
+            #                  + X_star_conditional_ll_1t(X_star_1t_proposal, R_vec_current, phi_vec_current, K_current,
+            #                                             Z_1t_proposal)
+            
+            # Without Jacobian
             llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                                 R_vec_current, Z_1t_proposal, phi_vec_current, gamma_vec, tau_current,
                                                 X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
-                             + X_star_conditional_ll_1t(X_star_1t_proposal, R_vec_current, phi_vec_current, K_current,
-                                                        Z_1t_proposal)
+                             + scipy.stats.multivariate_normal.logpdf(Z_1t_proposal, mean = None, cov = K_current)
             
             # Update --------------------------------------------------------------------------------------------------
             r = np.exp(llik_1t_proposal - llik_1t_current)
@@ -897,19 +920,31 @@ if __name__ == "__main__":
         llik_1t_current_gathered = comm.gather(llik_1t_current, root = 0)
         if rank == 0: loglik_trace[iter, 0] = np.sum(llik_1t_current_gathered)
 
+        # # With the Jacobian
+        # censored_ll_1t, exceed_ll_1t = Y_censored_ll_1t_detail(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+        #                                                        R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+        #                                                        X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current)
+        # D_gauss_ll_1t, log_J_1_1t, log_J_2_1t = X_star_conditional_ll_1t_detail(X_star_1t_current, R_vec_current, phi_vec_current, K_current, Z_1t_current)
+        # censored_ll_gathered = comm.gather(censored_ll_1t, root = 0)
+        # exceed_ll_gathered   = comm.gather(exceed_ll_1t,   root = 0)
+        # D_gauss_ll_gathered  = comm.gather(D_gauss_ll_1t,  root = 0)
+        # log_J_1_gathered     = comm.gather(log_J_1_1t,     root = 0)
+        # log_J_2_gathered     = comm.gather(log_J_2_1t,     root = 0)
+        # if rank == 0: loglik_detail_trace[iter, :] = np.sum(np.array([censored_ll_gathered, exceed_ll_gathered,
+        #                                                               D_gauss_ll_gathered, log_J_1_gathered, log_J_2_gathered]), 
+        #                                                     axis = 1)
+
+        # Without the Jacobian
         censored_ll_1t, exceed_ll_1t = Y_censored_ll_1t_detail(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                                                R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
                                                                X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current)
-        D_gauss_ll_1t, log_J_1_1t, log_J_2_1t = X_star_conditional_ll_1t_detail(X_star_1t_current, R_vec_current, phi_vec_current, K_current, Z_1t_current)
+        D_gauss_ll_1t = scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov=K_current)
         censored_ll_gathered = comm.gather(censored_ll_1t, root = 0)
-        exceed_ll_gathered   = comm.gather(exceed_ll_1t,   root = 0)
+        exceed_ll_gathered   = comm.gather(exceed_ll_1t,   root = 0)        
         D_gauss_ll_gathered  = comm.gather(D_gauss_ll_1t,  root = 0)
-        log_J_1_gathered     = comm.gather(log_J_1_1t,     root = 0)
-        log_J_2_gathered     = comm.gather(log_J_2_1t,     root = 0)
-        if rank == 0: loglik_detail_trace[iter, :] = np.sum(np.array([censored_ll_gathered, exceed_ll_gathered,
-                                                                      D_gauss_ll_gathered, log_J_1_gathered, log_J_2_gathered]), 
-                                                            axis = 1)
-
+        if rank == 0: loglik_detail_trace[iter, [0,1,2]] = np.sum(np.array([censored_ll_gathered, exceed_ll_gathered, D_gauss_ll_gathered]),
+                                                                  axis = 1)
+        
         comm.Barrier()
 
         # %% Adaptive Update tunings
