@@ -202,7 +202,7 @@ if __name__ == "__main__":
 
         # Data Model Parameters - X = e + R^phi * g(Z) ----------------------------------------------------------------
 
-        # Nugget Variance
+        # Nugget Variance (var = tau^2, stdev = tau)
         tau = 10
 
         # rho - covariance K
@@ -916,40 +916,43 @@ if __name__ == "__main__":
         ############################################################
         for key in phi_block_idx_dict.keys():
             # Propose new phi_block at the change_indices -------------------------------------------------------------
-            change_indices = np.array(phi_block_idx_dict[key])
+            idx = np.array(phi_block_idx_dict[key])
             if rank == 0:
                 phi_knots_proposal = phi_knots_current.copy()
-                phi_knots_proposal[change_indices] += np.sqrt(sigma_m_sq[key]) * random_generator.multivariate_normal(np.zeros(len(change_indices)), Sigma_0[key])
+                phi_knots_proposal[idx] += np.sqrt(sigma_m_sq[key]) * random_generator.multivariate_normal(np.zeros(len(idx)), Sigma_0[key])
             else:
                 phi_knots_proposal = None
             phi_knots_proposal     = comm.bcast(phi_knots_proposal, root = 0)
 
-            phi_vec_proposal       = gaussian_weight_matrix @ phi_knots_proposal
-            X_star_1t_proposal     = (R_vec_current ** phi_vec_proposal) * g(Z_1t_current)
-            X_1t_proposal = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
-                                phi_vec_proposal, gamma_vec, tau_current)
-            dX_1t_proposal = dRW(X_1t_proposal, phi_vec_proposal, gamma_vec, tau_current)
-
             # Data Likelihood -----------------------------------------------------------------------------------------
+            if not all(0 < phi < 1 for phi in phi_knots_proposal):
+                llik_1t_proposal = np.NINF
+            else:
+                phi_vec_proposal       = gaussian_weight_matrix @ phi_knots_proposal
+                X_star_1t_proposal     = (R_vec_current ** phi_vec_proposal) * g(Z_1t_current)
+                X_1t_proposal = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+                                    phi_vec_proposal, gamma_vec, tau_current)
+                dX_1t_proposal = dRW(X_1t_proposal, phi_vec_proposal, gamma_vec, tau_current)
 
-            # Without Jacobian
-            llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                                R_vec_current, Z_1t_current, phi_vec_proposal, gamma_vec, tau_current,
-                                                X_1t_proposal, X_star_1t_proposal, dX_1t_proposal, censored_idx_1t_current, exceed_idx_1t_current) \
-                             + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
-
+                # Without Jacobian
+                llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+                                                    R_vec_current, Z_1t_current, phi_vec_proposal, gamma_vec, tau_current,
+                                                    X_1t_proposal, X_star_1t_proposal, dX_1t_proposal, censored_idx_1t_current, exceed_idx_1t_current) \
+                                 + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
 
             # Update --------------------------------------------------------------------------------------------------
+            phi_accepted = False
+            llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
+            llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
             if rank == 0:
-                llik_current  = np.sum(comm.gather(llik_1t_current, root = 0))  + np.sum(scipy.stats.beta.logpdf(phi_knots_current, a = 5, b = 5))
-                llik_proposal = np.sum(comm.gather(llik_1t_proposal, root = 0)) + np.sum(scipy.stats.beta.logpdf(phi_knots_proposal, a = 5, b = 5))
+                llik_current  = np.sum(llik_1t_current_gathered)  + np.sum(scipy.stats.beta.logpdf(phi_knots_current, a = 5, b = 5))
+                llik_proposal = np.sum(llik_1t_proposal_gathered) + np.sum(scipy.stats.beta.logpdf(phi_knots_proposal, a = 5, b = 5))
                 r = np.exp(llik_proposal - llik_current)
                 if np.isfinite(r) and r >= random_generator.uniform():
                     num_accepted[key] += 1
                     phi_accepted       = True
-            else:
-                phi_accepted = None
-            phi_accepted     = comm.bcast(phi_accepted, root = 0)
+            phi_accepted = comm.bcast(phi_accepted, root = 0)
+            
             if phi_accepted:
                 phi_knots_current = phi_knots_proposal.copy()
                 phi_vec_current   = phi_vec_proposal.copy()
@@ -966,7 +969,50 @@ if __name__ == "__main__":
         ############################################################
         ####                 Update rho                         ####
         ############################################################
+        for key in range_block_idx_dict.keys():
+            # Propose new range_block at the change_indices -----------------------------------------------------------
+            idx = np.array(range_block_idx_dict[key])
+            if rank == 0:
+                range_knots_proposal = range_knots_current.copy()
+                range_knots_proposal[idx] += np.sqrt(sigma_m_sq[key]) * random_generator.multivariate_normal(np.zeros(len(idx)), Sigma_0[key])
+            else:
+                range_knots_proposal = None
+            range_knots_proposal     = comm.bcast(range_knots_proposal, root = 0)
 
+            # Data Likelihood -----------------------------------------------------------------------------------------
+            if not all(rho > 0 for rho in range_knots_proposal):
+                llik_1t_proposal = np.NINF
+            else:
+                range_vec_proposal = gaussian_weight_matrix @ range_knots_proposal
+                K_proposal = ns_cov(range_vec = range_vec_proposal,
+                                    sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = "matern")
+                # Without Jacobian
+                llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+                                                    R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+                                                    X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
+                                 + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_proposal)
+            
+            # Update --------------------------------------------------------------------------------------------------
+            range_accepted = False
+            llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
+            llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
+            if rank == 0:
+                llik_current  = np.sum(llik_1t_current_gathered)  + np.sum(scipy.stats.beta.logpdf(range_knots_current, a = 5, b = 5))
+                llik_proposal = np.sum(llik_1t_proposal_gathered) + np.sum(scipy.stats.beta.logpdf(range_knots_proposal, a = 5, b = 5))
+                r = np.exp(llik_proposal - llik_current)
+                if np.isfinite(r) and r >= random_generator.uniform():
+                    num_accepted[key] += 1
+                    range_accepted       = True
+            range_accepted = comm.bcast(range_accepted, root = 0)
+            
+            if range_accepted:
+                range_knots_current = range_knots_proposal.copy()
+                K_current           = K_proposal.copy()
+                llik_1t_current     = llik_1t_proposal
+
+        # Save --------------------------------------------------------------------------------------------------------
+        if rank == 0: range_knots_trace[iter,:] = range_knots_current.copy()
+        comm.Barrier()
 
         # %% Update tau ------------------------------------------------------------------------------------------------
         ############################################################
@@ -1056,13 +1102,25 @@ if __name__ == "__main__":
                     Sigma_0_hat        = np.array(np.cov(phi_knots_trace[iter-adapt_size:iter, start_idx:end_idx].T))
                     Sigma_0[key]       = Sigma_0[key] + gamma1 * (Sigma_0_hat - Sigma_0[key])
 
+            # range
+            if rank == 0:
+                for key in range_block_idx_dict.keys():
+                    start_idx          = range_block_idx_dict[key][0]
+                    end_idx            = range_block_idx_dict[key][-1]+1
+                    r_hat              = num_accepted[key]/adapt_size
+                    num_accepted[key]  = 0
+                    log_sigma_m_sq_hat = np.log(sigma_m_sq[key]) + gamma2 * (r_hat - r_opt)
+                    sigma_m_sq[key]    = np.exp(log_sigma_m_sq_hat)
+                    Sigma_0_hat        = np.array(np.cov(range_knots_trace[iter-adapt_size:iter, start_idx:end_idx].T))
+                    Sigma_0[key]       = Sigma_0[key] + gamma1 * (Sigma_0_hat - Sigma_0[key])
+
         comm.Barrier()
 
         # %% Midway Printing, Drawings, and Savings
         ##############################################
         ###    Printing, Drawings, Savings       #####
         ##############################################
-
+        thin = 10
         if rank == 0:
 
             if iter % 10 == 0: print('iter', iter, 'elapsed: ', round(time.time() - start_time, 1), 'seconds')
@@ -1070,10 +1128,11 @@ if __name__ == "__main__":
             if iter % 25 == 0 or iter == n_iters-1:
 
                 # Saving ----------------------------------------------------------------------------------------------
-                np.save('loglik_trace',    loglik_trace)
-                np.save('S_trace_log',     S_trace_log)
-                np.save('Z_trace',         Z_trace)
-                np.save('phi_knots_trace', phi_knots_trace)
+                np.save('loglik_trace',      loglik_trace)
+                np.save('S_trace_log',       S_trace_log)
+                np.save('Z_trace',           Z_trace)
+                np.save('phi_knots_trace',   phi_knots_trace)
+                np.save('range_knots_trace', range_knots_trace)
 
                 with open('iter.pkl', 'wb')               as file: pickle.dump(iter, file)
                 with open('sigma_m_sq.pkl', 'wb')         as file: pickle.dump(sigma_m_sq, file)
@@ -1085,19 +1144,20 @@ if __name__ == "__main__":
                 
                 # ---- thinning ----
                 xs       = np.arange(iter)
-                xs_thin  = xs[0::10] # index 1, 11, 21, ...
+                xs_thin  = xs[0::thin] # index 1, 11, 21, ...
                 xs_thin2 = np.arange(len(xs_thin)) # index 1, 2, 3, ...
-                loglik_trace_thin              = loglik_trace[0:iter:10,:]
-                loglik_detail_trace_thin       = loglik_detail_trace[0:iter:10,:]
-                S_trace_log_thin               = S_trace_log[0:iter:10,:,:]
-                Z_trace_thin                   = Z_trace[0:iter:10,:,:]
-                phi_knots_trace_thin           = phi_knots_trace[0:iter:10,:]
+                loglik_trace_thin              = loglik_trace[0:iter:thin,:]
+                loglik_detail_trace_thin       = loglik_detail_trace[0:iter:thin,:]
+                S_trace_log_thin               = S_trace_log[0:iter:thin,:,:]
+                Z_trace_thin                   = Z_trace[0:iter:thin,:,:]
+                phi_knots_trace_thin           = phi_knots_trace[0:iter:thin,:]
+                range_knots_trace_thin         = range_knots_trace[0:iter:thin,:]
 
                 # ---- log-likelihood ----
                 plt.subplots()
                 plt.plot(xs_thin2, loglik_trace_thin)
                 plt.title('traceplot for log-likelihood')
-                plt.xlabel('iter thinned by 10')
+                plt.xlabel('iter thinned by '+str(thin))
                 plt.ylabel('loglikelihood')
                 plt.savefig('trace_loglik.pdf')
                 plt.close()
@@ -1109,7 +1169,7 @@ if __name__ == "__main__":
                     plt.plot(xs_thin2, loglik_detail_trace_thin[:,i], label = labels[i])
                     plt.annotate(labels[i], xy=(xs_thin2[-1], loglik_detail_trace_thin[:,i][-1]))
                 plt.title('traceplot for detail log likelihood')
-                plt.xlabel('iter thinned by 10')
+                plt.xlabel('iter thinned by '+str(thin))
                 plt.ylabel('log likelihood')
                 plt.legend(loc = 'upper left')
                 plt.savefig('trace_detailed_loglik.pdf')
@@ -1123,7 +1183,7 @@ if __name__ == "__main__":
                     plt.plot(xs_thin2, S_trace_log_thin[:,:,t], label = label_by_knot)
                     plt.legend(loc = 'upper left')
                     plt.title('traceplot for log(St) at t=' + str(t))
-                    plt.xlabel('iter thinned by 10')
+                    plt.xlabel('iter thinned by '+str(thin))
                     plt.ylabel('log(St)s')
                     plt.savefig('trace_St'+str(t)+'.pdf')
                     plt.close()
@@ -1136,7 +1196,7 @@ if __name__ == "__main__":
                     plt.plot(xs_thin2, Z_trace_thin[:,selection,t], label = selection_label)
                     plt.legend(loc = 'upper left')
                     plt.title('traceplot for Zt at t=' + str(t))
-                    plt.xlabel('iter thinned by 10')
+                    plt.xlabel('iter thinned by '+str(thin))
                     plt.ylabel('Zt')
                     plt.savefig('trace_Zt'+str(t)+'.pdf')
                     plt.close()
@@ -1144,13 +1204,25 @@ if __name__ == "__main__":
                 # ---- phi ----
                 plt.subplots()
                 for i in range(k):
-                    plt.plot(xs_thin2, phi_knots_trace_thin[:,i], label='k '+str(i))
-                    plt.annotate('k '+str(i), xy=(xs_thin2[-1], phi_knots_trace_thin[:,i][-1]))
+                    plt.plot(xs_thin2, phi_knots_trace_thin[:,i], label='k'+str(i))
+                    plt.annotate('k'+str(i), xy=(xs_thin2[-1], phi_knots_trace_thin[:,i][-1]))
                 plt.title('traceplot for phi')
-                plt.xlabel('iter thinned by 10')
+                plt.xlabel('iter thinned by '+str(thin))
                 plt.ylabel('phi')
                 plt.legend()
                 plt.savefig('trace_phi.pdf')
+                plt.close()
+
+                # ---- range ----
+                plt.subplots()
+                for i in range(k):
+                    plt.plot(xs_thin2, range_knots_trace_thin[:,i], label='k'+str(i))
+                    plt.annotate('k'+str(i), xy=(xs_thin2[-1], range_knots_trace_thin[:,i][-1]))
+                plt.title('traceplot for range')
+                plt.xlabel('iter thinned by '+str(thin))
+                plt.ylabel('range')
+                plt.legend()
+                plt.savefig('trace_range.pdf')
                 plt.close()
             
             if iter == n_iters - 1:
