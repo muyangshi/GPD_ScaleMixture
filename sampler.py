@@ -517,29 +517,75 @@ if __name__ == "__main__":
 
     # Adaptive Update: Proposal Variance Scalar and Covariance Matrix -------------------------------------------------
 
-    if start_iter == 1: # initialize the adaptive update necessities
-        # with no trial run
-        phi_cov                 = 1e-2 * np.identity(k)
-        range_cov               = 0.5  * np.identity(k)
-        Beta_logsigma_cov       = 1e-6 * np.identity(Beta_logsigma_m)
-        Beta_ksi_cov            = 1e-7 * np.identity(Beta_ksi_m)
-        sigma_Beta_logsigma_cov = 1
-        sigma_Beta_ksi_cov      = 1
-        # S_log_cov               = np.tile(((2.4**2)/k)*np.eye(k)[:,:,None], reps = (1,1,Nt))
-        S_log_cov               = np.tile(        0.05*np.eye(k)[:,:,None], reps = (1,1,Nt))
-        Z_cov                   = np.tile(             np.eye(Ns)[:,:,None],reps = (1,1,Nt))
+    if start_iter == 1: # initialize the proposal scalar variance and covariance
+        import proposal_cov as pc
+        
+        # sigma_m: proposal scalar variance for St, Zt, phi, range, tau, marginal Y, and regularization terms ---------
+        S_log_cov               = pc.S_log_cov               if pc.S_log_cov               is not None else np.tile(0.05*np.eye(k)[:,:,None], reps = (1,1,Nt))
+        Z_cov                   = pc.Z_cov                   if pc.Z_cov                   is not None else np.tile(np.eye(Ns)[:,:,None],reps = (1,1,Nt))
+        tau_var                 = pc.tau_var                 if pc.tau_var                 is not None else 1
+        sigma_Beta_logsigma_var = pc.sigma_Beta_logsigma_var if pc.sigma_Beta_logsigma_var is not None else 1
+        sigma_Beta_ksi_var      = pc.sigma_Beta_ksi_var      if pc.sigma_Beta_ksi_var      is not None else 1
+               
+        # St
+        sigma_m_sq_St_list = [np.mean(np.diag(S_log_cov[:,:,t])) for t in range(Nt)] if rank == 0 and norm_pareto == 'shifted' else None
+        sigma_m_sq_St_list = [(np.diag(S_log_cov[:,:,t])) for t in range(Nt)]        if rank == 0 and norm_pareto == 'standard' else None
+        sigma_m_sq_St      = comm.scatter(sigma_m_sq_St_list, root = 0) if size>1 else sigma_m_sq_St_list[0]
+        
+        # Zt
+        sigma_m_sq_Zt_list = [(np.diag(Z_cov[:,:,t])) for t in range(Nt)] if rank == 0 else None
+        sigma_m_sq_Zt      = comm.scatter(sigma_m_sq_Zt_list, root = 0) if size>1 else sigma_m_sq_Zt_list[0]
+        
+        if rank == 0:
+            sigma_m_sq = {}
 
-        # with trial run
-        import proposal_cov
-        if proposal_cov.phi_cov is not None:                 phi_cov                 = proposal_cov.phi_cov
-        if proposal_cov.range_cov is not None:               range_cov               = proposal_cov.range_cov
-        if proposal_cov.Beta_logsigma_cov is not None:       Beta_logsigma_cov       = proposal_cov.Beta_logsigma_cov
-        if proposal_cov.Beta_ksi_cov is not None:            Beta_ksi_cov            = proposal_cov.Beta_ksi_cov
-        if proposal_cov.sigma_Beta_logsigma_cov is not None: sigma_Beta_logsigma_cov = proposal_cov.sigma_Beta_logsigma_cov
-        if proposal_cov.sigma_Beta_ksi_cov is not None:      sigma_Beta_ksi_cov      = proposal_cov.sigma_Beta_ksi_cov
-        if proposal_cov.S_log_cov is not None:               S_log_cov               = proposal_cov.S_log_cov
-        if proposal_cov.Z_cov is not None:                   Z_cov                   = proposal_cov.Z_cov
+            # phi
+            for key in phi_block_idx_dict.keys(): sigma_m_sq[key] = (2.4**2)/len(phi_block_idx_dict[key])
+            
+            # range
+            for key in range_block_idx_dict.keys(): sigma_m_sq[key] = (2.4**2)/len(range_block_idx_dict[key])
+            
+            # tau
+            sigma_m_sq['tau'] = tau_var
 
+            # marginal Y
+            sigma_m_sq['Beta_logsigma'] = (2.4**2)/Beta_logsigma_m
+            sigma_m_sq['Beta_ksi']      = (2.4**2)/Beta_ksi_m
+            
+            # regularization
+            sigma_m_sq['sigma_Beta_logsigma'] = sigma_Beta_logsigma_var
+            sigma_m_sq['sigma_Beta_ksi']      = sigma_Beta_ksi_var
+
+        # Sigma0: proposal covariance matrix for phi, range, and marginal Y -------------------------------------------
+        phi_cov                 = pc.phi_cov           if pc.phi_cov           is not None else 1e-2 * np.identity(k)
+        range_cov               = pc.range_cov         if pc.range_cov         is not None else 0.5  * np.identity(k)
+        Beta_logsigma_cov       = pc.Beta_logsigma_cov if pc.Beta_logsigma_cov is not None else 1e-6 * np.identity(Beta_logsigma_m)
+        Beta_ksi_cov            = pc.Beta_ksi_cov      if pc.Beta_ksi_cov      is not None else 1e-7 * np.identity(Beta_ksi_m)
+        
+        if rank == 0:
+            Sigma_0 = {}
+
+            # phi
+            phi_block_cov_dict = {}
+            for key in phi_block_idx_dict.keys():
+                start_idx                    = phi_block_idx_dict[key][0]
+                end_idx                      = phi_block_idx_dict[key][-1]+1
+                phi_block_cov_dict[key] = phi_cov[start_idx:end_idx, start_idx:end_idx]
+            Sigma_0.update(phi_block_cov_dict)
+
+            # range
+            range_block_cov_dict = {}
+            for key in range_block_idx_dict.keys():
+                start_idx                      = range_block_idx_dict[key][0]
+                end_idx                        = range_block_idx_dict[key][-1]+1
+                range_block_cov_dict[key] = range_cov[start_idx:end_idx, start_idx:end_idx]
+            Sigma_0.update(range_block_cov_dict)
+
+            # marginal Y
+            Sigma_0['Beta_logsigma'] = Beta_logsigma_cov
+            Sigma_0['Beta_ksi']      = Beta_ksi_cov
+
+        # Checking dimensions -----------------------------------------------------------------------------------------
         assert k               == phi_cov.shape[0]
         assert k               == range_cov.shape[0]
         assert k               == S_log_cov.shape[0]
@@ -547,61 +593,12 @@ if __name__ == "__main__":
         assert Ns              == Z_cov.shape[0]
         assert Beta_logsigma_m == Beta_logsigma_cov.shape[0]
         assert Beta_ksi_m      == Beta_ksi_cov.shape[0]
-
-        # St: each Worker_t propose k S(t)s at time t
-        if rank == 0:
-            if norm_pareto == 'shifted': # Sk at 1t share the same scalar variance
-                sigma_m_sq_St_list = [np.mean(np.diag(S_log_cov[:,:,t])) for t in range(Nt)]
-            if norm_pareto == 'standard': # Each Sk has individual scalar variance
-                sigma_m_sq_St_list = [(np.diag(S_log_cov[:,:,t])) for t in range(Nt)]
-        else:
-            sigma_m_sq_St_list = None
-        sigma_m_sq_St = comm.scatter(sigma_m_sq_St_list, root = 0) if size>1 else sigma_m_sq_St_list[0]
-
-        # Zt
-        sigma_m_sq_Zt_list = [(np.diag(Z_cov[:,:,t])) for t in range(Nt)] if rank == 0 else None
-        sigma_m_sq_Zt      = comm.scatter(sigma_m_sq_Zt_list, root = 0) if size>1 else sigma_m_sq_Zt_list[0]
-
-        # phi, range, and marginal
-        if rank == 0:
-            # make parameter block (for block updates)
-            phi_block_cov_dict = {}
-            for key in phi_block_idx_dict.keys():
-                start_idx                    = phi_block_idx_dict[key][0]
-                end_idx                      = phi_block_idx_dict[key][-1]+1
-                phi_block_cov_dict[key] = phi_cov[start_idx:end_idx, start_idx:end_idx]
-            range_block_cov_dict = {}
-            for key in range_block_idx_dict.keys():
-                start_idx                      = range_block_idx_dict[key][0]
-                end_idx                        = range_block_idx_dict[key][-1]+1
-                range_block_cov_dict[key] = range_cov[start_idx:end_idx, start_idx:end_idx]
-
-            # proposal variance scalar
-            sigma_m_sq = {
-                'Beta_logsigma'       : (2.4**2)/Beta_logsigma_m,
-                'Beta_ksi'            : (2.4**2)/Beta_ksi_m,
-                'sigma_Beta_logsigma' : sigma_Beta_logsigma_cov,
-                'sigma_Beta_ksi'      : sigma_Beta_ksi_cov
-            }
-            for key in phi_block_idx_dict.keys():
-                sigma_m_sq[key] = (2.4**2)/len(phi_block_idx_dict[key])
-            for key in range_block_idx_dict.keys():
-                sigma_m_sq[key] = (2.4**2)/len(range_block_idx_dict[key])
-
-            # proposal covariance matrix
-            Sigma_0 = {
-                'Beta_logsigma' : Beta_logsigma_cov,
-                'Beta_ksi'      : Beta_ksi_cov
-            }
-            Sigma_0.update(phi_block_cov_dict)
-            Sigma_0.update(range_block_cov_dict)
-    else: 
-        # start_iter != 1, pickle load the Proposal Variance Scalar, Covariance Matrix
+    else: # pickle load the Proposal Variance Scalar, Covariance Matrix
         
+        # sigma_m: proposal scalar variance for St, Zt, phi, range, tau, marginal Y, and regularization terms ---------
         ## St
         if rank == 0:
-            with open('sigma_m_sq_St_list.pkl', 'rb') as file:
-                sigma_m_sq_St_list = pickle.load(file)
+            with open('sigma_m_sq_St_list.pkl', 'rb') as file: sigma_m_sq_St_list = pickle.load(file)
         else:
             sigma_m_sq_St_list = None
         if size != 1: sigma_m_sq_St = comm.scatter(sigma_m_sq_St_list, root = 0)
@@ -613,9 +610,12 @@ if __name__ == "__main__":
             sigma_m_sq_Zt_list = None
         sigma_m_sq_Zt = comm.scatter(sigma_m_sq_Zt_list, root = 0) if size>1 else sigma_m_sq_Zt_list[0]
 
-        ## Proposal Variance Scalar and Covariance Matrix for other variables
-        if rank == 0:
+        ## phi, range, tau, marginal Y, regularizations
+        if rank == 0: 
             with open('sigma_m_sq.pkl','rb') as file: sigma_m_sq = pickle.load(file)
+        
+        # Sigma0: proposal covariance matrix for phi, range, and marginal Y -------------------------------------------
+        if rank == 0:
             with open('Sigma_0.pkl', 'rb') as file:   Sigma_0    = pickle.load(file)
 
     # Adaptive Update: Counter ----------------------------------------------------------------------------------------
@@ -633,21 +633,24 @@ if __name__ == "__main__":
     num_accepted_Zt_list = [[0] * Ns] * size if rank == 0 else None
     num_accepted_Zt      = comm.scatter(num_accepted_Zt_list, root = 0) if size>1 else num_accepted_Zt_list[0]
 
-    ## Counter for other variables
+    ## Other variables: phi, range, tau, marginal Y, regularizaiton
     if rank == 0:
-        num_accepted = { # acceptance counter
-            'Beta_logsigma'       : 0,
-            'Beta_ksi'            : 0,
-            'sigma_Beta_mu0'      : 0,
-            'sigma_Beta_mu1'      : 0,
-            'sigma_Beta_logsigma' : 0,
-            'sigma_Beta_ksi'      : 0
-        }
-        for key in phi_block_idx_dict.keys():
-            num_accepted[key] = 0
-        for key in range_block_idx_dict.keys():
-            num_accepted[key] = 0
-
+        num_accepted = {}
+        # phi
+        for key in phi_block_idx_dict.keys(): num_accepted[key] = 0
+        # range
+        for key in range_block_idx_dict.keys(): num_accepted[key] = 0
+        # tau
+        num_accepted['tau'] = 0
+        # marginal Y
+        num_accepted['Beta_logsigma'] = 0
+        num_accepted['Beta_ksi']      = 0
+        # regularization
+        num_accepted['sigma_Beta_mu0']      = 0
+        num_accepted['sigma_Beta_mu1']      = 0
+        num_accepted['sigma_Beta_logsigma'] = 0
+        num_accepted['sigma_Beta_ksi']      = 0
+        
     # %% Storage and Initialize ---------------------------------------------------------------------------------------
     # Storage and Initialize
             
@@ -997,12 +1000,12 @@ if __name__ == "__main__":
             llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
             llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
             if rank == 0:
-                llik_current  = np.sum(llik_1t_current_gathered)  + np.sum(scipy.stats.beta.logpdf(range_knots_current, a = 5, b = 5))
-                llik_proposal = np.sum(llik_1t_proposal_gathered) + np.sum(scipy.stats.beta.logpdf(range_knots_proposal, a = 5, b = 5))
+                llik_current  = np.sum(llik_1t_current_gathered)  + np.sum(scipy.stats.halfnorm.logpdf(range_knots_current, loc = 0, scale = 2))
+                llik_proposal = np.sum(llik_1t_proposal_gathered) + np.sum(scipy.stats.halfnorm.logpdf(range_knots_proposal, loc = 0, scale = 2))
                 r = np.exp(llik_proposal - llik_current)
                 if np.isfinite(r) and r >= random_generator.uniform():
                     num_accepted[key] += 1
-                    range_accepted       = True
+                    range_accepted     = True
             range_accepted = comm.bcast(range_accepted, root = 0)
             
             if range_accepted:
@@ -1018,7 +1021,49 @@ if __name__ == "__main__":
         ############################################################
         ####                 Update tau                         ####
         ############################################################
+        # Propose new tau ---------------------------------------------------------------------------------------------
+        if rank == 0:
+            tau_proposal = np.sqrt(sigma_m_sq['tau']) * scipy.stats.norm.rvs(loc = tau_current, random_state = random_generator)
+        else:
+            tau_proposal = None
+        tau_proposal = comm.bcast(tau_proposal, root = 0)
 
+        # Data Likelihood ---------------------------------------------------------------------------------------------
+        if not tau_proposal > 0:
+            llik_1t_proposal = np.NINF
+        else:
+            X_1t_proposal = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+                                phi_vec_current, gamma_vec, tau_proposal)
+            dX_1t_proposal = dRW(X_1t_proposal, phi_vec_current, gamma_vec, tau_proposal)
+
+            # Without Jacobian
+            llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+                                                R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+                                                X_1t_proposal, X_star_1t_current, dX_1t_proposal, censored_idx_1t_current, exceed_idx_1t_current) \
+                                + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
+
+        # Update ------------------------------------------------------------------------------------------------------
+        tau_accepted = False
+        llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
+        llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
+        if rank == 0:
+            llik_current  = np.sum(llik_1t_current_gathered)  + dhalft(tau_current, nu = 1, mu = 0, sigma = 5)
+            llik_proposal = np.sum(llik_1t_proposal_gathered) + dhalft(tau_proposal, nu = 1, mu = 0, sigma = 5)
+            r = np.exp(llik_proposal - llik_current)
+            if np.isfinite(r) and r >= random_generator.uniform():
+                num_accepted['tau'] += 1
+                tau_accepted         = True
+        tau_accepted = comm.bcast(tau_accepted, root = 0)
+        
+        if tau_accepted:
+            tau_current     = tau_proposal
+            X_1t_current    = X_1t_proposal.copy()
+            dX_1t_current   = dX_1t_proposal.copy()
+            llik_1t_current = llik_1t_proposal
+        
+        # Save --------------------------------------------------------------------------------------------------------
+        if rank == 0: tau_trace[iter,:] = tau_current
+        comm.Barrier()
 
         # %% Update GPD ------------------------------------------------------------------------------------------------
         ############################################################
@@ -1114,6 +1159,13 @@ if __name__ == "__main__":
                     Sigma_0_hat        = np.array(np.cov(range_knots_trace[iter-adapt_size:iter, start_idx:end_idx].T))
                     Sigma_0[key]       = Sigma_0[key] + gamma1 * (Sigma_0_hat - Sigma_0[key])
 
+            # tau
+            if rank == 0:
+                r_hat               = num_accepted['tau']/adapt_size
+                num_accepted['tau'] = 0
+                log_sigma_m_sq_hat  = np.log(sigma_m_sq['tau']) + gamma2 * (r_hat - r_opt)
+                sigma_m_sq['tau']   = np.exp(log_sigma_m_sq_hat)
+            
         comm.Barrier()
 
         # %% Midway Printing, Drawings, and Savings
@@ -1125,7 +1177,7 @@ if __name__ == "__main__":
 
             if iter % 10 == 0: print('iter', iter, 'elapsed: ', round(time.time() - start_time, 1), 'seconds')
 
-            if iter % 25 == 0 or iter == n_iters-1:
+            if iter % 30 == 0 or iter == n_iters-1: # we are not saving the counters, so this must be a multiple of adapt_size!
 
                 # Saving ----------------------------------------------------------------------------------------------
                 np.save('loglik_trace',      loglik_trace)
@@ -1133,6 +1185,7 @@ if __name__ == "__main__":
                 np.save('Z_trace',           Z_trace)
                 np.save('phi_knots_trace',   phi_knots_trace)
                 np.save('range_knots_trace', range_knots_trace)
+                np.save('tau_trace',         tau_trace)
 
                 with open('iter.pkl', 'wb')               as file: pickle.dump(iter, file)
                 with open('sigma_m_sq.pkl', 'wb')         as file: pickle.dump(sigma_m_sq, file)
@@ -1152,6 +1205,7 @@ if __name__ == "__main__":
                 Z_trace_thin                   = Z_trace[0:iter:thin,:,:]
                 phi_knots_trace_thin           = phi_knots_trace[0:iter:thin,:]
                 range_knots_trace_thin         = range_knots_trace[0:iter:thin,:]
+                tau_trace_thin                 = tau_trace[0:iter:thin,:]
 
                 # ---- log-likelihood ----
                 plt.subplots()
@@ -1209,7 +1263,7 @@ if __name__ == "__main__":
                 plt.title('traceplot for phi')
                 plt.xlabel('iter thinned by '+str(thin))
                 plt.ylabel('phi')
-                plt.legend()
+                plt.legend(loc = 'upper left')
                 plt.savefig('trace_phi.pdf')
                 plt.close()
 
@@ -1221,10 +1275,20 @@ if __name__ == "__main__":
                 plt.title('traceplot for range')
                 plt.xlabel('iter thinned by '+str(thin))
                 plt.ylabel('range')
-                plt.legend()
+                plt.legend(loc = 'upper left')
                 plt.savefig('trace_range.pdf')
                 plt.close()
             
+                # ---- tau ----
+                plt.subplots()
+                plt.plot(xs_thin2, tau_trace_thin, label = 'nugget std dev')
+                plt.title('tau nugget standard deviation')
+                plt.xlabel('iter thinned by '+str(thin))
+                plt.ylabel('tau')
+                plt.legend(loc='upper left')
+                plt.savefig('trace_tau.pdf')
+                plt.close()
+
             if iter == n_iters - 1:
                 print(iter)
                 end_time = time.time()

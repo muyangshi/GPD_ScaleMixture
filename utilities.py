@@ -337,7 +337,7 @@ def phalft(y, nu, mu=0, sigma=1):
         return 2*scipy.stats.t.cdf(y, nu, mu, sigma) - 1
     else: # y < mu
         return 0
-def rhalft(y, nu, mu=0, sigma=1):
+def rhalft(nu, mu=0, sigma=1):
     return mu + np.abs(scipy.stats.t.rvs(nu, 0, sigma))
 
 # transformation to standard Pareto
