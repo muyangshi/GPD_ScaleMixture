@@ -5,12 +5,12 @@ data/.DS_Store
 
 # Custom
 scratch/*
-write_bash.py
-write_bash*.py
 data/*
 *.gzip
 *.RData
 *.pages
+cb_2018_us_state_20m/*
+proposal_cov.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
