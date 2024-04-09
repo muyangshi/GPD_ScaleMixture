@@ -1038,7 +1038,7 @@ if __name__ == "__main__":
 
             # Without Jacobian
             llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                                R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+                                                R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_proposal,
                                                 X_1t_proposal, X_star_1t_current, dX_1t_proposal, censored_idx_1t_current, exceed_idx_1t_current) \
                                 + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
 
