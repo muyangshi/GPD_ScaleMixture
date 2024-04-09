@@ -1047,8 +1047,8 @@ if __name__ == "__main__":
         llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
         llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
         if rank == 0:
-            llik_current  = np.sum(llik_1t_current_gathered)  + dhalft(tau_current, nu = 1, mu = 0, sigma = 5)
-            llik_proposal = np.sum(llik_1t_proposal_gathered) + dhalft(tau_proposal, nu = 1, mu = 0, sigma = 5)
+            llik_current  = np.sum(llik_1t_current_gathered)  + np.log(dhalft(tau_current, nu = 1, mu = 0, sigma = 5))
+            llik_proposal = np.sum(llik_1t_proposal_gathered) + np.log(dhalft(tau_proposal, nu = 1, mu = 0, sigma = 5))
             r = np.exp(llik_proposal - llik_current)
             if np.isfinite(r) and r >= random_generator.uniform():
                 num_accepted['tau'] += 1
