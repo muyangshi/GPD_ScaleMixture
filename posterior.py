@@ -58,12 +58,13 @@ np.random.seed(data_seed)
 # %% load traceplot
 # load traceplots
 
-folder = './Data/20240406_t24s100_SZphi_noJ/'
+folder = './Data/20240408_t24s100_SZPhiRhoTau_noJ/'
 
 S_trace_log               = np.load(folder + 'S_trace_log.npy')
 Z_trace                   = np.load(folder + 'Z_trace.npy')
 phi_knots_trace           = np.load(folder + 'phi_knots_trace.npy')
 range_knots_trace         = np.load(folder + 'range_knots_trace.npy')
+tau_trace                 = np.load(folder + 'tau_trace.npy')
 Beta_mu0_trace            = np.load(folder + 'Beta_mu0_trace.npy')
 Beta_mu1_trace            = np.load(folder + 'Beta_mu1_trace.npy')
 Beta_logsigma_trace       = np.load(folder + 'Beta_logsigma_trace.npy')

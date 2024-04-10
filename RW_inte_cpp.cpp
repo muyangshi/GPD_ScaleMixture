@@ -476,11 +476,10 @@ double qRW_standard_Pareto_nugget_C_brent(double p, double phi, double gamma, do
     if(status != -2 && status != 0) 
         std::cout << "location 1 :" <<
         std::string( gsl_strerror (status) ) <<
-        " p: " << p << " " <<
-        "phi: " << phi << " " <<
-        "gamma: " << gamma <<
-        std::endl;
-
+        " p: "    << p     << " " <<
+        "phi: "   << phi   << " " <<
+        "gamma: " << gamma << " " <<
+        "tau: "   << tau   << std::endl;
     do
         {
             iter++;

@@ -1234,7 +1234,7 @@ if __name__ == "__main__":
 
             if iter % 10 == 0: print('iter', iter, 'elapsed: ', round(time.time() - start_time, 1), 'seconds')
 
-            if iter % 30 == 0 or iter == n_iters-1: # we are not saving the counters, so this must be a multiple of adapt_size!
+            if iter % 50 == 0 or iter == n_iters-1: # we are not saving the counters, so this must be a multiple of adapt_size!
 
                 # Saving ----------------------------------------------------------------------------------------------
                 np.save('loglik_trace',      loglik_trace)
