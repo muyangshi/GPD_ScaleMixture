@@ -1,6 +1,9 @@
 """
 March 26, 2024
 MCMC Sampler for GPD Scale Mixture Model
+
+mpirun -n 24 --output-filename OUTPUTS python3 sampler.py > OUTPUT_COMBINED.txt 2>&1 &
+mpirun -n 24 python3 sampler.py > OUTPUT.txt 2>&1 &
 """
 if __name__ == "__main__":
     # %%
@@ -59,7 +62,7 @@ if __name__ == "__main__":
 
     # %% Load Simulated Dataset ---------------------------------------------------------------------------------------
 
-    Y                  = np.load('Y_sc2_t24_s100_truth.npy')
+    Y                  = np.load('Y_sc2_t24_s225_truth.npy')
     logsigma_estimates = np.load('logsigma_matrix.npy')[:,0]
     ksi_estimates      = np.load('ksi_matrix.npy')[:,0]
     stations           = np.load('sites_xy.npy')
@@ -579,7 +582,7 @@ if __name__ == "__main__":
         
         # sigma_m: proposal scalar variance for St, Zt, phi, range, tau, marginal Y, and regularization terms ---------
         S_log_cov               = pc.S_log_cov               if pc.S_log_cov               is not None else np.tile(0.05*np.eye(k)[:,:,None], reps = (1,1,Nt))
-        Z_cov                   = pc.Z_cov                   if pc.Z_cov                   is not None else np.tile(np.eye(Ns)[:,:,None],reps = (1,1,Nt))
+        Z_cov                   = pc.Z_cov                   if pc.Z_cov                   is not None else np.tile(0.01*np.eye(Ns)[:,:,None],reps = (1,1,Nt))
         tau_var                 = pc.tau_var                 if pc.tau_var                 is not None else 1
         sigma_Beta_logsigma_var = pc.sigma_Beta_logsigma_var if pc.sigma_Beta_logsigma_var is not None else 1
         sigma_Beta_ksi_var      = pc.sigma_Beta_ksi_var      if pc.sigma_Beta_ksi_var      is not None else 1
@@ -862,14 +865,6 @@ if __name__ == "__main__":
         start_time = time.time()
         print('started on:', strftime('%Y-%m-%d %H:%M:%S', localtime(time.time())))
 
-    # # With Jacobian
-    # llik_1t_current = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-    #                                   R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
-    #                                   X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) + \
-    #                   X_star_conditional_ll_1t(X_star_1t_current, R_vec_current, phi_vec_current, K_current,
-    #                                            Z_1t_current)
-    
-    # Without Jacobian
     llik_1t_current = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                        R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
                                        X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
@@ -897,14 +892,6 @@ if __name__ == "__main__":
 
             # Data Likelihood -----------------------------------------------------------------------------------------
             
-            # # With Jacobian
-            # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-            #                                     R_vec_proposal, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
-            #                                     X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
-            #                  + X_star_conditional_ll_1t(X_star_1t_proposal, R_vec_proposal, phi_vec_current, K_current,
-            #                                             Z_1t_current)
-            
-            # Without Jacobian
             llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                                 R_vec_proposal, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
                                                 X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
@@ -943,14 +930,6 @@ if __name__ == "__main__":
 
             # Data Likelihood -----------------------------------------------------------------------------------------
             
-            # # With Jacobian
-            # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-            #                                     R_vec_current, Z_1t_proposal, phi_vec_current, gamma_vec, tau_current,
-            #                                     X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
-            #                  + X_star_conditional_ll_1t(X_star_1t_proposal, R_vec_current, phi_vec_current, K_current,
-            #                                             Z_1t_proposal)
-            
-            # Without Jacobian
             llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                                 R_vec_current, Z_1t_proposal, phi_vec_current, gamma_vec, tau_current,
                                                 X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
@@ -1080,7 +1059,7 @@ if __name__ == "__main__":
         ############################################################
         # Propose new tau ---------------------------------------------------------------------------------------------
         if rank == 0:
-            tau_proposal = np.sqrt(sigma_m_sq['tau']) * scipy.stats.norm.rvs(loc = tau_current, random_state = random_generator)
+            tau_proposal = tau_current + np.sqrt(sigma_m_sq['tau']) * random_generator.normal(0.0, 1.0)            
         else:
             tau_proposal = None
         tau_proposal = comm.bcast(tau_proposal, root = 0)
@@ -1104,9 +1083,11 @@ if __name__ == "__main__":
         llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
         llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
         if rank == 0:
-            llik_current  = np.sum(llik_1t_current_gathered)  + np.log(dhalft(tau_current, nu = 1, mu = 0, sigma = 5))
-            llik_proposal = np.sum(llik_1t_proposal_gathered) + np.log(dhalft(tau_proposal, nu = 1, mu = 0, sigma = 5)) if tau_proposal > 0 else np.NINF
-            r = np.exp(llik_proposal - llik_current)
+            llik_current  = np.sum(llik_1t_current_gathered)
+            llik_proposal = np.sum(llik_1t_proposal_gathered)
+            lprior_tau_current  = np.log(dhalft(tau_current, nu = 1, mu = 0, sigma = 5))
+            lprior_tau_proposal = np.log(dhalft(tau_proposal, nu = 1, mu = 0, sigma = 5)) if tau_proposal > 0 else np.NINF
+            r = np.exp(llik_proposal + lprior_tau_proposal - llik_current - lprior_tau_current)
             if np.isfinite(r) and r >= random_generator.uniform():
                 num_accepted['tau'] += 1
                 tau_accepted         = True
