@@ -46,7 +46,7 @@ def pRW_par(args):
     x, phi, gamma, tau = args
     return(pRW(x, phi, gamma, tau))
 
-with multiprocessing.get_context('fork').Pool(processes=4) as pool:
+with multiprocessing.get_context('fork').Pool(processes=30) as pool:
     p_samples = pool.map(pRW_par, list(inputs))
 p_samples = np.array(p_samples)
 
@@ -96,8 +96,12 @@ def pRW_NN(x, phi, gamma, tau):
 pRW_NN_vec = np.vectorize(pRW_NN)
 
 # %%
-x = np.linspace(0, 100, 2000)
-plt.plot(x, pRW(x, 0.5, 0.5, 1), label = 'incomplete gamma')
-plt.plot(x, pRW_NN_vec(x, 0.5, 0.5, 1), label = 'NN')
+xs = np.linspace(10, 500, 1000)
+tmp = np.array([[x, 0.5, 0.5, 1] for x in xs])
+# model.predict(np.array([[x, 0.5, 0.5, 1] for x in xs]), verbose = 0).ravel()
+
+
+plt.plot(xs, pRW(xs, 0.5, 0.5, 1), label = 'incomplete gamma')
+plt.plot(xs, model.predict(tmp, verbose = 0).ravel(), label = 'NN')
 plt.legend(loc = 'upper left')
 # %%
