@@ -50,15 +50,12 @@ if __name__ == "__main__":
     for t in range(Nt):
         miss_matrix[:,t] = np.random.choice([0, 1], size = (Ns,), p = [1-miss_proportion, miss_proportion])
     miss_matrix = miss_matrix.astype(bool) # matrix of True/False indicating missing, True means missing
-    if rank == 0:
-        np.save('miss_matrix_bool', miss_matrix)
+
 
     # Sites - random unifromly (x,y) generate site locations ----------------------------------------------------------
     sites_xy = np.random.random((Ns, 2)) * 10
     sites_x = sites_xy[:,0]
     sites_y = sites_xy[:,1]
-
-    np.save('sites_xy',sites_xy)
 
     # Elevation Function ----------------------------------------------------------------------------------------------
     # Note: the simple elevation function 1/5(|x-5| + |y-5|) is way too similar to the first basis
@@ -70,8 +67,6 @@ if __name__ == "__main__":
 
     # spatiall constant
     elevations = np.full(shape = (sites_xy.shape[0],), fill_value = 0.0)
-
-    np.save('elevations', elevations)
 
     # Knots - isometric grid of 9 + 4 = 13 knots ----------------------------------------------------------------------
 
@@ -193,9 +188,6 @@ if __name__ == "__main__":
     sigma_matrix = np.exp((C_logsigma.T @ Beta_logsigma).T)
     ksi_matrix   = (C_ksi.T @ Beta_ksi).T
 
-    np.save('logsigma_matrix', np.log(sigma_matrix))
-    np.save('ksi_matrix', ksi_matrix)
-
     # Data Model Parameters - X_star = R^phi * g(Z) -------------------------------------------------------------------
 
     # range_at_knots = np.sqrt(0.3*knots_x + 0.4*knots_y)/2 # range for spatial Matern Z
@@ -259,8 +251,22 @@ if __name__ == "__main__":
                                 sigma_matrix[exceed_idx, t],
                                 ksi_matrix[exceed_idx, t])
     
+    # %% saving data
+    # Saving data -----------------------------------------------------------------------------------------------------
     if rank == 0:
-        np.save('Y_stationary_seed_'+str(data_seed) + '_t'+str(Nt)+'_s'+str(Ns)+'_truth', Y)
+        folder = '../data/stationary_seed'+str(data_seed)+'_t'+str(Nt)+'_s'+str(Ns)+'/'
+        np.save(folder+'Y', Y)
+        np.save(folder+'X', X)
+        np.save(folder+'Z', Z)
+        np.save(folder+'X_star', X_star)
+        np.save(folder+'S_at_knots', S_at_knots)
+        np.save(folder+'nuggets', nuggets)
+        np.save(folder+'miss_matrix_bool', miss_matrix)
+
+        np.save(folder+'sites_xy',sites_xy)
+        np.save(folder+'elevations', elevations)
+        np.save(folder+'logsigma_matrix', np.log(sigma_matrix))
+        np.save(folder+'ksi_matrix', ksi_matrix)
     for t in range(Nt):
         Y[:,t][miss_matrix[:,t]] = np.nan
     
@@ -398,7 +404,7 @@ if __name__ == "__main__":
     plt.ylabel('latitude', fontsize = 20)
     plt.subplots_adjust(right=0.6)
     plt.show()
-    plt.savefig('stations.pdf',bbox_inches="tight")
+    plt.savefig(folder+'stations.pdf',bbox_inches="tight")
     plt.close()
 
 
@@ -410,7 +416,7 @@ if __name__ == "__main__":
     plt.colorbar(elev_scatter)
     plt.title('elevation')
     plt.show()
-    plt.savefig('station_elevation.pdf')
+    plt.savefig(folder+'station_elevation.pdf')
     plt.close()       
 
 
@@ -424,7 +430,7 @@ if __name__ == "__main__":
     graph.colorbar(heatmap)
     plt.title(r'true $\phi$ surface')
     plt.show()
-    plt.savefig('true_phi_surface.pdf')
+    plt.savefig(folder+'true_phi_surface.pdf')
     plt.close()
 
 
@@ -438,6 +444,6 @@ if __name__ == "__main__":
     graph.colorbar(heatmap)
     plt.title(r'true $\rho$ surface')
     plt.show()
-    plt.savefig('true_range_surface.pdf')
+    plt.savefig(folder+'true_range_surface.pdf')
     plt.close()
 # %%
