@@ -18,10 +18,13 @@ from keras import layers
 
 # pRW(1e16, 1, 4, 50) yields array(0.99999999)
 
-p_samples = 2 - np.geomspace(1-1e-3, 2-0.8, 25)[::-1]
-phi_samples = np.linspace(0.05, 1, 10)
+p_ub = 0.999
+p_lb = 0.8
+
+p_samples = 2 - np.geomspace(2-p_ub, 2-p_lb, 100)[::-1]
+phi_samples = np.linspace(0.05, 0.99, 20)
 gamma_samples = np.linspace(0.1, 4, 10)
-tau_samples = np.linspace(1e-3, 50, 10)
+tau_samples = np.linspace(0.1, 50, 20)
 
 
 # 14 seconds for total of 100000
@@ -41,10 +44,14 @@ def qRW_par(args):
     p, phi, gamma, tau = args
     return(qRW(p, phi, gamma, tau))
 
-with multiprocessing.get_context('fork').Pool(processes=4) as pool:
+with multiprocessing.get_context('fork').Pool(processes=30) as pool:
     x_samples = pool.map(qRW_par, list(inputs))
 x_samples = np.array(x_samples)
 
+print('done')
+np.save('x_samples_100_20_10_20', x_samples)
+
+# 400,000 in 5 minutes, 30 processes
 
 # from multiprocessing import get_context
 # p = get_context("fork").Pool(4)
@@ -57,10 +64,10 @@ x_samples = np.array(x_samples)
 model = keras.Sequential(
     [   
         keras.Input(shape=(4,)),
+        layers.Dense(256, activation='relu'),
         layers.Dense(128, activation='relu'),
-        layers.Dense(128, activation='relu'),
-        layers.Dense(128, activation='relu'),
-        layers.Dense(128, activation='relu'),
+        layers.Dense(64, activation='relu'),
+        layers.Dense(32, activation='relu'),
         layers.Dense(1)
     ]
 )
@@ -82,21 +89,27 @@ y_train = x_samples[train_indices]
 y_val   = x_samples[test_indices]
 
 y_train = np.log(y_train)
-y_val = np.log(y_val)
+y_val   = np.log(y_val)
 
 
 # %%
 # Fitting Model
-model.fit(X_train, y_train, epochs= 100, validation_data=(X_val, y_val))
+history = model.fit(X_train, y_train, epochs= 100, validation_data=(X_val, y_val))
+model.save("qRW_100_20_10_20.keras")
+# model = keras.models.load_model("my_model.keras")
 
 # %%
-def qRW_NN(x, phi, gamma, tau):
-    return model.predict(np.array([[x, phi, gamma, tau]]), verbose=0)[0]
-qRW_NN_vec = np.vectorize(qRW_NN)
+# def qRW_NN(x, phi, gamma, tau):
+#     return model.predict(np.array([[x, phi, gamma, tau]]), verbose=0)[0]
+# qRW_NN_vec = np.vectorize(qRW_NN)
 
 # %%
-p = np.linspace(0.8, 0.999, 100)
-plt.plot(p, qRW(p, 0.5, 0.5, 1), label = 'incomplete gamma')
-plt.plot(p, np.exp(qRW_NN_vec(p, 0.5, 0.5, 1)), label = 'NN')
+ps = np.linspace(0.9, 0.999, 100)
+
+plt.plot(ps, qRW(ps, 0.5, 0.5, 1), label = 'incomplete gamma')
+
+tmp = np.array([[p, 0.5, 0.5, 1] for p in ps])
+plt.plot(ps, np.exp(model.predict(tmp, verbose = 0).ravel()), label = 'NN')
+
 plt.legend(loc = 'upper left')
 # %%
