@@ -209,8 +209,11 @@ if __name__ == "__main__":
 
     # %%
     # phi -------------------------------------------------------------------------------------------------------------
+    lb = 0.6
+    ub = 0.8
+    grids = 5
+    phi_grid = np.linspace(lb, ub, grids)
     ll_phi = []
-    phi_grid = np.linspace(0.1, 0.9, 5)
     for phi_x in phi_grid:
         args_list = []
         for t in range(Nt):
@@ -245,17 +248,196 @@ if __name__ == "__main__":
             results = pool.map(ll_1t_par, args_list)
         ll_phi.append(sum(results))
 
-    plt.plot(np.linspace(0.1, 0.9, 5), ll_phi, 'b.-')
+    print(ll_phi)
+    plt.plot(np.linspace(lb, ub, grids), ll_phi, 'b.-')
+    plt.savefig(folder+'ll_phi.pdf')
     np.save(folder+'ll_phi', ll_phi)
 
     # %%
     # rho -------------------------------------------------------------------------------------------------------------
+    lb = 0.5
+    ub = 1.5
+    grids = 5
+    rho_grid = np.linspace(lb, ub, grids)
+    ll_rho = []
+    for rho_x in rho_grid:
+        args_list = []
+        for t in range(Nt):
+            # marginal process
+            Y_1t      = Y[:,t]
+            p         = 0.9
+            u_vec     = u_matrix[:,t]
+            Scale_vec = scale_matrix[:,t]
+            Shape_vec = shape_matrix[:,t]
+
+            censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+            exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+
+            # copula process
+            R_vec     = wendland_weight_matrix @ S_at_knots[:,t]
+            Z_1t      = Z[:,t]
+            phi_vec   = gaussian_weight_matrix @ phi_at_knots
+            tau       = 10
+            range_vec = gaussian_weight_matrix @ np.array([rho_x] * k)
+            K         = ns_cov(range_vec = range_vec,
+                            sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = 'matern')
+
+            X_1t      = None
+            X_star_1t = None
+
+            args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
+                            R_vec, Z_1t, phi_vec, gamma_vec, tau,
+                            X_1t, X_star_1t, censored_idx_1t, exceed_idx_1t,
+                            K))
+
+        with multiprocessing.Pool(processes = Nt) as pool:
+            results = pool.map(ll_1t_par, args_list)
+        ll_rho.append(sum(results))
+
+    print(ll_rho)
+    plt.plot(np.linspace(lb, ub, grids), ll_rho, 'b.-')
+    plt.savefig(folder+'ll_rho.pdf')
+    np.save(folder+'ll_rho', ll_rho)
+
+    # %%
+    # tau -------------------------------------------------------------------------------------------------------------
+    lb = 8
+    ub = 12
+    grids = 5
+    tau_grid = np.linspace(lb, ub, grids)
+    ll_tau = []
+    for tau_x in tau_grid:
+        args_list = []
+        for t in range(Nt):
+            # marginal process
+            Y_1t      = Y[:,t]
+            p         = 0.9
+            u_vec     = u_matrix[:,t]
+            Scale_vec = scale_matrix[:,t]
+            Shape_vec = shape_matrix[:,t]
+
+            censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+            exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+
+            # copula process
+            R_vec     = wendland_weight_matrix @ S_at_knots[:,t]
+            Z_1t      = Z[:,t]
+            phi_vec   = gaussian_weight_matrix @ phi_at_knots
+            tau       = tau_x
+            range_vec = gaussian_weight_matrix @ range_at_knots
+            K         = ns_cov(range_vec = range_vec,
+                            sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = 'matern')
+
+            X_1t      = None
+            X_star_1t = None
+
+            args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
+                            R_vec, Z_1t, phi_vec, gamma_vec, tau,
+                            X_1t, X_star_1t, censored_idx_1t, exceed_idx_1t,
+                            K))
+
+        with multiprocessing.Pool(processes = Nt) as pool:
+            results = pool.map(ll_1t_par, args_list)
+        ll_tau.append(sum(results))
+
+    print(ll_tau)
+    plt.plot(np.linspace(lb, ub, grids), ll_tau, 'b.-')
+    plt.savefig(folder+'ll_tau.pdf')
+    np.save(folder+'ll_tau', ll_tau)
+
 
     # %%
     # scale -----------------------------------------------------------------------------------------------------------
+    lb = 0.8
+    ub = 1.2
+    grids = 5
+    scale_grid = np.linspace(lb, ub, grids)
+    ll_scale = []
+    for scale_x in scale_grid:
+        args_list = []
+        for t in range(Nt):
+            # marginal process
+            Y_1t      = Y[:,t]
+            p         = 0.9
+            u_vec     = u_matrix[:,t]
+            Scale_vec = np.full((Ns,), scale_x)
+            Shape_vec = shape_matrix[:,t]
+
+            censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+            exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+
+            # copula process
+            R_vec     = wendland_weight_matrix @ S_at_knots[:,t]
+            Z_1t      = Z[:,t]
+            phi_vec   = gaussian_weight_matrix @ phi_at_knots
+            tau       = 10
+            range_vec = gaussian_weight_matrix @ range_at_knots
+            K         = ns_cov(range_vec = range_vec,
+                            sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = 'matern')
+
+            X_1t      = None
+            X_star_1t = None
+
+            args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
+                            R_vec, Z_1t, phi_vec, gamma_vec, tau,
+                            X_1t, X_star_1t, censored_idx_1t, exceed_idx_1t,
+                            K))
+
+        with multiprocessing.Pool(processes = Nt) as pool:
+            results = pool.map(ll_1t_par, args_list)
+        ll_scale.append(sum(results))
+
+    print(ll_scale)
+    plt.plot(np.linspace(lb, ub, grids), ll_scale, 'b.-')
+    plt.savefig(folder+'ll_scale.pdf')
+    np.save(folder+'ll_scale', ll_scale)
+
 
     # %%
     # shape -----------------------------------------------------------------------------------------------------------
+    lb = 0.2
+    ub = 0.3
+    grids = 5
+    shape_grid = np.linspace(lb, ub, grids)
+    ll_shape = []
+    for shape_x in shape_grid:
+        args_list = []
+        for t in range(Nt):
+            # marginal process
+            Y_1t      = Y[:,t]
+            p         = 0.9
+            u_vec     = u_matrix[:,t]
+            Scale_vec = scale_matrix[:,t]
+            Shape_vec = np.full((Ns,), shape_x)
 
+            censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+            exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+
+            # copula process
+            R_vec     = wendland_weight_matrix @ S_at_knots[:,t]
+            Z_1t      = Z[:,t]
+            phi_vec   = gaussian_weight_matrix @ phi_at_knots
+            tau       = 10
+            range_vec = gaussian_weight_matrix @ range_at_knots
+            K         = ns_cov(range_vec = range_vec,
+                            sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = 'matern')
+
+            X_1t      = None
+            X_star_1t = None
+
+            args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
+                            R_vec, Z_1t, phi_vec, gamma_vec, tau,
+                            X_1t, X_star_1t, censored_idx_1t, exceed_idx_1t,
+                            K))
+
+        with multiprocessing.Pool(processes = Nt) as pool:
+            results = pool.map(ll_1t_par, args_list)
+        ll_shape.append(sum(results))
+
+    print(ll_shape)
+    plt.plot(np.linspace(lb, ub, grids), ll_shape, 'b.-')
+    plt.yscale('symlog')
+    plt.savefig(folder+'ll_shape.pdf')
+    np.save(folder+'ll_shape', ll_shape)
 
 # %%
