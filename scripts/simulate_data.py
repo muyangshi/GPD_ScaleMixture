@@ -44,8 +44,8 @@ if __name__ == "__main__":
 
     # Numbers - Ns, Nt ------------------------------------------------------------------------------------------------   
     np.random.seed(data_seed)
-    Nt = 24 # number of time replicates
-    Ns = 100 # number of sites/stations
+    Nt = 50 # number of time replicates
+    Ns = 500 # number of sites/stations
     Time = np.linspace(-Nt/2, Nt/2-1, Nt)/np.std(np.linspace(-Nt/2, Nt/2-1, Nt), ddof=1)
 
     # missing indicator matrix ----------------------------------------------------------------------------------------
@@ -77,11 +77,13 @@ if __name__ == "__main__":
     # Knots - isometric grid of 9 + 4 = 13 knots ----------------------------------------------------------------------
 
     # define the lower and upper limits for x and y
-    minX, maxX = np.floor(np.min(sites_x)), np.ceil(np.max(sites_x))
-    minY, maxY = np.floor(np.min(sites_y)), np.ceil(np.max(sites_y))
+    # minX, maxX = np.floor(np.min(sites_x)), np.ceil(np.max(sites_x))
+    # minY, maxY = np.floor(np.min(sites_y)), np.ceil(np.max(sites_y))
+    minX, maxX = 0.0, 10.0
+    minY, maxY = 0.0, 10.0
 
     # isometric knot grid
-    N_outer_grid = 9
+    N_outer_grid = 16
     h_dist_between_knots     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid))-1)
     v_dist_between_knots     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid))-1)
     x_pos                    = np.linspace(minX + h_dist_between_knots/2, maxX + h_dist_between_knots/2, 
@@ -105,8 +107,8 @@ if __name__ == "__main__":
 
     # Copula Splines --------------------------------------------------------------------------------------------------
 
-    bandwidth = 4 # range for the gaussian kernel
-    radius = 4 # radius of infuence for basis, 3.5 might make some points closer to the edge of circle, might lead to numerical issues
+    radius = 2
+    bandwidth = radius**2/6 # range for the gaussian kernel
     radius_from_knots = np.repeat(radius, k) # ?influence radius from a knot?
     assert k == len(knots_xy)
     
@@ -186,8 +188,8 @@ if __name__ == "__main__":
     p = 0.9
 
     # Marginal Parameters - GP(sigma, ksi) ----------------------------------------------------------------------------
-    Beta_logsigma       = np.array([0.0, 0.25])
-    Beta_ksi            = np.array([0.0, 0.1])
+    Beta_logsigma       = np.array([0.0, 0.0])
+    Beta_ksi            = np.array([0.25, 0.0])
     sigma_Beta_logsigma = 1
     sigma_Beta_ksi      = 1
 
@@ -278,8 +280,9 @@ if __name__ == "__main__":
     plt.axline((0,0), slope = 1, color = 'black')
     plt.xlim((0,1))
     plt.ylim((0,1))
-    plt.title('QQ-Plot site {}'.format(site_i))
+    plt.title('Levy CDF of S site {}'.format(site_i))
     plt.show()
+    plt.savefig('DataGeneration:QQPlot_Stable_site_{}.pdf'.format(site_i))
     plt.close()
     # scipy.stats.probplot(scipy.stats.levy.cdf(S_at_knots[i,:], scale=gamma), dist='uniform', fit=False, plot=plt)
 
@@ -297,8 +300,9 @@ if __name__ == "__main__":
         plt.axline((0,0), slope = 1, color = 'black')
         plt.xlim((0,1))
         plt.ylim((0,1))
-        plt.title('QQ-Plot site {}'.format(site_i))
+        plt.title('Pareto CDF of W site {}'.format(site_i))
         plt.show()
+        plt.savefig('DataGeneration:QQPlot_Pareto_site_{}.pdf'.format(site_i))
         plt.close()
         # scipy.stats.probplot(scipy.stats.pareto.cdf(W[site_i,:], b = 1, loc = 0, scale = 1), dist='uniform', fit=False, plot=plt)
 
@@ -314,8 +318,9 @@ if __name__ == "__main__":
     plt.axline((0,0), slope = 1, color = 'black')
     plt.xlim((0,1))
     plt.ylim((0,1))
-    plt.title('QQ-Plot site {}'.format(site_i))
+    plt.title('pRW CDF of X site {}'.format(site_i))
     plt.show()
+    plt.savefig('DataGeneration:QQPlot_X_site_{}.pdf'.format(site_i))
     plt.close()
 
     # checking marginal exceedance ------------------------------------------------------------------------------------
@@ -335,8 +340,9 @@ if __name__ == "__main__":
     plt.axline((0,0), slope = 1, color = 'black')
     plt.xlim((0,1))
     plt.ylim((0,1))
-    plt.title('QQ-Plot of all exceedance')
+    plt.title('Generalized Pareto CDF of all exceedance')
     plt.show()
+    plt.savefig('DataGeneration:QQPlot_Yexceed_all.pdf')
     plt.close()
 
     # %% Plot Generated Surfaces --------------------------------------------------------------------------------------
@@ -396,7 +402,7 @@ if __name__ == "__main__":
     plt.ylabel('latitude', fontsize = 20)
     plt.subplots_adjust(right=0.6)
     plt.show()
-    plt.savefig('stations.pdf',bbox_inches="tight")
+    plt.savefig('DataGeneration:stations.pdf',bbox_inches="tight")
     plt.close()
 
 
@@ -407,7 +413,7 @@ if __name__ == "__main__":
     ax.set_aspect('equal', 'box')
     plt.colorbar(elev_scatter)
     plt.show()
-    plt.savefig('station_elevation.pdf')
+    plt.savefig('DataGeneration:station_elevation.pdf')
     plt.close()       
 
 
@@ -420,7 +426,7 @@ if __name__ == "__main__":
     ax.invert_yaxis()
     graph.colorbar(heatmap)
     plt.show()
-    plt.savefig('heatmap phi surface.pdf')
+    plt.savefig('DataGeneration:true phi surface.pdf')
     plt.close()
 
 
@@ -433,6 +439,6 @@ if __name__ == "__main__":
     ax.invert_yaxis()
     graph.colorbar(heatmap)
     plt.show()
-    plt.savefig('heatmap range surface.pdf')
+    plt.savefig('DataGeneration:true range surface.pdf')
     plt.close()
 # %%

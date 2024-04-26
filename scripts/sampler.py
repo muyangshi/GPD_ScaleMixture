@@ -31,6 +31,8 @@ if __name__ == "__main__":
     import pickle
     from time import strftime, localtime
     import time
+    import geopandas as gpd
+    state_map = gpd.read_file('./cb_2018_us_state_20m/cb_2018_us_state_20m.shp')
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -58,11 +60,11 @@ if __name__ == "__main__":
         start_iter = 1
     
     if norm_pareto == 'shifted': n_iters = 5000
-    if norm_pareto == 'standard': n_iters = 5000
+    if norm_pareto == 'standard': n_iters = 400000
 
     # %% Load Simulated Dataset ---------------------------------------------------------------------------------------
 
-    Y                  = np.load('Y_sc2_t24_s225_truth.npy')
+    Y                  = np.load('Y_sc2_t50_s500_truth.npy')
     logsigma_estimates = np.load('logsigma_matrix.npy')[:,0]
     ksi_estimates      = np.load('ksi_matrix.npy')[:,0]
     stations           = np.load('sites_xy.npy')
@@ -104,7 +106,7 @@ if __name__ == "__main__":
     minX, maxX = np.floor(np.min(sites_x)), np.ceil(np.max(sites_x))
     minY, maxY = np.floor(np.min(sites_y)), np.ceil(np.max(sites_y))
     # isometric knot grid
-    N_outer_grid = 9
+    N_outer_grid = 16
     h_dist_between_knots     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid))-1)
     v_dist_between_knots     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid))-1)
     x_pos                    = np.linspace(minX + h_dist_between_knots/2, maxX + h_dist_between_knots/2, 
@@ -129,7 +131,7 @@ if __name__ == "__main__":
     # Copula Splines --------------------------------------------------------------------------------------------------
     
     # Basis Parameters - for the Gaussian and Wendland Basis
-    radius = 4 # radius of infuence for basis, 3.5 might make some points closer to the edge of circle, might lead to numerical issues
+    radius = 2 # radius of infuence for basis, 3.5 might make some points closer to the edge of circle, might lead to numerical issues
     # bandwidth = 4 # range for the gaussian kernel
     effective_range = radius # effective range for gaussian kernel: exp(-3) = 0.05
     bandwidth = effective_range**2/6
@@ -302,8 +304,8 @@ if __name__ == "__main__":
     u_matrix = np.full(shape = (Ns, Nt), fill_value = 20.0)
     u_vec    = u_matrix[:,rank]
 
-    Beta_logsigma       = np.array([0.0, 0.25])
-    Beta_ksi            = np.array([0.0, 0.1])
+    Beta_logsigma       = np.array([0.0, 0.0])
+    Beta_ksi            = np.array([0.25, 0.0])
     sigma_Beta_logsigma = 1
     sigma_Beta_ksi      = 1
 
@@ -363,8 +365,6 @@ if __name__ == "__main__":
             wendland_weight_matrix_for_plot[site_id, :] = weight_from_knots
         
         # weight from knot plots --------------------------------------------------------------------------------------
-        import geopandas as gpd
-        state_map = gpd.read_file('./cb_2018_us_state_20m/cb_2018_us_state_20m.shp')
 
         # Define the colors for the colormap (white to red)
         # Create a LinearSegmentedColormap
@@ -412,7 +412,7 @@ if __name__ == "__main__":
         fig.subplots_adjust(right=0.8)
         cbar_ax = fig.add_axes([0.85, 0.2, 0.05, 0.6])
         fig.colorbar(heatmap, cax = cbar_ax, ticks = ticks)
-        plt.savefig('weights.pdf')
+        plt.savefig('MCMC:knot weights.pdf')
         plt.show()
         plt.close()
         # -------------------------------------------------------------------------------------------------------------
@@ -444,7 +444,7 @@ if __name__ == "__main__":
         plt.xlabel('longitude', fontsize = 20)
         plt.ylabel('latitude', fontsize = 20)
         plt.subplots_adjust(right=0.6)
-        plt.savefig('stations.pdf',bbox_inches="tight")
+        plt.savefig('MCMC:stations.pdf',bbox_inches="tight")
         plt.close()
 
 
@@ -455,7 +455,7 @@ if __name__ == "__main__":
         ax.set_aspect('equal', 'box')
         plt.colorbar(elev_scatter)
         # plt.show()
-        plt.savefig('station_elevation.pdf')
+        plt.savefig('MCMC:station_elevation.pdf')
         plt.close()       
     
     
@@ -468,7 +468,7 @@ if __name__ == "__main__":
         ax.invert_yaxis()
         graph.colorbar(heatmap)
         # plt.show()
-        plt.savefig('heatmap phi surface.pdf')
+        plt.savefig('MCMC:initial phi surface.pdf')
         plt.close()
 
     
@@ -481,7 +481,7 @@ if __name__ == "__main__":
         ax.invert_yaxis()
         graph.colorbar(heatmap)
         # plt.show()
-        plt.savefig('heatmap range surface.pdf')
+        plt.savefig('MCMC:initial range surface.pdf')
         plt.close()
     
     
@@ -499,6 +499,9 @@ if __name__ == "__main__":
         ## logsigma(s) plot stations
         vmin = min(my_floor(min(logsigma_estimates), 1), my_floor(min(logsigma_vec), 1))
         vmax = max(my_ceil(max(logsigma_estimates), 1), my_ceil(max(logsigma_vec), 1))
+        if vmin == vmax:
+            vmin -= 0.5
+            vmax += 0.5
         divnorm = matplotlib.colors.TwoSlopeNorm(vcenter = (vmin + vmax)/2, vmin = vmin, vmax = vmax)
         fig, ax = plt.subplots(1,2)
         logsigma_scatter = ax[0].scatter(sites_x, sites_y, s = 10, cmap = 'bwr', c = logsigma_estimates, norm = divnorm)
@@ -510,13 +513,16 @@ if __name__ == "__main__":
         fig.subplots_adjust(right=0.8)
         cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
         fig.colorbar(logsigma_est_scatter, cax = cbar_ax)
-        plt.savefig('initial_logsigma_estimates.pdf')
+        plt.savefig('MCMC:initial_logsigma_estimates.pdf')
         plt.close()
 
         # Shape # -------------------------------------------------------------------------------------
         # ksi(s) plot stations
         vmin = min(my_floor(min(ksi_estimates), 1), my_floor(min(ksi_vec), 1))
         vmax = max(my_ceil(max(ksi_estimates), 1), my_ceil(max(ksi_vec), 1))
+        if vmin == vmax:
+            vmin -= 0.5
+            vmax += 0.5
         divnorm = matplotlib.colors.TwoSlopeNorm(vcenter = (vmin + vmax)/2, vmin = vmin, vmax = vmax)
         fig, ax = plt.subplots(1,2)
         ksi_scatter = ax[0].scatter(sites_x, sites_y, s = 10, cmap = 'bwr', c = ksi_estimates, norm = divnorm)
@@ -528,7 +534,7 @@ if __name__ == "__main__":
         fig.subplots_adjust(right=0.8)
         cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
         fig.colorbar(ksi_est_scatter, cax = cbar_ax)
-        plt.savefig('initial_ksi_estimates.pdf')
+        plt.savefig('MCMC:initial_ksi_estimates.pdf')
         plt.close()
 
     # %% Adaptive Update & Block Update Setup -------------------------------------------------------------------------
@@ -617,7 +623,7 @@ if __name__ == "__main__":
             sigma_m_sq['sigma_Beta_ksi']      = sigma_Beta_ksi_var
 
         # Sigma0: proposal covariance matrix for phi, range, and marginal Y -------------------------------------------
-        phi_cov                 = pc.phi_cov           if pc.phi_cov           is not None else 1e-2 * np.identity(k)
+        phi_cov                 = pc.phi_cov           if pc.phi_cov           is not None else 1e-5 * np.identity(k)
         range_cov               = pc.range_cov         if pc.range_cov         is not None else 0.5  * np.identity(k)
         Beta_logsigma_cov       = pc.Beta_logsigma_cov if pc.Beta_logsigma_cov is not None else 1e-6 * np.identity(Beta_logsigma_m)
         Beta_ksi_cov            = pc.Beta_ksi_cov      if pc.Beta_ksi_cov      is not None else 1e-7 * np.identity(Beta_ksi_m)
@@ -1251,7 +1257,7 @@ if __name__ == "__main__":
                 plt.title('traceplot for log-likelihood')
                 plt.xlabel('iter thinned by '+str(thin))
                 plt.ylabel('loglikelihood')
-                plt.savefig('trace_loglik.pdf')
+                plt.savefig('MCMC:trace_loglik.pdf')
                 plt.close()
 
                 # ---- log-likelihood in detail ----
@@ -1264,7 +1270,7 @@ if __name__ == "__main__":
                 plt.xlabel('iter thinned by '+str(thin))
                 plt.ylabel('log likelihood')
                 plt.legend(loc = 'upper left')
-                plt.savefig('trace_detailed_loglik.pdf')
+                plt.savefig('MCMC:trace_detailed_loglik.pdf')
                 plt.close()
 
                 # ---- S_t ----
@@ -1277,7 +1283,7 @@ if __name__ == "__main__":
                     plt.title('traceplot for log(St) at t=' + str(t))
                     plt.xlabel('iter thinned by '+str(thin))
                     plt.ylabel('log(St)s')
-                    plt.savefig('trace_St'+str(t)+'.pdf')
+                    plt.savefig('MCMC:trace_St'+str(t)+'.pdf')
                     plt.close()
                 
                 # ---- Z_t ---- (some randomly selected subset)
@@ -1290,7 +1296,7 @@ if __name__ == "__main__":
                     plt.title('traceplot for Zt at t=' + str(t))
                     plt.xlabel('iter thinned by '+str(thin))
                     plt.ylabel('Zt')
-                    plt.savefig('trace_Zt'+str(t)+'.pdf')
+                    plt.savefig('MCMC:trace_Zt'+str(t)+'.pdf')
                     plt.close()
                 
                 # ---- phi ----
@@ -1302,7 +1308,7 @@ if __name__ == "__main__":
                 plt.xlabel('iter thinned by '+str(thin))
                 plt.ylabel('phi')
                 plt.legend(loc = 'upper left')
-                plt.savefig('trace_phi.pdf')
+                plt.savefig('MCMC:trace_phi.pdf')
                 plt.close()
 
                 # ---- range ----
@@ -1314,7 +1320,7 @@ if __name__ == "__main__":
                 plt.xlabel('iter thinned by '+str(thin))
                 plt.ylabel('range')
                 plt.legend(loc = 'upper left')
-                plt.savefig('trace_range.pdf')
+                plt.savefig('MCMC:trace_range.pdf')
                 plt.close()
             
                 # ---- tau ----
@@ -1324,7 +1330,7 @@ if __name__ == "__main__":
                 plt.xlabel('iter thinned by '+str(thin))
                 plt.ylabel('tau')
                 plt.legend(loc='upper left')
-                plt.savefig('trace_tau.pdf')
+                plt.savefig('MCMC:trace_tau.pdf')
                 plt.close()
 
             if iter == n_iters - 1:
