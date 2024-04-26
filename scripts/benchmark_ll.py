@@ -3,6 +3,18 @@ April 24, 2024
 Take a simulated dataset
 Plot the ll marginally against each parameter
 Use as a benchmark for future emulation objects
+
+April 25, 2024
+A tensorflow session cannot be shared across processes, 
+each child process needs to be in charge of its own keras environment:
+    - (via local imports)
+    - tensorflow session
+    - loaded model
+A key is to never import Tensorflow in the main process
+i.e. don't do import Keras within the main document, only under a function
+see: 
+    - https://stackoverflow.com/questions/74540699/keras-multiprocessing-model-prediction
+    - https://github.com/keras-team/keras/issues/9964
 """
 # %% imports
 import os
@@ -20,6 +32,10 @@ import pickle
 from time import strftime, localtime
 import time
 import multiprocessing
+from pathlib import Path
+# import keras
+
+# model = keras.models.load_model("qRW_100_20_10_20.keras")
 
 class MidpointNormalize(mpl.colors.Normalize):
     def __init__(self, vmin, vmax, midpoint=0, clip=False):
@@ -38,19 +54,103 @@ def my_ceil(a, precision=0):
 
 def my_floor(a, precision=0):
     return np.true_divide(np.floor(a * 10**precision), 10**precision)
+    
+def ll_1t_par(args):
+    Y_1t, p, u_vec, Scale_vec, Shape_vec,                   \
+    R_vec, Z_1t, phi_vec, gamma_vec, tau,                   \
+    X_1t, X_star_1t, censored_idx_1t, exceed_idx_1t,        \
+    K = args
 
+    if X_1t is None:
+        X_1t      = qRW(pCGP(Y_1t, p, u_vec, Scale_vec, Shape_vec), phi_vec, gamma_vec, tau)
+    if X_star_1t is None:
+        X_star_1t = (R_vec ** phi_vec) * g(Z_1t)
+    
+    dX_1t = dRW(X_1t, phi_vec, gamma_vec, tau)
+    
+    censored_ll_1t = Y_censored_ll_1t(Y_1t, p, u_vec, Scale_vec, Shape_vec,
+                                        R_vec, Z_1t, phi_vec, gamma_vec, tau,
+                                        X_1t, X_star_1t, dX_1t, censored_idx_1t, exceed_idx_1t)
+    gaussian_joint = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+
+    return censored_ll_1t + gaussian_joint
+
+def ll_1t_par_NN(args):
+    Y_1t, p, u_vec, Scale_vec, Shape_vec,                   \
+    R_vec, Z_1t, phi_vec, gamma_vec, tau,                   \
+    X_1t, X_star_1t, censored_idx_1t, exceed_idx_1t,        \
+    K = args
+
+    Ns = phi_vec.shape[0]
+
+    import keras
+    model = keras.models.load_model("../data/qRW_100_20_10_20/qRW_100_20_10_20.keras")
+
+    if X_1t is None:
+        coord = np.column_stack((pCGP(Y_1t, p, u_vec, Scale_vec, Shape_vec), 
+                                    phi_vec,
+                                    gamma_vec,
+                                    np.full((Ns,), tau)))
+        X_1t  = np.exp(model.predict(coord, verbose = 0).ravel())
+    if X_star_1t is None:
+        X_star_1t = (R_vec ** phi_vec) * g(Z_1t)
+    
+    dX_1t = dRW(X_1t, phi_vec, gamma_vec, tau)
+    
+    censored_ll_1t = Y_censored_ll_1t(Y_1t, p, u_vec, Scale_vec, Shape_vec,
+                                        R_vec, Z_1t, phi_vec, gamma_vec, tau,
+                                        X_1t, X_star_1t, dX_1t, censored_idx_1t, exceed_idx_1t)
+    gaussian_joint = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+
+    return censored_ll_1t + gaussian_joint
+
+def ll_1t_par_NN_mod(args):
+    Y_1t, p, u_vec, Scale_vec, Shape_vec,                   \
+    R_vec, Z_1t, phi_vec, gamma_vec, tau,                   \
+    X_1t, X_star_1t, censored_idx_1t, exceed_idx_1t,        \
+    K = args
+
+    Ns = phi_vec.shape[0]
+
+    import keras
+    model = keras.models.load_model("qRW_100_20_10_20.keras")
+
+    if X_1t is None:
+        coord = np.column_stack((pCGP(Y_1t, p, u_vec, Scale_vec, Shape_vec), 
+                                    phi_vec,
+                                    gamma_vec,
+                                    np.full((Ns,), tau)))
+        X_1t  = np.where(coord[:,0] > 0.999, qRW(coord[:,0], coord[:,1], coord[:,2], coord[:,3]),
+                                                np.exp(model.predict(coord, verbose = 0).ravel()))
+    if X_star_1t is None:
+        X_star_1t = (R_vec ** phi_vec) * g(Z_1t)
+    
+    dX_1t = dRW(X_1t, phi_vec, gamma_vec, tau)
+    
+    censored_ll_1t = Y_censored_ll_1t(Y_1t, p, u_vec, Scale_vec, Shape_vec,
+                                        R_vec, Z_1t, phi_vec, gamma_vec, tau,
+                                        X_1t, X_star_1t, dX_1t, censored_idx_1t, exceed_idx_1t)
+    gaussian_joint = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+
+    return censored_ll_1t + gaussian_joint
 
 # %% Configuration
 
-folder       = '../data/stationary_seed2345_t32_s500/'
+data_seed    = 2345
 Ns           = 500
 Nt           = 32
 p            = 0.9 # theshold proability (across space time)
 radius       = 2
 bandwidth    = radius**2/6
 N_outer_grid = 16
-phi_truth    = 0.7
-rho_truth    = 1
+phi_truth    = 0.3
+rho_truth    = 1.0
+datafolder   = '../data/stationary_seed'+str(data_seed)+\
+                            '_t'+str(Nt)+'_s'+str(Ns)+\
+                            '_phi'+str(phi_truth)+\
+                            '_rho'+str(rho_truth)+'/'
+resultfolder = datafolder+'RESULTS/'
+Path(resultfolder).mkdir(parents=True, exist_ok=True)
 
 # %% Calculate and save the likelihood
 if __name__ == "__main__":
@@ -58,15 +158,15 @@ if __name__ == "__main__":
     # %% Setup
 
     # Load Simulated Dataset ---------------------------------------------------------------------------------------
-    Y                  = np.load(folder + 'Y.npy')
-    Z                  = np.load(folder + 'Z.npy')
-    X                  = np.load(folder + 'X.npy')
-    X_star             = np.load(folder + 'X_star.npy')
-    S_at_knots         = np.load(folder + 'S_at_knots.npy')
-    logsigma_matrix    = np.load(folder + 'logsigma_matrix.npy')
-    ksi_matrix         = np.load(folder + 'ksi_matrix.npy')
-    stations           = np.load(folder + 'sites_xy.npy')
-    elevations         = np.load(folder + 'elevations.npy')
+    Y                  = np.load(datafolder + 'Y.npy')
+    Z                  = np.load(datafolder + 'Z.npy')
+    X                  = np.load(datafolder + 'X.npy')
+    X_star             = np.load(datafolder + 'X_star.npy')
+    S_at_knots         = np.load(datafolder + 'S_at_knots.npy')
+    logsigma_matrix    = np.load(datafolder + 'logsigma_matrix.npy')
+    ksi_matrix         = np.load(datafolder + 'ksi_matrix.npy')
+    stations           = np.load(datafolder + 'sites_xy.npy')
+    elevations         = np.load(datafolder + 'elevations.npy')
     
     # Sites -----------------------------------------------------------------------------------------------------------
     
@@ -153,25 +253,6 @@ if __name__ == "__main__":
 
     # %% Likelihood ---------------------------------------------------------------------------------------------------
 
-    def ll_1t_par(args):
-        Y_1t, p, u_vec, Scale_vec, Shape_vec,                   \
-        R_vec, Z_1t, phi_vec, gamma_vec, tau,                   \
-        X_1t, X_star_1t, censored_idx_1t, exceed_idx_1t,        \
-        K = args
-
-        if X_1t is None:
-            X_1t      = qRW(pCGP(Y_1t, p, u_vec, Scale_vec, Shape_vec), phi_vec, gamma_vec, tau)
-        if X_star_1t is None:
-            X_star_1t = (R_vec ** phi_vec) * g(Z_1t)
-        
-        dX_1t = dRW(X_1t, phi_vec, gamma_vec, tau)
-        
-        censored_ll_1t = Y_censored_ll_1t(Y_1t, p, u_vec, Scale_vec, Shape_vec,
-                                          R_vec, Z_1t, phi_vec, gamma_vec, tau,
-                                          X_1t, X_star_1t, dX_1t, censored_idx_1t, exceed_idx_1t)
-        gaussian_joint = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
-
-        return censored_ll_1t + gaussian_joint
 
     # %%
     # Truth -----------------------------------------------------------------------------------------------------------
@@ -207,11 +288,14 @@ if __name__ == "__main__":
     with multiprocessing.Pool(processes = Nt) as pool:
         results = pool.map(ll_1t_par, args_list)
 
+    with multiprocessing.Pool(processes = Nt) as pool:
+        results_NN = pool.map(ll_1t_par_NN, args_list)
+
     # %%
     # phi -------------------------------------------------------------------------------------------------------------
-    lb = 0.6
+    lb = 0.1
     ub = 0.8
-    grids = 5
+    grids = 29
     phi_grid = np.linspace(lb, ub, grids)
     ll_phi = []
     for phi_x in phi_grid:
@@ -250,8 +334,68 @@ if __name__ == "__main__":
 
     print(ll_phi)
     plt.plot(np.linspace(lb, ub, grids), ll_phi, 'b.-')
-    plt.savefig(folder+'ll_phi.pdf')
-    np.save(folder+'ll_phi', ll_phi)
+    plt.yscale('symlog')
+    plt.title(r'marginall loglike against $\phi$')
+    plt.xlabel(r'$\phi$')
+    plt.ylabel('log likelihood')
+    plt.savefig(resultfolder+'ll_phi.pdf')
+    np.save(resultfolder+'ll_phi', ll_phi)
+
+    # %%
+    # phi with qRW Newral Network emulated ----------------------------------------------------------------------------
+    lb = 0.1
+    ub = 0.8
+    grids = 8
+    phi_grid = np.linspace(lb, ub, grids)
+    ll_phi_NNqRW = []
+    for phi_x in phi_grid:
+        args_list = []
+        for t in range(Nt):
+            # marginal process
+            Y_1t      = Y[:,t]
+            p         = 0.9
+            u_vec     = u_matrix[:,t]
+            Scale_vec = scale_matrix[:,t]
+            Shape_vec = shape_matrix[:,t]
+
+            censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+            exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+
+            # copula process
+            R_vec     = wendland_weight_matrix @ S_at_knots[:,t]
+            Z_1t      = Z[:,t]
+            phi_vec   = gaussian_weight_matrix @ np.array([phi_x] * k)
+            tau       = 10
+            range_vec = gaussian_weight_matrix @ range_at_knots
+            K         = ns_cov(range_vec = range_vec,
+                            sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = 'matern')
+
+            X_1t      = None
+            # coord = np.column_stack((pCGP(Y_1t, p, u_vec, Scale_vec, Shape_vec), 
+            #                 phi_vec,
+            #                 gamma_vec,
+            #                 np.full((Ns,), tau)))
+            # X_1t  = np.exp(model.predict(coord, verbose = 0).ravel())
+            X_star_1t = None
+
+            args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
+                            R_vec, Z_1t, phi_vec, gamma_vec, tau,
+                            X_1t, X_star_1t, censored_idx_1t, exceed_idx_1t,
+                            K))
+
+        with multiprocessing.Pool(processes = Nt) as pool:
+            results = pool.map(ll_1t_par_NN_mod, args_list)
+        ll_phi_NNqRW.append(sum(results))
+
+    print(ll_phi_NNqRW)
+    plt.plot(np.linspace(lb, ub, grids), ll_phi_NNqRW, 'b.-')
+    plt.yscale('symlog')
+    plt.savefig(resultfolder+'ll_phi_NNqRW.pdf')
+    np.save(resultfolder+'ll_phi_NNqRW', ll_phi_NNqRW)
+
+    # 50s    for ll_1t_par_NN
+    # 2m     for ll_1t_par
+    # 2m 26s for ll_1t_par_NN_mod
 
     # %%
     # rho -------------------------------------------------------------------------------------------------------------
@@ -296,8 +440,8 @@ if __name__ == "__main__":
 
     print(ll_rho)
     plt.plot(np.linspace(lb, ub, grids), ll_rho, 'b.-')
-    plt.savefig(folder+'ll_rho.pdf')
-    np.save(folder+'ll_rho', ll_rho)
+    plt.savefig(resultfolder+'ll_rho.pdf')
+    np.save(resultfolder+'ll_rho', ll_rho)
 
     # %%
     # tau -------------------------------------------------------------------------------------------------------------
@@ -342,8 +486,8 @@ if __name__ == "__main__":
 
     print(ll_tau)
     plt.plot(np.linspace(lb, ub, grids), ll_tau, 'b.-')
-    plt.savefig(folder+'ll_tau.pdf')
-    np.save(folder+'ll_tau', ll_tau)
+    plt.savefig(resultfolder+'ll_tau.pdf')
+    np.save(resultfolder+'ll_tau', ll_tau)
 
 
     # %%
@@ -389,8 +533,8 @@ if __name__ == "__main__":
 
     print(ll_scale)
     plt.plot(np.linspace(lb, ub, grids), ll_scale, 'b.-')
-    plt.savefig(folder+'ll_scale.pdf')
-    np.save(folder+'ll_scale', ll_scale)
+    plt.savefig(resultfolder+'ll_scale.pdf')
+    np.save(resultfolder+'ll_scale', ll_scale)
 
 
     # %%
@@ -437,7 +581,7 @@ if __name__ == "__main__":
     print(ll_shape)
     plt.plot(np.linspace(lb, ub, grids), ll_shape, 'b.-')
     plt.yscale('symlog')
-    plt.savefig(folder+'ll_shape.pdf')
-    np.save(folder+'ll_shape', ll_shape)
+    plt.savefig(resultfolder+'ll_shape.pdf')
+    np.save(resultfolder+'ll_shape', ll_shape)
 
 # %%

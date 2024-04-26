@@ -21,6 +21,7 @@ if __name__ == "__main__":
     from rpy2.robjects import r 
     from rpy2.robjects.numpy2ri import numpy2rpy
     from rpy2.robjects.packages import importr
+    from pathlib import Path
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -201,7 +202,7 @@ if __name__ == "__main__":
     # #                          scipy.stats.multivariate_normal.pdf(knots_xy, mean = np.array([7,7.5]), cov = 2*np.matrix([[1,-0.2],[-0.2,1]])))
 
     range_at_knots = np.array([1.0] * k)
-    phi_at_knots   = np.array([0.7] * k)
+    phi_at_knots   = np.array([0.3] * k)
 
     # %% Generate Simulation Data ------------------------------------------------------------------------------------
     # Generate Simulation Data
@@ -254,7 +255,11 @@ if __name__ == "__main__":
     # %% saving data
     # Saving data -----------------------------------------------------------------------------------------------------
     if rank == 0:
-        folder = '../data/stationary_seed'+str(data_seed)+'_t'+str(Nt)+'_s'+str(Ns)+'/'
+        folder = '../data/stationary_seed'+str(data_seed)+\
+                            '_t'+str(Nt)+'_s'+str(Ns)+\
+                            '_phi'+str(phi_at_knots[0])+\
+                            '_rho'+str(range_at_knots[0])+'/'
+        Path(folder).mkdir(parents=True, exist_ok=True)
         np.save(folder+'Y', Y)
         np.save(folder+'X', X)
         np.save(folder+'Z', Z)
@@ -286,8 +291,9 @@ if __name__ == "__main__":
     plt.axline((0,0), slope = 1, color = 'black')
     plt.xlim((0,1))
     plt.ylim((0,1))
-    plt.title('QQ-Plot site {}'.format(site_i))
+    plt.title('Levy CDF of S site {}'.format(site_i))
     plt.show()
+    plt.savefig(folder+'QQPlot_Stable_site_{}.pdf'.format(site_i))
     plt.close()
     # scipy.stats.probplot(scipy.stats.levy.cdf(S_at_knots[i,:], scale=gamma), dist='uniform', fit=False, plot=plt)
 
@@ -305,12 +311,13 @@ if __name__ == "__main__":
         plt.axline((0,0), slope = 1, color = 'black')
         plt.xlim((0,1))
         plt.ylim((0,1))
-        plt.title('QQ-Plot site {}'.format(site_i))
+        plt.title('Pareto CDF of W site {}'.format(site_i))
         plt.show()
+        plt.savefig(folder+'QQPlot_Pareto_site_{}.pdf'.format(site_i))
         plt.close()
         # scipy.stats.probplot(scipy.stats.pareto.cdf(W[site_i,:], b = 1, loc = 0, scale = 1), dist='uniform', fit=False, plot=plt)
 
-    # checking model X_star -------------------------------------------------------------------------------------------
+    # checking model X ------------------------------------------------------------------------------------------------
     site_i = int(np.floor(scipy.stats.uniform(0, Ns).rvs()))
     print(site_i)
     emp_p = np.linspace(1/Nt, 1-1/Nt, num=Nt)
@@ -322,8 +329,9 @@ if __name__ == "__main__":
     plt.axline((0,0), slope = 1, color = 'black')
     plt.xlim((0,1))
     plt.ylim((0,1))
-    plt.title('QQ-Plot site {}'.format(site_i))
+    plt.title('pRW CDF of X site {}'.format(site_i))
     plt.show()
+    plt.savefig(folder+'QQPlot_X_site_{}.pdf'.format(site_i))
     plt.close()
 
     # checking marginal exceedance ------------------------------------------------------------------------------------
@@ -343,8 +351,9 @@ if __name__ == "__main__":
     plt.axline((0,0), slope = 1, color = 'black')
     plt.xlim((0,1))
     plt.ylim((0,1))
-    plt.title('QQ-Plot of all exceedance')
+    plt.title('Generalized Pareto CDF of all exceedance')
     plt.show()
+    plt.savefig(folder+'QQPlot_Yexceed_all.pdf')
     plt.close()
 
     # %% Plot Generated Surfaces --------------------------------------------------------------------------------------
