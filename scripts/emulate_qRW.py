@@ -9,6 +9,7 @@ Save to [savefolder]: data/qRW_p#_phi#_gamma#_tau#/
 # base python
 import os
 import time
+import pickle
 import multiprocessing # Note on Arm Macs, default is spawn. get_context('fork') to use on laptop
                        # with multiprocessing.get_context('fork').Pool(n_processes)
 from pathlib import Path
@@ -138,9 +139,13 @@ for layer in model.layers:
     acts.append(act)
 
 model.save(savefolder + 'qRW_NN.keras')
-np.save(savefolder + 'qRW_NN_Ws',   Ws)
-np.save(savefolder + 'qRW_NN_bs',   bs)
-np.save(savefolder + 'qRW_NN_acts', acts)
+# Note that numpy cannot save inhomogeneous shaped array
+# np.save(savefolder + 'qRW_NN_Ws',   Ws)
+# np.save(savefolder + 'qRW_NN_bs',   bs)
+# np.save(savefolder + 'qRW_NN_acts', acts)
+with open(savefolder + 'qRW_NN_Ws.pkl', 'wb') as file: pickle.dump(Ws,   file)
+with open(savefolder + 'qRW_NN_bs.pkl', 'wb') as file: pickle.dump(bs,   file)
+with open(savefolder + 'qRW_NN_acts',   'wb') as file: pickle.dump(acts, file)
 
 plt.plot(history.history['val_loss'])
 plt.xlabel('epoch')
