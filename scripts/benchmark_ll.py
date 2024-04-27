@@ -22,25 +22,31 @@ April 27, 2024
 Manually perform matrix multiplication, bypass the keras parallelization issue
 """
 # %% imports
-
+# base python
 import os
 os.environ["OMP_NUM_THREADS"] = "1" # export OMP_NUM_THREADS=1
 os.environ["OPENBLAS_NUM_THREADS"] = "1" # export OPENBLAS_NUM_THREADS=1
 os.environ["MKL_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
 os.environ["NUMEXPR_NUM_THREADS"] = "1" # export NUMEXPR_NUM_THREADS=1
+import pickle
+import multiprocessing
+import time
+from time import strftime, localtime
+from pathlib import Path
+# packages
+import scipy
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import scipy
-from utilities import *
-import pickle
-from time import strftime, localtime
-import time
-import multiprocessing
-from pathlib import Path
 import keras
-model = keras.models.load_model("../data/qRW_100_20_10_20/qRW_100_20_10_20.keras")
+keras.backend.set_floatx('float64')
+# custom modules
+from utilities import *
+
+model = keras.models.load_model("../data/qRW_p100_phi20_gamma10_tau20/qRW_NN.keras")
+
+# helper functions ----------------------------------------------------------------------------------------------------
 
 class MidpointNormalize(mpl.colors.Normalize):
     def __init__(self, vmin, vmax, midpoint=0, clip=False):
@@ -60,6 +66,9 @@ def my_ceil(a, precision=0):
 def my_floor(a, precision=0):
     return np.true_divide(np.floor(a * 10**precision), 10**precision)
 
+# likelihood functions ------------------------------------------------------------------------------------------------
+
+# wrapper function for likelihood, using numerical integral
 def ll_1t_par(args):
     Y_1t, p, u_vec, Scale_vec, Shape_vec,                   \
     R_vec, Z_1t, phi_vec, gamma_vec, tau,                   \
@@ -92,7 +101,7 @@ NumbaPerformanceWarning: np.dot() is faster on contiguous arrays
 #     return dot_nb(input_vec, weight_mat) + bias_vec
 """
 
-"""
+""" ---- manual prediction speed is fast ----
 X = np.array([0.9, 0.5, 0.5, 1])
 X_2d = np.tile(X, reps = (10000, 1))
 Surely using X_2d is fast for both predict and model.predict
@@ -107,12 +116,14 @@ def relu_np(x): # changes x IN PLACE! faster than return x * (x > 0)
 def identity(x):
     pass
 
-def predict(Ws, bs, activations, X):
+# the output is 1D if X is 1D
+#               2D if X is 2D
+def NN_predict(Ws, bs, activations, X):
     Z = X
     for W, b, activation in zip(Ws, bs, activations):
         Z = Z @ W + b
         activation(Z)
-    return Z
+    return np.exp(Z)
 
 Ws, bs, acts = [], [], []
 for layer in model.layers:
@@ -122,71 +133,69 @@ for layer in model.layers:
     bs.append(b)
     acts.append(act)
 
-# the output is 1D if X is 1D
-#               2D if X is 2D
-X = np.array([0.9, 0.5, 0.5, 1])
-predict(Ws, bs, acts, X)
+# def qRW_NN(p, phi, gamma, tau):
+#     return NN_predict(Ws, bs, acts, )
 
+# wrapper for likelihood with Neural Network prediction, modified such that
+# using NN for p < 0.999, using qRW numerical integral for p >= 0.999
+def ll_1t_par_NN(args):
+    Y_1t, p, u_vec, Scale_vec, Shape_vec,                   \
+    R_vec, Z_1t, phi_vec, gamma_vec, tau,                   \
+    X_1t, X_star_1t, censored_idx_1t, exceed_idx_1t,        \
+    K = args
 
-
-# def ll_1t_par_NN(args):
-#     Y_1t, p, u_vec, Scale_vec, Shape_vec,                   \
-#     R_vec, Z_1t, phi_vec, gamma_vec, tau,                   \
-#     X_1t, X_star_1t, censored_idx_1t, exceed_idx_1t,        \
-#     K = args
-
-#     Ns = phi_vec.shape[0]
-
-#     import keras
-#     model = keras.models.load_model("../data/qRW_100_20_10_20/qRW_100_20_10_20.keras")
-
-#     if X_1t is None:
-#         coord = np.column_stack((pCGP(Y_1t, p, u_vec, Scale_vec, Shape_vec), 
-#                                     phi_vec,
-#                                     gamma_vec,
-#                                     np.full((Ns,), tau)))
-#         X_1t  = np.exp(model.predict(coord, verbose = 0).ravel())
-#     if X_star_1t is None:
-#         X_star_1t = (R_vec ** phi_vec) * g(Z_1t)
+    if X_1t is None:
+        inputs    = np.column_stack((pCGP(Y_1t, p, u_vec, Scale_vec, Shape_vec), 
+                                     phi_vec,
+                                     gamma_vec,
+                                     np.full((Ns,), tau)))
+        X_1t      = NN_predict(Ws, bs, acts, inputs).ravel()
+    if X_star_1t is None:
+        X_star_1t = (R_vec ** phi_vec) * g(Z_1t)
     
-#     dX_1t = dRW(X_1t, phi_vec, gamma_vec, tau)
+    dX_1t = dRW(X_1t, phi_vec, gamma_vec, tau)
     
-#     censored_ll_1t = Y_censored_ll_1t(Y_1t, p, u_vec, Scale_vec, Shape_vec,
-#                                         R_vec, Z_1t, phi_vec, gamma_vec, tau,
-#                                         X_1t, X_star_1t, dX_1t, censored_idx_1t, exceed_idx_1t)
-#     gaussian_joint = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+    censored_ll_1t = Y_censored_ll_1t(Y_1t, p, u_vec, Scale_vec, Shape_vec,
+                                        R_vec, Z_1t, phi_vec, gamma_vec, tau,
+                                        X_1t, X_star_1t, dX_1t, censored_idx_1t, exceed_idx_1t)
+    gaussian_joint = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
 
-#     return censored_ll_1t + gaussian_joint
+    return censored_ll_1t + gaussian_joint
 
-# def ll_1t_par_NN_mod(args):
-#     Y_1t, p, u_vec, Scale_vec, Shape_vec,                   \
-#     R_vec, Z_1t, phi_vec, gamma_vec, tau,                   \
-#     X_1t, X_star_1t, censored_idx_1t, exceed_idx_1t,        \
-#     K = args
+# wrapper for likelihood with Neural Network prediction, modified such that
+# using NN for p < 0.999, using qRW numerical integral for p >= 0.999
+# DON'T USE the np.where() inside this function
+# separting the emul_idx and ni_idx seems to make parallelization much faster
+def ll_1t_par_NN_mod(args):
+    Y_1t, p, u_vec, Scale_vec, Shape_vec,                   \
+    R_vec, Z_1t, phi_vec, gamma_vec, tau,                   \
+    X_1t, X_star_1t, censored_idx_1t, exceed_idx_1t,        \
+    K = args
 
-#     Ns = phi_vec.shape[0]
+    if X_1t is None:
+        inputs    = np.column_stack((pCGP(Y_1t, p, u_vec, Scale_vec, Shape_vec), 
+                                     phi_vec,
+                                     gamma_vec,
+                                     np.full((Ns,), tau)))
+        
+        emul_idx  = np.where(inputs[:,0] < 0.999)[0]
+        ni_idx    = np.where(inputs[:,0] > 0.999)[0]
+        X_1t      = np.full((Ns,), fill_value = np.nan)
+        X_1t[emul_idx] = NN_predict(Ws, bs, acts, inputs[emul_idx]).ravel()
+        X_1t[ni_idx]   = qRW(inputs[ni_idx,0], inputs[ni_idx,1], inputs[ni_idx,2], tau)
 
-#     import keras
-#     model = keras.models.load_model("qRW_100_20_10_20.keras")
-
-#     if X_1t is None:
-#         coord = np.column_stack((pCGP(Y_1t, p, u_vec, Scale_vec, Shape_vec), 
-#                                     phi_vec,
-#                                     gamma_vec,
-#                                     np.full((Ns,), tau)))
-#         X_1t  = np.where(coord[:,0] > 0.999, qRW(coord[:,0], coord[:,1], coord[:,2], coord[:,3]),
-#                                                 np.exp(model.predict(coord, verbose = 0).ravel()))
-#     if X_star_1t is None:
-#         X_star_1t = (R_vec ** phi_vec) * g(Z_1t)
+    if X_star_1t is None:
+        X_star_1t = (R_vec ** phi_vec) * g(Z_1t)
     
-#     dX_1t = dRW(X_1t, phi_vec, gamma_vec, tau)
+    dX_1t = dRW(X_1t, phi_vec, gamma_vec, tau)
     
-#     censored_ll_1t = Y_censored_ll_1t(Y_1t, p, u_vec, Scale_vec, Shape_vec,
-#                                         R_vec, Z_1t, phi_vec, gamma_vec, tau,
-#                                         X_1t, X_star_1t, dX_1t, censored_idx_1t, exceed_idx_1t)
-#     gaussian_joint = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+    censored_ll_1t = Y_censored_ll_1t(Y_1t, p, u_vec, Scale_vec, Shape_vec,
+                                        R_vec, Z_1t, phi_vec, gamma_vec, tau,
+                                        X_1t, X_star_1t, dX_1t, censored_idx_1t, exceed_idx_1t)
+    gaussian_joint = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
 
-#     return censored_ll_1t + gaussian_joint
+    return censored_ll_1t + gaussian_joint
+
 
 # %% Dataset Configuration --------------------------------------------------------------------------------------------
 
@@ -316,6 +325,8 @@ for t in range(Nt):
     censored_idx_1t = np.where(Y_1t <= u_vec)[0]
     exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
 
+    print(np.where(pCGP(Y_1t, p, u_vec, Scale_vec, Shape_vec) > 0.999))
+
     # copula process
     R_vec     = wendland_weight_matrix @ S_at_knots[:,t]
     Z_1t      = Z[:,t]
@@ -325,28 +336,34 @@ for t in range(Nt):
     K         = ns_cov(range_vec = range_vec,
                         sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = 'matern')
 
-    X_1t      = X[:,t]      # if not changing, we place it here
-    X_star_1t = X_star[:,t] # if changing, place under ll_1t_par, so qRW calculated in parallel
+    # X_1t      = X[:,t]      # if not changing, we place it here
+    # X_star_1t = X_star[:,t] # if changing, place under ll_1t_par, so qRW calculated in parallel
+    X_1t = None
+    X_star_1t = None
 
     args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
                         R_vec, Z_1t, phi_vec, gamma_vec, tau,
                         X_1t, X_star_1t, censored_idx_1t, exceed_idx_1t,
                         K))
 
-with multiprocessing.Pool(processes = Nt) as pool:
+with multiprocessing.Pool(processes = Nt) as pool: # 30 secs
     results = pool.map(ll_1t_par, args_list)
+print(results)
 
-with multiprocessing.Pool(processes = Nt) as pool:
-    results_NN = pool.map(ll_1t_par_NN, args_list)
+with multiprocessing.Pool(processes = Nt) as pool: # 2 secs
+    results_NN = pool.map(ll_1t_par_NN_mod, args_list)
+print(results_NN)
 
 # %%
 # phi -------------------------------------------------------------------------------------------------------------
 lb = 0.1
 ub = 0.8
-grids = 29
+grids = 29 # 13min 12 seconds
 phi_grid = np.linspace(lb, ub, grids)
 ll_phi = []
+start_time = time.time()
 for phi_x in phi_grid:
+    print('elapsed:', round(time.time() - start_time, 3), phi_x)
     args_list = []
     for t in range(Nt):
         # marginal process
@@ -383,7 +400,7 @@ for phi_x in phi_grid:
 print(ll_phi)
 plt.plot(np.linspace(lb, ub, grids), ll_phi, 'b.-')
 plt.yscale('symlog')
-plt.title(r'marginall loglike against $\phi$')
+plt.title(r'marginal loglike against $\phi$')
 plt.xlabel(r'$\phi$')
 plt.ylabel('log likelihood')
 plt.savefig(savefolder+'ll_phi.pdf')
@@ -391,12 +408,15 @@ np.save(savefolder+'ll_phi', ll_phi)
 
 # %%
 # phi with qRW Newral Network emulated ----------------------------------------------------------------------------
+
 lb = 0.1
 ub = 0.8
-grids = 8
+grids = 29 # 2min 20 seconds
 phi_grid = np.linspace(lb, ub, grids)
 ll_phi_NNqRW = []
+start_time = time.time()
 for phi_x in phi_grid:
+    print('elapsed:', round(time.time() - start_time, 3), phi_x)
     args_list = []
     for t in range(Nt):
         # marginal process
@@ -419,11 +439,6 @@ for phi_x in phi_grid:
                         sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = 'matern')
 
         X_1t      = None
-        # coord = np.column_stack((pCGP(Y_1t, p, u_vec, Scale_vec, Shape_vec), 
-        #                 phi_vec,
-        #                 gamma_vec,
-        #                 np.full((Ns,), tau)))
-        # X_1t  = np.exp(model.predict(coord, verbose = 0).ravel())
         X_star_1t = None
 
         args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
@@ -438,12 +453,11 @@ for phi_x in phi_grid:
 print(ll_phi_NNqRW)
 plt.plot(np.linspace(lb, ub, grids), ll_phi_NNqRW, 'b.-')
 plt.yscale('symlog')
-plt.savefig(savefolder+'ll_phi_NNqRW.pdf')
-np.save(savefolder+'ll_phi_NNqRW', ll_phi_NNqRW)
-
-# 50s    for ll_1t_par_NN
-# 2m     for ll_1t_par
-# 2m 26s for ll_1t_par_NN_mod
+plt.title(r'marginal loglik against $\phi$ with NNqRWmod')
+plt.xlabel(r'$\phi$')
+plt.ylabel('log likelihood')
+plt.savefig(savefolder+'ll_phi_NNqRWmod.pdf')
+np.save(savefolder+'ll_phi_NNqRWmod', ll_phi_NNqRW)
 
 # %%
 # rho -------------------------------------------------------------------------------------------------------------
