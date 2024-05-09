@@ -206,7 +206,7 @@ p            = 0.9 # theshold proability (across space time)
 radius       = 2
 bandwidth    = radius**2/6
 N_outer_grid = 16
-phi_truth    = 0.3
+phi_truth    = 0.7
 rho_truth    = 1.0
 datafolder   = '../data/stationary_seed'+str(data_seed)+\
                             '_t'+str(Nt)+'_s'+str(Ns)+\
@@ -356,10 +356,12 @@ print(results_NN)
 
 # %%
 # phi -------------------------------------------------------------------------------------------------------------
-lb = 0.1
-ub = 0.8
-grids = 29 # 13min 12 seconds
+lb = 0.65
+ub = 0.75
+# grids = 29 # 13min 12sec
+grids = 41 # 16min 23sec
 phi_grid = np.linspace(lb, ub, grids)
+phi_grid = np.insert(phi_grid, 0, np.linspace(0.1, 0.5, 5))
 ll_phi = []
 start_time = time.time()
 for phi_x in phi_grid:
@@ -398,7 +400,7 @@ for phi_x in phi_grid:
     ll_phi.append(sum(results))
 
 print(ll_phi)
-plt.plot(np.linspace(lb, ub, grids), ll_phi, 'b.-')
+plt.plot(phi_grid, ll_phi, 'b.-')
 plt.yscale('symlog')
 plt.title(r'marginal loglike against $\phi$')
 plt.xlabel(r'$\phi$')
