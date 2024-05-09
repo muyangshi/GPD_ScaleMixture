@@ -25,33 +25,25 @@ from utilities import *
 
 # %% set up and helper functions
 
-# Note pRW(1e16, 1, 4, 50) yields array(0.99999999)
+# Note:
+#   pRW(1e16, 1, 4, 50) yields array(0.99999999)
+
 # p
 lb_p = 0.8
 ub_p = 0.999
-n_p  = 100
 
 # phi
 lb_phi = 0.05
 ub_phi = 0.99
-n_phi  = 20
 
 # gamma
-lb_gamma = 0.1
+lb_gamma = 0.4 # we chose gamma_k to be 0.5. This won't be smaller than 0.5
 ub_gamma = 4
-n_gamma  = 10
 
 # tau
 lb_tau = 0.1
 ub_tau = 50
-n_tau  = 20
 
-savefolder = '../data/qRW'    +                \
-                     '_p'     + str(n_p)     + \
-                     '_phi'   + str(n_phi)   + \
-                     '_gamma' + str(n_gamma) + \
-                     '_tau'   + str(n_tau)
-Path(savefolder).mkdir(parents=True, exist_ok=True)
 
 def qRW_par(args): # wrapper to put qRW for multiprocessing
     p, phi, gamma, tau = args
@@ -63,7 +55,18 @@ def qRW_par(args): # wrapper to put qRW for multiprocessing
 # qRW_NN_vec = np.vectorize(qRW_NN)
 
 
-# %% Generate Design Points
+# %% Grid Design Points
+
+n_p        = 100
+n_phi      = 20
+n_gamma    = 10
+n_tau      = 20
+savefolder = '../data/qRW_grid'+                \
+                     '_p'      + str(n_p)     + \
+                     '_phi'    + str(n_phi)   + \
+                     '_gamma'  + str(n_gamma) + \
+                     '_tau'    + str(n_tau)
+Path(savefolder).mkdir(parents=True, exist_ok=True)
 
 p_samples     = 2 - np.geomspace(2-ub_p, 2-lb_p, n_p)[::-1]
 phi_samples   = np.linspace(lb_phi, ub_phi, n_phi)
@@ -77,13 +80,30 @@ Gamma_flat         = Gamma.ravel()
 Tau_flat           = Tau.ravel()
 inputs             = np.column_stack((P_flat, Phi_flat, Gamma_flat, Tau_flat))
 
-# x_samples = qRW(inputs[:,0], inputs[:,1], inputs[:,2], inputs[:,3])
+# %% LatinHypercube Design points
 
+n_samples  = 5000000
+savefolder = '../data/qRW_LHS_'+ str(n_samples)
+Path(savefolder).mkdir(parents=True, exist_ok=True)
+
+LHSampler = scipy.stats.qmc.LatinHypercube(d = 4, scramble = True, seed = 2345)
+LHSamples = LHSampler.random(n_samples-2)
+LHSamples = np.row_stack(([0,0,0,0], [1,1,1,1], LHSamples)) # need to manually codein the bounds
+inputs    = scipy.stats.qmc.scale(LHSamples, 
+                                  l_bounds = np.array([lb_p, lb_phi, lb_gamma, lb_tau]),
+                                  u_bounds = np.array([ub_p, ub_phi, ub_gamma, ub_tau]), 
+                                  reverse  = False)
+
+
+# %% Calculate and Save the training data
+
+# Note:
+#   400,000 qRW() evals in 5 minutes, 30 processes
+
+# x_samples = qRW(inputs[:,0], inputs[:,1], inputs[:,2], inputs[:,3])
 with multiprocessing.get_context('fork').Pool(processes=30) as pool:
     x_samples = pool.map(qRW_par, list(inputs))
 x_samples = np.array(x_samples)
-
-# 400,000 qRW() evals in 5 minutes, 30 processes
 
 # from multiprocessing import get_context
 # p = get_context("fork").Pool(4)
@@ -91,8 +111,8 @@ x_samples = np.array(x_samples)
 # p.close()
 
 print('done')
-np.save(savefolder + 'inputs',    inputs)
-np.save(savefolder + 'x_samples', x_samples)
+np.save(savefolder + '/inputs',    inputs)
+np.save(savefolder + '/x_samples', x_samples)
 
 
 # %% Define Keras model
@@ -138,20 +158,18 @@ for layer in model.layers:
     bs.append(b)
     acts.append(act)
 
-model.save(savefolder + 'qRW_NN.keras')
+model.save(savefolder + '/qRW_NN.keras')
 # Note that numpy cannot save inhomogeneous shaped array
-# np.save(savefolder + 'qRW_NN_Ws',   Ws)
-# np.save(savefolder + 'qRW_NN_bs',   bs)
-# np.save(savefolder + 'qRW_NN_acts', acts)
-with open(savefolder + 'qRW_NN_Ws.pkl', 'wb') as file: pickle.dump(Ws,   file)
-with open(savefolder + 'qRW_NN_bs.pkl', 'wb') as file: pickle.dump(bs,   file)
-with open(savefolder + 'qRW_NN_acts',   'wb') as file: pickle.dump(acts, file)
+#      therefore we use pickle dump
+with open(savefolder + '/qRW_NN_Ws.pkl', 'wb') as file: pickle.dump(Ws,   file)
+with open(savefolder + '/qRW_NN_bs.pkl', 'wb') as file: pickle.dump(bs,   file)
+with open(savefolder + '/qRW_NN_acts',   'wb') as file: pickle.dump(acts, file)
 
 plt.plot(history.history['val_loss'])
 plt.xlabel('epoch')
 plt.ylabel('MSE loss')
+plt.savefig(savefolder + '/Plot:val_loss.pdf')
 plt.show()
-plt.savefig(savefolder + 'Plot:val_loss.pdf')
 plt.close()
 
 
@@ -161,13 +179,13 @@ ps = np.linspace(0.9, 0.999, 100)
 tasks = np.array([[p, 0.5, 0.5, 1] for p in ps])
 
 plt.plot(ps, qRW(ps, 0.5, 0.5, 1), label = 'numerical integral')
-plt.plot(ps, np.exp(model.predict(tasks, verbose = 0).ravel()), label = 'NN')
+plt.plot(ps, np.exp(np.exp(model.predict(tasks, verbose = 0).ravel())), label = 'NN')
 plt.legend(loc = 'upper left')
 plt.xlabel('p')
 plt.ylabel('quantile')
 plt.title(r'qRW(...) along p with $\phi$=0.5 $\gamma$=0.5 $\tau$=1.0')
+plt.savefig(savefolder+'/Plot:qRW.pdf')
 plt.show()
-plt.savefig(savefolder+'Plot:qRW.pdf')
 plt.close()
 
 # %%
