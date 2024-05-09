@@ -4,6 +4,9 @@ MCMC Sampler for GPD Scale Mixture Model
 
 mpirun -n 24 --output-filename OUTPUTS python3 sampler.py > OUTPUT_COMBINED.txt 2>&1 &
 mpirun -n 24 python3 sampler.py > OUTPUT.txt 2>&1 &
+
+geopandas map should be placed in ./data
+datafiles (Y, sites) should be placed in ./data/datafolder/
 """
 if __name__ == "__main__":
     # %%
@@ -32,7 +35,7 @@ if __name__ == "__main__":
     from time import strftime, localtime
     import time
     import geopandas as gpd
-    state_map = gpd.read_file('./cb_2018_us_state_20m/cb_2018_us_state_20m.shp')
+    state_map = gpd.read_file('./data/cb_2018_us_state_20m/cb_2018_us_state_20m.shp')
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -64,11 +67,12 @@ if __name__ == "__main__":
 
     # %% Load Simulated Dataset ---------------------------------------------------------------------------------------
 
-    Y                  = np.load('Y_sc2_t50_s500_truth.npy')
-    logsigma_estimates = np.load('logsigma_matrix.npy')[:,0]
-    ksi_estimates      = np.load('ksi_matrix.npy')[:,0]
-    stations           = np.load('sites_xy.npy')
-    elevations         = np.load('elevations.npy')
+    datafolder         = 'stationary_seed2345_t32_s500_phi0.7_rho1.0/'
+    Y                  = np.load('./data/'+datafolder+'Y.npy')
+    logsigma_estimates = np.load('./data/'+datafolder+'logsigma_matrix.npy')[:,0]
+    ksi_estimates      = np.load('./data/'+datafolder+'ksi_matrix.npy')[:,0]
+    stations           = np.load('./data/'+datafolder+'sites_xy.npy')
+    elevations         = np.load('./data/'+datafolder+'elevations.npy')
 
     # %% Load Real Dataset --------------------------------------------------------------------------------------------
 
