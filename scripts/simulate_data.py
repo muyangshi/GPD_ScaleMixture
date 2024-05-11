@@ -1,6 +1,9 @@
 """
 March 26, 2024
 Simulate data using the GPD Scale Mixture Model
+
+May 11
+redirect output to ../data/[savefolder]
 """
 if __name__ == "__main__":
     # %%
@@ -8,24 +11,31 @@ if __name__ == "__main__":
     data_seed = int(sys.argv[1]) if len(sys.argv) == 2 else 2345
 
     # %% imports
+    # base python -----------
     import os
-    os.environ["OMP_NUM_THREADS"] = "1" # export OMP_NUM_THREADS=1
-    os.environ["OPENBLAS_NUM_THREADS"] = "1" # export OPENBLAS_NUM_THREADS=1
-    os.environ["MKL_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
+    from pathlib import Path
+    os.environ["OMP_NUM_THREADS"] = "1"        # export OMP_NUM_THREADS=1
+    os.environ["OPENBLAS_NUM_THREADS"] = "1"   # export OPENBLAS_NUM_THREADS=1
+    os.environ["MKL_NUM_THREADS"] = "1"        # export MKL_NUM_THREADS=1
     os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
-    os.environ["NUMEXPR_NUM_THREADS"] = "1" # export NUMEXPR_NUM_THREADS=1
+    os.environ["NUMEXPR_NUM_THREADS"] = "1"    # export NUMEXPR_NUM_THREADS=1
+
+    # packages --------------
     import numpy as np
     import matplotlib
     import matplotlib.pyplot as plt
     import scipy
     from mpi4py import MPI
-    from utilities import *
     import gstools as gs
     import rpy2.robjects as robjects
     from rpy2.robjects import r 
     from rpy2.robjects.numpy2ri import numpy2rpy
     from rpy2.robjects.packages import importr
+    
+    # custom module ---------
+    from utilities import *
 
+    # setup -----------------
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
@@ -44,9 +54,16 @@ if __name__ == "__main__":
 
     # Numbers - Ns, Nt ------------------------------------------------------------------------------------------------   
     np.random.seed(data_seed)
-    Nt = 50 # number of time replicates
-    Ns = 500 # number of sites/stations
-    Time = np.linspace(-Nt/2, Nt/2-1, Nt)/np.std(np.linspace(-Nt/2, Nt/2-1, Nt), ddof=1)
+    Nt       = 50 # number of time replicates
+    Ns       = 500 # number of sites/stations
+    scenario = 'sc2'
+    Time     = np.linspace(-Nt/2, Nt/2-1, Nt)/np.std(np.linspace(-Nt/2, Nt/2-1, Nt), ddof=1)
+    
+    savefolder = '../data/nonstationary_seed'+ str(data_seed) + \
+                                        '_t' + str(Nt) + \
+                                        '_s' + str(Ns) + \
+                                        '_'  + scenario
+    Path(savefolder).mkdir(parents=True, exist_ok=True)
 
     # missing indicator matrix ----------------------------------------------------------------------------------------
     miss_proportion = 0.0
@@ -54,15 +71,12 @@ if __name__ == "__main__":
     for t in range(Nt):
         miss_matrix[:,t] = np.random.choice([0, 1], size = (Ns,), p = [1-miss_proportion, miss_proportion])
     miss_matrix = miss_matrix.astype(bool) # matrix of True/False indicating missing, True means missing
-    if rank == 0:
-        np.save('miss_matrix_bool', miss_matrix)
+
 
     # Sites - random unifromly (x,y) generate site locations ----------------------------------------------------------
     sites_xy = np.random.random((Ns, 2)) * 10
     sites_x = sites_xy[:,0]
     sites_y = sites_xy[:,1]
-
-    np.save('sites_xy',sites_xy)
 
     # Elevation Function ----------------------------------------------------------------------------------------------
     # Note: the simple elevation function 1/5(|x-5| + |y-5|) is way too similar to the first basis
@@ -71,8 +85,6 @@ if __name__ == "__main__":
         # return(np.abs(x-5)/5 + np.abs(y-5)/5)
     elev_surf_generator = gs.SRF(gs.Gaussian(dim=2, var = 1, len_scale = 2), seed=data_seed)
     elevations = elev_surf_generator((sites_x, sites_y))
-
-    np.save('elevations', elevations)
 
     # Knots - isometric grid of 9 + 4 = 13 knots ----------------------------------------------------------------------
 
@@ -196,21 +208,18 @@ if __name__ == "__main__":
     sigma_matrix = np.exp((C_logsigma.T @ Beta_logsigma).T)
     ksi_matrix   = (C_ksi.T @ Beta_ksi).T
 
-    np.save('logsigma_matrix', np.log(sigma_matrix))
-    np.save('ksi_matrix', ksi_matrix)
-
     # Data Model Parameters - X_star = R^phi * g(Z) -------------------------------------------------------------------
 
     range_at_knots = np.sqrt(0.3*knots_x + 0.4*knots_y)/2 # range for spatial Matern Z
 
-    ### scenario 1
-    # phi_at_knots = 0.65-np.sqrt((knots_x-3)**2/4 + (knots_y-3)**2/3)/10
-    ### scenario 2
-    phi_at_knots = 0.65 - np.sqrt((knots_x-5.1)**2/5 + (knots_y-5.3)**2/4)/11.6
-    ### scenario 3
-    # phi_at_knots = 0.37 + 5*(scipy.stats.multivariate_normal.pdf(knots_xy, mean = np.array([2.5,3]), cov = 2*np.matrix([[1,0.2],[0.2,1]])) + 
-    #                          scipy.stats.multivariate_normal.pdf(knots_xy, mean = np.array([7,7.5]), cov = 2*np.matrix([[1,-0.2],[-0.2,1]])))
-
+    match scenario:
+        case 'sc1':
+            phi_at_knots = 0.65-np.sqrt((knots_x-3)**2/4 + (knots_y-3)**2/3)/10
+        case 'sc2':
+            phi_at_knots = 0.65 - np.sqrt((knots_x-5.1)**2/5 + (knots_y-5.3)**2/4)/11.6
+        case 'sc3':
+            phi_at_knots = 0.37 + 5*(scipy.stats.multivariate_normal.pdf(knots_xy, mean = np.array([2.5,3]), cov = 2*np.matrix([[1,0.2],[0.2,1]])) + 
+                                     scipy.stats.multivariate_normal.pdf(knots_xy, mean = np.array([7,7.5]), cov = 2*np.matrix([[1,-0.2],[-0.2,1]])))
 
     # %% Generate Simulation Data ------------------------------------------------------------------------------------
     # Generate Simulation Data
@@ -258,12 +267,18 @@ if __name__ == "__main__":
                                 u_matrix[exceed_idx, t], 
                                 sigma_matrix[exceed_idx, t],
                                 ksi_matrix[exceed_idx, t])
-    
+
     if rank == 0:
-        np.save('Y_sc2_t'+str(Nt)+'_s'+str(Ns)+'_truth', Y)
+        np.save(savefolder+'/miss_matrix_bool', miss_matrix)
+        np.save(savefolder+'/sites_xy',         sites_xy)
+        np.save(savefolder+'/elevations',       elevations)
+        np.save(savefolder+'/logsigma_matrix',  np.log(sigma_matrix))
+        np.save(savefolder+'/ksi_matrix',       ksi_matrix)
+        np.save(savefolder+'/Y',                Y)
+        
     for t in range(Nt):
         Y[:,t][miss_matrix[:,t]] = np.nan
-    
+
     # %% Check Data Generation ----------------------------------------------------------------------------------------
 
     # checking stable variables S -------------------------------------------------------------------------------------
@@ -282,7 +297,7 @@ if __name__ == "__main__":
     plt.ylim((0,1))
     plt.title('Levy CDF of S site {}'.format(site_i))
     plt.show()
-    plt.savefig('DataGeneration:QQPlot_Stable_site_{}.pdf'.format(site_i))
+    plt.savefig(savefolder+'/DataGeneration:QQPlot_Stable_site_{}.pdf'.format(site_i))
     plt.close()
     # scipy.stats.probplot(scipy.stats.levy.cdf(S_at_knots[i,:], scale=gamma), dist='uniform', fit=False, plot=plt)
 
@@ -302,7 +317,7 @@ if __name__ == "__main__":
         plt.ylim((0,1))
         plt.title('Pareto CDF of W site {}'.format(site_i))
         plt.show()
-        plt.savefig('DataGeneration:QQPlot_Pareto_site_{}.pdf'.format(site_i))
+        plt.savefig(savefolder+'/DataGeneration:QQPlot_Pareto_site_{}.pdf'.format(site_i))
         plt.close()
         # scipy.stats.probplot(scipy.stats.pareto.cdf(W[site_i,:], b = 1, loc = 0, scale = 1), dist='uniform', fit=False, plot=plt)
 
@@ -320,7 +335,7 @@ if __name__ == "__main__":
     plt.ylim((0,1))
     plt.title('pRW CDF of X site {}'.format(site_i))
     plt.show()
-    plt.savefig('DataGeneration:QQPlot_X_site_{}.pdf'.format(site_i))
+    plt.savefig(savefolder+'/DataGeneration:QQPlot_X_site_{}.pdf'.format(site_i))
     plt.close()
 
     # checking marginal exceedance ------------------------------------------------------------------------------------
@@ -342,7 +357,7 @@ if __name__ == "__main__":
     plt.ylim((0,1))
     plt.title('Generalized Pareto CDF of all exceedance')
     plt.show()
-    plt.savefig('DataGeneration:QQPlot_Yexceed_all.pdf')
+    plt.savefig(savefolder+'/DataGeneration:QQPlot_Yexceed_all.pdf')
     plt.close()
 
     # %% Plot Generated Surfaces --------------------------------------------------------------------------------------
@@ -402,7 +417,7 @@ if __name__ == "__main__":
     plt.ylabel('latitude', fontsize = 20)
     plt.subplots_adjust(right=0.6)
     plt.show()
-    plt.savefig('DataGeneration:stations.pdf',bbox_inches="tight")
+    plt.savefig(savefolder+'/DataGeneration:stations.pdf',bbox_inches="tight")
     plt.close()
 
 
@@ -413,7 +428,7 @@ if __name__ == "__main__":
     ax.set_aspect('equal', 'box')
     plt.colorbar(elev_scatter)
     plt.show()
-    plt.savefig('DataGeneration:station_elevation.pdf')
+    plt.savefig(savefolder+'/DataGeneration:station_elevation.pdf')
     plt.close()       
 
 
@@ -426,7 +441,7 @@ if __name__ == "__main__":
     ax.invert_yaxis()
     graph.colorbar(heatmap)
     plt.show()
-    plt.savefig('DataGeneration:true phi surface.pdf')
+    plt.savefig(savefolder+'/DataGeneration:true phi surface.pdf')
     plt.close()
 
 
@@ -439,6 +454,6 @@ if __name__ == "__main__":
     ax.invert_yaxis()
     graph.colorbar(heatmap)
     plt.show()
-    plt.savefig('DataGeneration:true range surface.pdf')
+    plt.savefig(savefolder+'/DataGeneration:true range surface.pdf')
     plt.close()
 # %%
