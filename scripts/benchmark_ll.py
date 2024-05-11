@@ -136,8 +136,7 @@ for layer in model.layers:
 # def qRW_NN(p, phi, gamma, tau):
 #     return NN_predict(Ws, bs, acts, )
 
-# wrapper for likelihood with Neural Network prediction, modified such that
-# using NN for p < 0.999, using qRW numerical integral for p >= 0.999
+# wrapper for likelihood with Neural Network prediction
 def ll_1t_par_NN(args):
     Y_1t, p, u_vec, Scale_vec, Shape_vec,                   \
     R_vec, Z_1t, phi_vec, gamma_vec, tau,                   \
