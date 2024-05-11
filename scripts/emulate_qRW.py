@@ -179,7 +179,7 @@ ps = np.linspace(0.9, 0.999, 100)
 tasks = np.array([[p, 0.5, 0.5, 1] for p in ps])
 
 plt.plot(ps, qRW(ps, 0.5, 0.5, 1), label = 'numerical integral')
-plt.plot(ps, np.exp(np.exp(model.predict(tasks, verbose = 0).ravel())), label = 'NN')
+plt.plot(ps, np.exp(model.predict(tasks, verbose = 0).ravel()), label = 'NN')
 plt.legend(loc = 'upper left')
 plt.xlabel('p')
 plt.ylabel('quantile')
