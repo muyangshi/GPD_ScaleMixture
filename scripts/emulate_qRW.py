@@ -161,9 +161,9 @@ for layer in model.layers:
 model.save(savefolder + '/qRW_NN.keras')
 # Note that numpy cannot save inhomogeneous shaped array
 #      therefore we use pickle dump
-with open(savefolder + '/qRW_NN_Ws.pkl', 'wb') as file: pickle.dump(Ws,   file)
-with open(savefolder + '/qRW_NN_bs.pkl', 'wb') as file: pickle.dump(bs,   file)
-with open(savefolder + '/qRW_NN_acts',   'wb') as file: pickle.dump(acts, file)
+with open(savefolder + '/qRW_NN_Ws.pkl',   'wb') as file: pickle.dump(Ws,   file)
+with open(savefolder + '/qRW_NN_bs.pkl',   'wb') as file: pickle.dump(bs,   file)
+with open(savefolder + '/qRW_NN_acts.pkl', 'wb') as file: pickle.dump(acts, file)
 
 plt.plot(history.history['val_loss'])
 plt.xlabel('epoch')
