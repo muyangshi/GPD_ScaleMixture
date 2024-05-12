@@ -23,14 +23,14 @@ keras.backend.set_floatx('float64')
 # custom modules
 from utilities import *
 
-# %% set up and helper functions
+# %% set up and helper functions --------------------------------------------------------------------------------------
 
 # Note:
 #   pRW(1e16, 1, 4, 50) yields array(0.99999999)
 
 # p
 lb_p = 0.8
-ub_p = 0.999
+ub_p = 0.9999
 
 # phi
 lb_phi = 0.05
@@ -55,34 +55,35 @@ def qRW_par(args): # wrapper to put qRW for multiprocessing
 # qRW_NN_vec = np.vectorize(qRW_NN)
 
 
-# %% Grid Design Points
+# # %% Grid Design Points ---------------------------------------------------------------------------------------------
 
-n_p        = 100
-n_phi      = 20
-n_gamma    = 10
-n_tau      = 20
-savefolder = '../data/qRW_grid'+                \
-                     '_p'      + str(n_p)     + \
-                     '_phi'    + str(n_phi)   + \
-                     '_gamma'  + str(n_gamma) + \
-                     '_tau'    + str(n_tau)
-Path(savefolder).mkdir(parents=True, exist_ok=True)
+# n_p        = 100
+# n_phi      = 20
+# n_gamma    = 10
+# n_tau      = 20
+# savefolder = '../data/qRW_grid'+                \
+#                      '_p'      + str(n_p)     + \
+#                      '_phi'    + str(n_phi)   + \
+#                      '_gamma'  + str(n_gamma) + \
+#                      '_tau'    + str(n_tau)
+# Path(savefolder).mkdir(parents=True, exist_ok=True)
 
-p_samples     = 2 - np.geomspace(2-ub_p, 2-lb_p, n_p)[::-1]
-phi_samples   = np.linspace(lb_phi, ub_phi, n_phi)
-gamma_samples = np.linspace(lb_gamma, ub_gamma, n_gamma)
-tau_samples   = np.linspace(lb_tau, ub_tau, n_tau)
+# p_samples     = 2 - np.geomspace(2-ub_p, 2-lb_p, n_p)[::-1]
+# phi_samples   = np.linspace(lb_phi, ub_phi, n_phi)
+# gamma_samples = np.linspace(lb_gamma, ub_gamma, n_gamma)
+# tau_samples   = np.linspace(lb_tau, ub_tau, n_tau)
 
-P, Phi, Gamma, Tau = np.meshgrid(p_samples, phi_samples, gamma_samples, tau_samples, indexing='ij')
-P_flat             = P.ravel()
-Phi_flat           = Phi.ravel()
-Gamma_flat         = Gamma.ravel()
-Tau_flat           = Tau.ravel()
-inputs             = np.column_stack((P_flat, Phi_flat, Gamma_flat, Tau_flat))
+# P, Phi, Gamma, Tau = np.meshgrid(p_samples, phi_samples, gamma_samples, tau_samples, indexing='ij')
+# P_flat             = P.ravel()
+# Phi_flat           = Phi.ravel()
+# Gamma_flat         = Gamma.ravel()
+# Tau_flat           = Tau.ravel()
+# inputs             = np.column_stack((P_flat, Phi_flat, Gamma_flat, Tau_flat))
 
-# %% LatinHypercube Design points
+# %% LatinHypercube Design points -------------------------------------------------------------------------------------
 
-n_samples  = 5000000
+# n_samples  = 5000000
+n_samples = int(5e7)
 savefolder = '../data/qRW_LHS_'+ str(n_samples)
 Path(savefolder).mkdir(parents=True, exist_ok=True)
 
@@ -95,13 +96,17 @@ inputs    = scipy.stats.qmc.scale(LHSamples,
                                   reverse  = False)
 
 
-# %% Calculate and Save the training data
+# %% Calculate and Save the training data -----------------------------------------------------------------------------
+
+nprocesses = 50
 
 # Note:
 #   400,000 qRW() evals in 5 minutes, 30 processes
 
+start_time = time.time()
+
 # x_samples = qRW(inputs[:,0], inputs[:,1], inputs[:,2], inputs[:,3])
-with multiprocessing.get_context('fork').Pool(processes=30) as pool:
+with multiprocessing.get_context('fork').Pool(processes=nprocesses) as pool:
     x_samples = pool.map(qRW_par, list(inputs))
 x_samples = np.array(x_samples)
 
@@ -110,16 +115,21 @@ x_samples = np.array(x_samples)
 # results = p.map(pRW_par, inputs)
 # p.close()
 
-print('done')
+end_time = time.time()
+
+print('done:', round(end_time - start_time, 3))
+print('processes:', str(nprocesses))
 np.save(savefolder + '/inputs',    inputs)
 np.save(savefolder + '/x_samples', x_samples)
 
 
-# %% Define Keras model
+# %% Setup Keras model ------------------------------------------------------------------------------------------------
 
 model = keras.Sequential(
     [   
         keras.Input(shape=(4,)),
+        layers.Dense(256, activation='relu'),
+        layers.Dense(512, activation='relu'),
         layers.Dense(256, activation='relu'),
         layers.Dense(128, activation='relu'),
         layers.Dense(64, activation='relu'),
@@ -130,47 +140,71 @@ model = keras.Sequential(
 
 model.compile(optimizer='adam', loss='mean_squared_error')
 
-# %% Spliting training and validation
-train_size    = 0.8
-indices       = np.arange(inputs.shape[0])
-np.random.shuffle(indices)
-split_idx     = int(inputs.shape[0] * train_size)
-train_indices = indices[:split_idx]
-test_indices  = indices[split_idx:]
+# # Spliting training and validation ##########################################
 
-X_train = inputs[train_indices]
-X_val   = inputs[test_indices]
-y_train = x_samples[train_indices]
-y_val   = x_samples[test_indices]
+# train_size    = 0.8
+# indices       = np.arange(inputs.shape[0])
+# np.random.shuffle(indices)
+# split_idx     = int(inputs.shape[0] * train_size)
+# train_indices = indices[:split_idx]
+# test_indices  = indices[split_idx:]
 
-y_train = np.log(y_train)
-y_val   = np.log(y_val)
+# X_train = inputs[train_indices]
+# X_val   = inputs[test_indices]
+# y_train = x_samples[train_indices]
+# y_val   = x_samples[test_indices]
+
+# y_train = np.log(y_train)
+# y_val   = np.log(y_val)
+
+# shuffle training and load validation ########################################
+
+# shuffle the training dataset
+indices = np.random.shuffle(np.arange(inputs.shape[0]))
+X_train = inputs[indices]
+y_train = np.log(x_samples[indices])
+
+# load a pre-recorded validation dataset
+
+loadfolder = '../data/qRW_LHS_5000000'
+X_val = np.load(loadfolder + '/input.npy')
+y_val = np.log(np.load(loadfolder + '/x_samples.npy'))
 
 # %% Fitting Model
 
-history = model.fit(X_train, y_train, epochs= 100, validation_data=(X_val, y_val))
-
-Ws, bs, acts = [], [], []
-for layer in model.layers:
-    W, b = layer.get_weights()
-    act  = layer.get_config()['activation']
-    Ws.append(W)
-    bs.append(b)
-    acts.append(act)
-
-model.save(savefolder + '/qRW_NN.keras')
-# Note that numpy cannot save inhomogeneous shaped array
-#      therefore we use pickle dump
-with open(savefolder + '/qRW_NN_Ws.pkl',   'wb') as file: pickle.dump(Ws,   file)
-with open(savefolder + '/qRW_NN_bs.pkl',   'wb') as file: pickle.dump(bs,   file)
-with open(savefolder + '/qRW_NN_acts.pkl', 'wb') as file: pickle.dump(acts, file)
-
+# only saves the best performer seen so far after each epoch 
+checkpoint_filepath = savefolder + '/checkpoint.model.keras'
+model_checkpoint_callback = keras.callbacks.ModelCheckpoint(filepath=checkpoint_filepath,
+                                                            monitor='val_loss',
+                                                            mode='max',
+                                                            save_best_only=True)
+history = model.fit(X_train, y_train, epochs=200, 
+                    validation_data=(X_val, y_val),
+                    callbacks=[model_checkpoint_callback])
 plt.plot(history.history['val_loss'])
 plt.xlabel('epoch')
 plt.ylabel('MSE loss')
 plt.savefig(savefolder + '/Plot:val_loss.pdf')
 plt.show()
 plt.close()
+
+# saving the "best" model
+
+bestmodel = keras.models.load_model(checkpoint_filepath)
+Ws, bs, acts = [], [], []
+for layer in bestmodel.layers:
+    W, b = layer.get_weights()
+    act  = layer.get_config()['activation']
+    Ws.append(W)
+    bs.append(b)
+    acts.append(act)
+bestmodel.save(savefolder + '/qRW_NN.keras')
+# Note that numpy cannot save inhomogeneous shaped array
+#      therefore we use pickle dump
+with open(savefolder + '/qRW_NN_Ws.pkl',   'wb') as file: pickle.dump(Ws,   file)
+with open(savefolder + '/qRW_NN_bs.pkl',   'wb') as file: pickle.dump(bs,   file)
+with open(savefolder + '/qRW_NN_acts.pkl', 'wb') as file: pickle.dump(acts, file)
+
 
 
 # %% Make example qRW plots
@@ -179,10 +213,11 @@ ps = np.linspace(0.9, 0.999, 100)
 tasks = np.array([[p, 0.5, 0.5, 1] for p in ps])
 
 plt.plot(ps, qRW(ps, 0.5, 0.5, 1), label = 'numerical integral')
-plt.plot(ps, np.exp(model.predict(tasks, verbose = 0).ravel()), label = 'NN')
+plt.plot(ps, np.exp(bestmodel.predict(tasks, verbose = 0).ravel()), label = 'NN')
 plt.legend(loc = 'upper left')
 plt.xlabel('p')
 plt.ylabel('quantile')
+plt.xticks(np.linspace(0.9, 0.999, 5))
 plt.title(r'qRW(...) along p with $\phi$=0.5 $\gamma$=0.5 $\tau$=1.0')
 plt.savefig(savefolder+'/Plot:qRW.pdf')
 plt.show()
