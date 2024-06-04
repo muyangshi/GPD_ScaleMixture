@@ -346,15 +346,15 @@ double dRW_standard_Pareto_nugget_C(double x, double phi, double gamma, double t
     F.params = &params;
     int status = gsl_integration_qag (&F, lb, ub, 1e-8, 1e-8, 1e8,
                                     1, w, &result, &error);
-    if (status) {
-        fprintf (stderr, "failed, gsl_errno=%d\n", status);
-        std::cout << "dRW integration failed " <<
-        std::string( gsl_strerror(status)) <<
-        " x: "    << x     << " " <<
-        "phi: "   << phi   << " " <<
-        "gamma: " << gamma <<
-        std::endl;
-    }
+    // if (status) {
+    //     fprintf (stderr, "failed, gsl_errno=%d\n", status);
+    //     std::cout << "dRW integration failed " <<
+    //     std::string( gsl_strerror(status)) <<
+    //     " x: "    << x     << " " <<
+    //     "phi: "   << phi   << " " <<
+    //     "gamma: " << gamma <<
+    //     std::endl;
+    // }
     gsl_integration_workspace_free(w);
 
     return sqrt(1/M_PI) * pow(gamma/2, phi) * result;
@@ -409,15 +409,15 @@ double pRW_standard_Pareto_nugget_C(double x, double phi, double gamma, double t
     F.params = &params;
     int status = gsl_integration_qag (&F, lb, ub, 1e-8, 1e-8, 1e8,
                                     1, w, &lower_gamma_convolution, &error);
-    if (status) {
-        fprintf (stderr, "failed, gsl_errno=%d\n", status);
-        std::cout << "lower gamma convolution failed " <<
-        std::string( gsl_strerror(status)) <<
-        " x: "    << x     << " " <<
-        "phi: "   << phi   << " " <<
-        "gamma: " << gamma <<
-        std::endl;
-    }
+    // if (status) {
+    //     fprintf (stderr, "failed, gsl_errno=%d\n", status);
+    //     std::cout << "lower gamma convolution failed " <<
+    //     std::string( gsl_strerror(status)) <<
+    //     " x: "    << x     << " " <<
+    //     "phi: "   << phi   << " " <<
+    //     "gamma: " << gamma <<
+    //     std::endl;
+    // }
     gsl_integration_workspace_free(w);
 
     // convolution of the upper gamma piece
@@ -430,15 +430,15 @@ double pRW_standard_Pareto_nugget_C(double x, double phi, double gamma, double t
 
     int status2 = gsl_integration_qag (&F2, lb, ub, 1e-8, 1e-8, 1e8,
                                     1, w2, &upper_gamma_convolution, &error2);
-    if (status2) {
-        fprintf (stderr, "failed, gsl_errno=%d\n", status2);
-        std::cout << "upper gamma convolution failed " <<
-        std::string( gsl_strerror(status2)) <<
-        " x: "    << x     << " " <<
-        "phi: "   << phi   << " " <<
-        "gamma: " << gamma <<
-        std::endl;
-    }
+    // if (status2) {
+    //     fprintf (stderr, "failed, gsl_errno=%d\n", status2);
+    //     std::cout << "upper gamma convolution failed " <<
+    //     std::string( gsl_strerror(status2)) <<
+    //     " x: "    << x     << " " <<
+    //     "phi: "   << phi   << " " <<
+    //     "gamma: " << gamma <<
+    //     std::endl;
+    // }
     gsl_integration_workspace_free(w2);
 
 
@@ -473,35 +473,35 @@ double qRW_standard_Pareto_nugget_C_brent(double p, double phi, double gamma, do
     T = gsl_root_fsolver_brent;
     s = gsl_root_fsolver_alloc (T);
     status = gsl_root_fsolver_set(s, &F, x_lo, x_hi);
-    if(status != -2 && status != 0) 
-        std::cout << "location 1 :" <<
-        std::string( gsl_strerror (status) ) <<
-        " p: "    << p     << " " <<
-        "phi: "   << phi   << " " <<
-        "gamma: " << gamma << " " <<
-        "tau: "   << tau   << std::endl;
+    // if(status != -2 && status != 0) 
+    //     std::cout << "location 1 :" <<
+    //     std::string( gsl_strerror (status) ) <<
+    //     " p: "    << p     << " " <<
+    //     "phi: "   << phi   << " " <<
+    //     "gamma: " << gamma << " " <<
+    //     "tau: "   << tau   << std::endl;
     do
         {
             iter++;
             status = gsl_root_fsolver_iterate (s);
-            if(status != -2 && status != 0) 
-                std::cout << 
-                "location 2 " << 
-                "p:" << p << " " << 
-                "phi:" << phi << " " << 
-                "gamma:" << gamma <<
-                std::string( gsl_strerror (status) ) << std::endl;
+            // if(status != -2 && status != 0) 
+            //     std::cout << 
+            //     "location 2 " << 
+            //     "p:" << p << " " << 
+            //     "phi:" << phi << " " << 
+            //     "gamma:" << gamma <<
+            //     std::string( gsl_strerror (status) ) << std::endl;
             r = gsl_root_fsolver_root (s);
             x_lo = gsl_root_fsolver_x_lower (s);
             x_hi = gsl_root_fsolver_x_upper (s);
             status = gsl_root_test_interval (x_lo, x_hi, 1e-12, 1e-12);
-            if(status != -2 && status != 0) 
-                std::cout <<
-                "location 3 " << 
-                "p:" << p << " " <<
-                "phi: " << phi << " " <<
-                "gamma: " << gamma <<
-                std::string( gsl_strerror (status) ) << std::endl;
+            // if(status != -2 && status != 0) 
+            //     std::cout <<
+            //     "location 3 " << 
+            //     "p:" << p << " " <<
+            //     "phi: " << phi << " " <<
+            //     "gamma: " << gamma <<
+            //     std::string( gsl_strerror (status) ) << std::endl;
             // if (status == GSL_SUCCESS) printf ("Converged:\n");
 
             // printf ("%5d [%.7f, %.7f] %.7f %.7f\n",
