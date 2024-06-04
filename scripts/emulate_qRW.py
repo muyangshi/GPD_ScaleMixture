@@ -1,9 +1,39 @@
 """
-Calculate Design points for qRW()
-Create a Keras-Tensorflow Neural Network emulating the qRW(p, phi, gamma, tau) function
-Save to [savefolder]: data/qRW_p#_phi#_gamma#_tau#/
-    - the grid of design points
-    - .keras model
+Overview:
+
+    Calculate Design points for qRW()
+    Create a Keras-Tensorflow Neural Network emulating the qRW(p, phi, gamma, tau) function:
+        note: training on log(qRW) otherwise MSE overflow
+
+File Structures:
+
+    - For grid desing:
+        Save to [savefolder]: data/qRW_p#_phi#_gamma#_tau#/
+            - the grid of design points
+            - .keras model
+
+    - For space filling design:
+        Save to [savefolder]: data/qRW_LHS_'+ str(n_samples)
+            - the grid of design points
+            - .keras model
+
+Notes on coding:
+
+    - pRW(1e16, 1, 4, 50) yields array(0.99999999)
+
+    - This is incredibly slow -- much better to directly pass X_2d to model.predict
+        def qRW_NN(x, phi, gamma, tau):
+            return model.predict(np.array([[x, phi, gamma, tau]]), verbose=0)[0]
+        qRW_NN_vec = np.vectorize(qRW_NN)
+
+    - 400,000 qRW() evals in 5 minutes, 30 processes
+
+    - Windows/Mac need to explicitly use 'fork':
+        from multiprocessing import get_context
+        p = get_context("fork").Pool(4)
+        results = p.map(pRW_par, inputs)
+        p.close()
+
 """
 # %% imports
 # base python
@@ -23,13 +53,10 @@ keras.backend.set_floatx('float64')
 # custom modules
 from utilities import *
 
-# %% set up and helper functions --------------------------------------------------------------------------------------
-
-# Note:
-#   pRW(1e16, 1, 4, 50) yields array(0.99999999)
+# # %% set up and helper functions --------------------------------------------------------------------------------------
 
 # p
-lb_p = 0.8
+lb_p = 0.9
 ub_p = 0.9999
 
 # phi
@@ -44,18 +71,11 @@ ub_gamma = 4
 lb_tau = 0.1
 ub_tau = 50
 
-
 def qRW_par(args): # wrapper to put qRW for multiprocessing
     p, phi, gamma, tau = args
     return(qRW(p, phi, gamma, tau))
 
-# This is incredibly slow -- much better to directly pass X_2d to model.predict
-# def qRW_NN(x, phi, gamma, tau):
-#     return model.predict(np.array([[x, phi, gamma, tau]]), verbose=0)[0]
-# qRW_NN_vec = np.vectorize(qRW_NN)
-
-
-# # %% Grid Design Points ---------------------------------------------------------------------------------------------
+# %% Grid Design Points ---------------------------------------------------------------------------------------------
 
 # n_p        = 100
 # n_phi      = 20
@@ -82,8 +102,7 @@ def qRW_par(args): # wrapper to put qRW for multiprocessing
 
 # %% LatinHypercube Design points -------------------------------------------------------------------------------------
 
-# n_samples  = 5000000
-n_samples = int(5e7)
+n_samples = int(1e7)
 savefolder = '../data/qRW_LHS_'+ str(n_samples)
 Path(savefolder).mkdir(parents=True, exist_ok=True)
 
@@ -95,25 +114,16 @@ inputs    = scipy.stats.qmc.scale(LHSamples,
                                   u_bounds = np.array([ub_p, ub_phi, ub_gamma, ub_tau]), 
                                   reverse  = False)
 
-
 # %% Calculate and Save the training data -----------------------------------------------------------------------------
 
 nprocesses = 50
 
-# Note:
-#   400,000 qRW() evals in 5 minutes, 30 processes
-
 start_time = time.time()
+print('start x calculation:', start_time)
 
-# x_samples = qRW(inputs[:,0], inputs[:,1], inputs[:,2], inputs[:,3])
 with multiprocessing.get_context('fork').Pool(processes=nprocesses) as pool:
     x_samples = pool.map(qRW_par, list(inputs))
 x_samples = np.array(x_samples)
-
-# from multiprocessing import get_context
-# p = get_context("fork").Pool(4)
-# results = p.map(pRW_par, inputs)
-# p.close()
 
 end_time = time.time()
 
@@ -122,13 +132,53 @@ print('processes:', str(nprocesses))
 np.save(savefolder + '/inputs',    inputs)
 np.save(savefolder + '/x_samples', x_samples)
 
+# %% Training and Validation Dataset ----------------------------------------------------------------------------------
+
+"""
+Split the dataset we just calculated into training and validation chunks
+"""
+
+train_size    = 0.8
+indices       = np.arange(inputs.shape[0])
+np.random.shuffle(indices)
+split_idx     = int(inputs.shape[0] * train_size)
+train_indices = indices[:split_idx]
+test_indices  = indices[split_idx:]
+
+X_train = inputs[train_indices]
+X_val   = inputs[test_indices]
+y_train = x_samples[train_indices]
+y_val   = x_samples[test_indices]
+
+y_train = np.log(y_train)
+y_val   = np.log(y_val)
+
+
+"""
+Load previously calculated dataset(s) as training and validation
+"""
+
+# # training (load and shuffle)
+# inputs    = np.load('../data/qRW_LHS_50000000/inputs.npy')
+# x_samples = np.load('../data/qRW_LHS_50000000/x_samples.npy')
+# indices   = np.arange(inputs.shape[0])
+# np.random.shuffle(indices)
+# X_train   = inputs[indices]
+# y_train   = np.log(x_samples[indices])
+
+# # validation (load)
+# loadfolder = '../data/qRW_LHS_5000000'
+# X_val = np.load(loadfolder        + '/inputs.npy')
+# y_val = np.log(np.load(loadfolder + '/x_samples.npy'))
+
+
 
 # %% Setup Keras model ------------------------------------------------------------------------------------------------
 
 model = keras.Sequential(
     [   
         keras.Input(shape=(4,)),
-        layers.Dense(256, activation='relu'),
+        # layers.Dense(256, activation='relu'),
         layers.Dense(512, activation='relu'),
         layers.Dense(256, activation='relu'),
         layers.Dense(128, activation='relu'),
@@ -140,37 +190,10 @@ model = keras.Sequential(
 
 model.compile(optimizer='adam', loss='mean_squared_error')
 
-# # Spliting training and validation ##########################################
+# %% Fitting Model ----------------------------------------------------------------------------------------------------
 
-# train_size    = 0.8
-# indices       = np.arange(inputs.shape[0])
-# np.random.shuffle(indices)
-# split_idx     = int(inputs.shape[0] * train_size)
-# train_indices = indices[:split_idx]
-# test_indices  = indices[split_idx:]
-
-# X_train = inputs[train_indices]
-# X_val   = inputs[test_indices]
-# y_train = x_samples[train_indices]
-# y_val   = x_samples[test_indices]
-
-# y_train = np.log(y_train)
-# y_val   = np.log(y_val)
-
-# shuffle training and load validation ########################################
-
-# shuffle the training dataset
-indices = np.random.shuffle(np.arange(inputs.shape[0]))
-X_train = inputs[indices]
-y_train = np.log(x_samples[indices])
-
-# load a pre-recorded validation dataset
-
-loadfolder = '../data/qRW_LHS_5000000'
-X_val = np.load(loadfolder + '/input.npy')
-y_val = np.log(np.load(loadfolder + '/x_samples.npy'))
-
-# %% Fitting Model
+start_time = time.time()
+print('started fitting model:', start_time)
 
 # only saves the best performer seen so far after each epoch 
 checkpoint_filepath = savefolder + '/checkpoint.model.keras'
@@ -179,6 +202,7 @@ model_checkpoint_callback = keras.callbacks.ModelCheckpoint(filepath=checkpoint_
                                                             mode='max',
                                                             save_best_only=True)
 history = model.fit(X_train, y_train, epochs=200, 
+                    verbose = 2,
                     validation_data=(X_val, y_val),
                     callbacks=[model_checkpoint_callback])
 plt.plot(history.history['val_loss'])
@@ -205,7 +229,8 @@ with open(savefolder + '/qRW_NN_Ws.pkl',   'wb') as file: pickle.dump(Ws,   file
 with open(savefolder + '/qRW_NN_bs.pkl',   'wb') as file: pickle.dump(bs,   file)
 with open(savefolder + '/qRW_NN_acts.pkl', 'wb') as file: pickle.dump(acts, file)
 
-
+end_time = time.time()
+print('training took:', round(end_time - start_time, 3))
 
 # %% Make example qRW plots
 
