@@ -318,9 +318,19 @@ double qRW_standard_Pareto_C_brent(double p, double phi, double gamma){
     return r;
 }
 
+//
+//
+//
+//
+//
 // ---------------------------------------------------------------------------
 // Convolution with a Gaussian(0, var = tau^2) nugget for threshold exceedance
 // ---------------------------------------------------------------------------
+//
+//
+//
+//
+//
 
 double dRW_standard_Pareto_nugget_integrand(double t, void * params_ptr){
     double x     = (*(double(*)[4]) params_ptr)[0];
