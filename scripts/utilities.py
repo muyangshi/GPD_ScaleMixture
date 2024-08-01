@@ -283,6 +283,9 @@ def rlevy(n, m = 0, s = 1):
         sys.exit("s must be positive")
     return s/scipy.stats.norm.ppf(1-scipy.stats.uniform.rvs(0,1,n)/2)**2 + m
 
+def qlevy(p, m = 0, s = 1):
+    return m + s/(2*(scipy.special.erfcinv(p))**2)
+
 # Generalized Extreme Value distribution
 # note negative shape parametrization in scipy.genextreme
 def dgev(yvals, Loc, Scale, Shape, log=False):
@@ -369,13 +372,20 @@ def pareto1_to_Norm(W):
 
 if norm_pareto == 'standard':
 
-    g = norm_to_stdPareto_vec
+    g    = norm_to_stdPareto_vec
     ginv = stdPareto_to_Norm_vec
 
     dRW = RW_inte.dRW_standard_Pareto_nugget_vec
     pRW = RW_inte.pRW_standard_Pareto_nugget_vec
     qRW = RW_inte.qRW_standard_Pareto_nugget_vec
 
+if norm_pareto == 'shifted':
+    g    = norm_to_Pareto1
+    ginv = pareto1_to_Norm
+
+    dRW = print('2D Integral No Implementation!' )
+    pRW = print('2D Integral No Implementation!' )
+    qRW = print('2D Integral No Implementation!' )
 
 # %% Likelihood
 # Likelihood
