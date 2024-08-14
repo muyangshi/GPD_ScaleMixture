@@ -84,7 +84,7 @@ def Y_ll_1t_par(args): # wrapper to put Y_ll_1t for multiprocessing
 # %%
 # Design points X -----------------------------------------------------------------------------------------------------
 
-n_samples = int(1e4)
+n_samples = int(1e6)
 savefolder = '../data/ll1t_full_LHS_'+ str(n_samples)
 Path(savefolder).mkdir(parents=True, exist_ok=True)
 
@@ -95,7 +95,7 @@ LHSampler = scipy.stats.qmc.LatinHypercube(d = n_param,
 LHSamples = LHSampler.random(n_samples-2)
 LHSamples = np.row_stack(([0]*n_param, [1]*n_param, LHSamples)) # need to manually codein the bounds
 
-l_bounds = np.array([0.0,   # Y
+l_bounds = np.array([0.01,   # Y
                      5.0,   #scale
                      -0.5,  #shape
                      0.01,   #R
@@ -202,7 +202,7 @@ model_checkpoint_callback = keras.callbacks.ModelCheckpoint(filepath=checkpoint_
                                                             monitor='val_loss',
                                                             mode='max',
                                                             save_best_only=True)
-history = model.fit(X_train, y_train, epochs = 500, 
+history = model.fit(X_train, y_train, epochs = 1000, 
                     verbose = 2,
                     validation_data=(X_val, y_val),
                     callbacks=[model_checkpoint_callback])
