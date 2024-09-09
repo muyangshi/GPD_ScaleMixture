@@ -3,16 +3,22 @@ March 26, 2024
 Simulate data using the GPD Scale Mixture Model
 
 May 11
-redirect output to ../data/[savefolder]
+redirect output to ../data/<savefolder>
+
+20240909
+    Decouple phi and rho knots
 """
 if __name__ == "__main__":
-    # %%
-    import sys
-    data_seed = int(sys.argv[1]) if len(sys.argv) == 2 else 2345
 
-    # %% imports
-    # base python -----------
+    # %%
+
+    # imports
+
+    # base python -------------------------------------------------------------
+    
+    import sys
     import os
+    import multiprocessing
     from pathlib import Path
     os.environ["OMP_NUM_THREADS"] = "1"        # export OMP_NUM_THREADS=1
     os.environ["OPENBLAS_NUM_THREADS"] = "1"   # export OPENBLAS_NUM_THREADS=1
@@ -20,81 +26,85 @@ if __name__ == "__main__":
     os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
     os.environ["NUMEXPR_NUM_THREADS"] = "1"    # export NUMEXPR_NUM_THREADS=1
 
-    # packages --------------
+    # packages ----------------------------------------------------------------
+    
     import numpy as np
     import matplotlib
     import matplotlib.pyplot as plt
     import scipy
-    from mpi4py import MPI
     import gstools as gs
     import rpy2.robjects as robjects
     from rpy2.robjects import r 
     from rpy2.robjects.numpy2ri import numpy2rpy
     from rpy2.robjects.packages import importr
     
-    # custom module ---------
+    # custom module -----------------------------------------------------------
+    
     from utilities import *
+    print('link function:', norm_pareto, 'Pareto')
 
-    # setup -----------------
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-    random_generator = np.random.RandomState((rank+1)*7)
+
+    # setup -------------------------------------------------------------------
     
     try:
+        data_seed = int(sys.argv[1])
         data_seed
     except:
         data_seed = 2345
     finally:
-        if rank == 0: print('data_seed:', data_seed)
+        print('data_seed:', data_seed)
 
-    if rank == 0: print('Pareto:', norm_pareto)
 
-    # %% Simulation Setup ---------------------------------------------------------------------------------------------
+    # %%
 
-    # Numbers - Ns, Nt ------------------------------------------------------------------------------------------------   
+    # Simulate setup
+
+    # Numbers - Ns, Nt --------------------------------------------------------   
+    
     np.random.seed(data_seed)
     Nt       = 50 # number of time replicates
-    Ns       = 500 # number of sites/stations
+    Ns       = 590 # number of sites/stations
     scenario = 'sc2'
     Time     = np.linspace(-Nt/2, Nt/2-1, Nt)/np.std(np.linspace(-Nt/2, Nt/2-1, Nt), ddof=1)
     
-    savefolder = '../data/nonstationary_seed'+ str(data_seed) + \
-                                        '_t' + str(Nt) + \
-                                        '_s' + str(Ns) + \
-                                        '_'  + scenario
+    savefolder = '../data/nonstationary' + \
+                    '_seed' + str(data_seed) + \
+                    '_t' + str(Nt) + \
+                    '_s' + str(Ns) + \
+                    '_'  + scenario
     Path(savefolder).mkdir(parents=True, exist_ok=True)
 
-    # missing indicator matrix ----------------------------------------------------------------------------------------
+    # missing indicator matrix ------------------------------------------------
+    
     miss_proportion = 0.0
     miss_matrix = np.full(shape = (Ns, Nt), fill_value = 0)
     for t in range(Nt):
         miss_matrix[:,t] = np.random.choice([0, 1], size = (Ns,), p = [1-miss_proportion, miss_proportion])
     miss_matrix = miss_matrix.astype(bool) # matrix of True/False indicating missing, True means missing
 
-
-    # Sites - random unifromly (x,y) generate site locations ----------------------------------------------------------
+    # Sites - random unifromly (x,y) generate site locations ------------------
+    
     sites_xy = np.random.random((Ns, 2)) * 10
     sites_x = sites_xy[:,0]
     sites_y = sites_xy[:,1]
 
-    # Elevation Function ----------------------------------------------------------------------------------------------
-    # Note: the simple elevation function 1/5(|x-5| + |y-5|) is way too similar to the first basis
-    #       this might cause identifiability issue
-    # def elevation_func(x,y):
-        # return(np.abs(x-5)/5 + np.abs(y-5)/5)
+    # Elevation Function ------------------------------------------------------
+
     elev_surf_generator = gs.SRF(gs.Gaussian(dim=2, var = 1, len_scale = 2), seed=data_seed)
     elevations = elev_surf_generator((sites_x, sites_y))
 
-    # Knots - isometric grid of 9 + 4 = 13 knots ----------------------------------------------------------------------
+    # Knots - isometric grid ----------------------------------------------------------------------
 
     # define the lower and upper limits for x and y
+
     # minX, maxX = np.floor(np.min(sites_x)), np.ceil(np.max(sites_x))
     # minY, maxY = np.floor(np.min(sites_y)), np.ceil(np.max(sites_y))
+
     minX, maxX = 0.0, 10.0
     minY, maxY = 0.0, 10.0
 
-    # isometric knot grid
+    # isometric knot grid -- for R^phi
+
     N_outer_grid = 16
     h_dist_between_knots     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid))-1)
     v_dist_between_knots     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid))-1)
@@ -115,26 +125,52 @@ if __name__ == "__main__":
     knots_xy                 = knots_xy[knots_id_in_domain]
     knots_x                  = knots_xy[:,0]
     knots_y                  = knots_xy[:,1]
-    k                        = len(knots_id_in_domain)  
+    k                        = len(knots_id_in_domain)
 
-    # Copula Splines --------------------------------------------------------------------------------------------------
+    # isometric knot grid -- for rho
 
-    radius = 2
-    bandwidth = radius**2/6 # range for the gaussian kernel
-    radius_from_knots = np.repeat(radius, k) # ?influence radius from a knot?
-    assert k == len(knots_xy)
-    
-    # Weight matrix generated using Gaussian Smoothing Kernel
-    gaussian_weight_matrix = np.full(shape = (Ns, k), fill_value = np.nan)
-    for site_id in np.arange(Ns):
-        # Compute distance between each pair of the two collections of inputs
-        d_from_knots = scipy.spatial.distance.cdist(XA = sites_xy[site_id,:].reshape((-1,2)), 
-                                        XB = knots_xy)
-        # influence coming from each of the knots
-        weight_from_knots = weights_fun(d_from_knots, radius, bandwidth, cutoff = False)
-        gaussian_weight_matrix[site_id, :] = weight_from_knots
+    N_outer_grid_rho = 9
+    h_dist_between_knots_rho     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_rho))-1)
+    v_dist_between_knots_rho     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_rho))-1)
+    x_pos_rho                    = np.linspace(minX + h_dist_between_knots_rho/2, maxX + h_dist_between_knots_rho/2, 
+                                           num = int(2*np.sqrt(N_outer_grid_rho)))
+    y_pos_rho                    = np.linspace(minY + v_dist_between_knots_rho/2, maxY + v_dist_between_knots_rho/2, 
+                                           num = int(2*np.sqrt(N_outer_grid_rho)))
+    x_outer_pos_rho              = x_pos_rho[0::2]
+    x_inner_pos_rho              = x_pos_rho[1::2]
+    y_outer_pos_rho              = y_pos_rho[0::2]
+    y_inner_pos_rho              = y_pos_rho[1::2]
+    X_outer_pos_rho, Y_outer_pos_rho = np.meshgrid(x_outer_pos_rho, y_outer_pos_rho)
+    X_inner_pos_rho, Y_inner_pos_rho = np.meshgrid(x_inner_pos_rho, y_inner_pos_rho)
+    knots_outer_xy_rho           = np.vstack([X_outer_pos_rho.ravel(), Y_outer_pos_rho.ravel()]).T
+    knots_inner_xy_rho           = np.vstack([X_inner_pos_rho.ravel(), Y_inner_pos_rho.ravel()]).T
+    knots_xy_rho                 = np.vstack((knots_outer_xy_rho, knots_inner_xy_rho))
+    knots_id_in_domain_rho       = [row for row in range(len(knots_xy_rho)) if (minX < knots_xy_rho[row,0] < maxX and minY < knots_xy_rho[row,1] < maxY)]
+    knots_xy_rho                 = knots_xy_rho[knots_id_in_domain_rho]
+    knots_x_rho                  = knots_xy_rho[:,0]
+    knots_y_rho                  = knots_xy_rho[:,1]
+    k_rho                        = len(knots_id_in_domain_rho)    
 
-    # Weight matrix generated using wendland basis
+    # Copula Splines ----------------------------------------------------------
+
+    # Influence Radius from knots:
+
+    # R <- weighted sum of Stable S
+    radius            = 2 # radius of R's Wendland Kernel for R
+    radius_from_knots = np.repeat(radius, k)
+
+    # phi
+    eff_range = 2 # range where phi's gaussian kernel drops to 0.05
+    bandwidth = eff_range**2/6
+
+    # rho
+    eff_range_rho = 2 # range where rho's gaussian kernel drops to 0.05
+    bandwidth_rho = eff_range_rho**2/6
+
+    # Weight matrices (matrix expand from knots to sites):
+
+    # R, Wendland Kernel
+
     wendland_weight_matrix = np.full(shape = (Ns,k), fill_value = np.nan)
     for site_id in np.arange(Ns):
         # Compute distance between each pair of the two collections of inputs
@@ -144,9 +180,28 @@ if __name__ == "__main__":
         weight_from_knots = wendland_weights_fun(d_from_knots, radius_from_knots)
         wendland_weight_matrix[site_id, :] = weight_from_knots
     
-    # -----------------------------------------------------------------------------------------------------------------
-    # Setup For the Model 
-    # -----------------------------------------------------------------------------------------------------------------
+    # phi, Gaussian Kernel
+
+    gaussian_weight_matrix = np.full(shape = (Ns, k), fill_value = np.nan)
+    for site_id in np.arange(Ns):
+        # Compute distance between each pair of the two collections of inputs
+        d_from_knots = scipy.spatial.distance.cdist(XA = sites_xy[site_id,:].reshape((-1,2)), 
+                                        XB = knots_xy)
+        # influence coming from each of the knots
+        weight_from_knots = weights_fun(d_from_knots, radius, bandwidth, cutoff = False)
+        gaussian_weight_matrix[site_id, :] = weight_from_knots
+
+    # rho, Gaussian Kernel
+
+    gaussian_weight_matrix_rho = np.full(shape = (Ns, k_rho), fill_value = np.nan)
+    for site_id in np.arange(Ns):
+        # Compute distance between each pair of the two collections of inputs
+        d_from_knots = scipy.spatial.distance.cdist(XA = sites_xy[site_id,:].reshape((-1,2)), 
+                                                    XB = knots_xy_rho)
+        # influence coming from each of the knots
+        weight_from_knots = weights_fun(d_from_knots, radius, bandwidth_rho, cutoff = False)
+        gaussian_weight_matrix_rho[site_id, :] = weight_from_knots    
+
 
     # Marginal Model - GP(sigma, ksi) threshold u ---------------------------------------------------------------------
     
@@ -156,22 +211,22 @@ if __name__ == "__main__":
     estimated from the actual data.
     """
 
-    # Scale logsigma(s) ----------------------------------------------------------------------------------------------
+    # Threshold u(t,s) --------------------------------------------------------
+    u_matrix = np.full(shape = (Ns, Nt), fill_value = 20.0)
+
+    # Scale logsigma(s) -------------------------------------------------------
     
     Beta_logsigma_m   = 2 # just intercept and elevation
     C_logsigma        = np.full(shape = (Beta_logsigma_m, Ns, Nt), fill_value = np.nan)
     C_logsigma[0,:,:] = 1.0 
     C_logsigma[1,:,:] = np.tile(elevations, reps = (Nt, 1)).T
 
-    # Shape ksi(s) ----------------------------------------------------------------------------------------------------
+    # Shape ksi(s) ------------------------------------------------------------
     
     Beta_ksi_m   = 2 # just intercept and elevation
     C_ksi        = np.full(shape = (Beta_ksi_m, Ns, Nt), fill_value = np.nan) # ksi design matrix
     C_ksi[0,:,:] = 1.0
     C_ksi[1,:,:] = np.tile(elevations, reps = (Nt, 1)).T
-
-    # Threshold u(t,s) ------------------------------------------------------------------------------------------------
-    u_matrix = np.full(shape = (Ns, Nt), fill_value = 20.0)
 
 
     # Setup For the Copula/Data Model - X = e + X_star = R^phi * g(Z) -------------------------------------------------
@@ -179,12 +234,14 @@ if __name__ == "__main__":
     # Nugget Variance
     tau = 10.0
 
-    # Covariance K for Gaussian Field g(Z) ----------------------------------------------------------------------------
+    # Covariance K for Gaussian Field g(Z)
+
     nu = 0.5 # exponential kernel for matern with nu = 1/2
     sigsq = 1.0 # sill for Z
     sigsq_vec = np.repeat(sigsq, Ns) # hold at 1
 
-    # Scale Mixture R^phi ---------------------------------------------------------------------------------------------
+    # Scale Mixture R^phi
+
     gamma = 0.5 # this is the gamma that goes in rlevy, gamma_at_knots
     delta = 0.0 # this is the delta in levy, stays 0
     alpha = 0.5
@@ -197,89 +254,169 @@ if __name__ == "__main__":
     # -----------------------------------------------------------------------------------------------------------------
 
     # Censoring probability
+    
     p = 0.9
 
     # Marginal Parameters - GP(sigma, ksi) ----------------------------------------------------------------------------
-    Beta_logsigma       = np.array([0.0, 0.0])
-    Beta_ksi            = np.array([0.25, 0.0])
-    sigma_Beta_logsigma = 1
-    sigma_Beta_ksi      = 1
-
-    sigma_matrix = np.exp((C_logsigma.T @ Beta_logsigma).T)
-    ksi_matrix   = (C_ksi.T @ Beta_ksi).T
+    
+    Beta_logsigma = np.array([2.0, 0.0])
+    Beta_ksi      = np.array([0.25, 0.0])
 
     # Data Model Parameters - X_star = R^phi * g(Z) -------------------------------------------------------------------
 
-    range_at_knots = np.sqrt(0.3*knots_x + 0.4*knots_y)/2 # range for spatial Matern Z
+    # phi
 
     match scenario:
-        case 'sc1':
-            phi_at_knots = 0.65-np.sqrt((knots_x-3)**2/4 + (knots_y-3)**2/3)/10
-        case 'sc2':
-            phi_at_knots = 0.65 - np.sqrt((knots_x-5.1)**2/5 + (knots_y-5.3)**2/4)/11.6
-        case 'sc3':
-            phi_at_knots = 0.37 + 5*(scipy.stats.multivariate_normal.pdf(knots_xy, mean = np.array([2.5,3]), cov = 2*np.matrix([[1,0.2],[0.2,1]])) + 
-                                     scipy.stats.multivariate_normal.pdf(knots_xy, mean = np.array([7,7.5]), cov = 2*np.matrix([[1,-0.2],[-0.2,1]])))
+        case 'sc1': phi_at_knots = 0.65 - np.sqrt((knots_x-3)**2/4 + (knots_y-3)**2/3)/10
+        case 'sc2': phi_at_knots = 0.65 - np.sqrt((knots_x-5.1)**2/5 + (knots_y-5.3)**2/4)/11.6
+        case 'sc3': phi_at_knots = 0.37 + 5*(scipy.stats.multivariate_normal.pdf(knots_xy, mean = np.array([2.5,3]), cov = 2*np.matrix([[1,0.2],[0.2,1]])) + 
+                                             scipy.stats.multivariate_normal.pdf(knots_xy, mean = np.array([7,7.5]), cov = 2*np.matrix([[1,-0.2],[-0.2,1]])))
 
-    # %% Generate Simulation Data ------------------------------------------------------------------------------------
-    # Generate Simulation Data
+    # rho
+
+    # rho_at_knots = np.sqrt(0.3*knots_x + 0.4*knots_y)/2 # range for spatial Matern Z
+    rho_at_knots = [1.0] * k_rho                        # for a stationary rho(s)
+
+
+    # %%
+
+    # Generate Dataset
+
     np.random.seed(data_seed)
-    # W = g(Z), Z ~ MVN(0, K)
-    range_vec = gaussian_weight_matrix @ range_at_knots
-    K         = ns_cov(range_vec = range_vec, sigsq_vec = sigsq_vec,
-                        coords = sites_xy, kappa = nu, cov_model = "matern")
-    Z         = scipy.stats.multivariate_normal.rvs(mean=np.zeros(shape=(Ns,)),cov=K,size=Nt).T
+
+    # Transformed Gaussian Process --------------------------------------------
+
+    range_vec = gaussian_weight_matrix_rho @ rho_at_knots
+    K         = ns_cov(range_vec = range_vec, 
+                       coords = sites_xy,
+                       sigsq_vec = sigsq_vec,
+                       kappa = nu, cov_model = "matern")
+    Z         = scipy.stats.multivariate_normal.rvs(mean=np.zeros(shape=(Ns,)),
+                                                    cov=K,
+                                                    size=Nt).T
     W         = g(Z) 
 
-    # R^phi Scaling Factor
-    phi_vec    = gaussian_weight_matrix @ phi_at_knots
+    # Random Scaling Factor ---------------------------------------------------
+    
     S_at_knots = np.full(shape = (k, Nt), fill_value = np.nan)
+    R_phi      = np.full(shape = (Ns, Nt), fill_value = np.nan)
+    phi_vec    = gaussian_weight_matrix @ phi_at_knots
     for t in np.arange(Nt):
         S_at_knots[:,t] = rlevy(n = k, m = delta, s = gamma) # generate R at time t, spatially varying k knots
     R_at_sites = wendland_weight_matrix @ S_at_knots
-    R_phi      = np.full(shape = (Ns, Nt), fill_value = np.nan)
     for t in np.arange(Nt):
         R_phi[:,t] = np.power(R_at_sites[:,t], phi_vec)
     
-    # Nuggets
+    # Nuggets -----------------------------------------------------------------
+
     nuggets = scipy.stats.multivariate_normal.rvs(mean = np.zeros(shape = (Ns,)),
                                                   cov  = tau**2,
                                                   size = Nt).T
 
-    # Generate Observed Process Y
+    # Hidden Data X -----------------------------------------------------------
+
     X_star       = R_phi * W
     X            = X_star + nuggets
 
-    pX           = np.full(shape = (Ns, Nt), fill_value = np.nan)
-    Y            = np.full(shape = (Ns, Nt), fill_value = np.nan)
+    # Marginal Observation Y --------------------------------------------------
+
+    sigma_matrix = np.exp((C_logsigma.T @ Beta_logsigma).T)
+    ksi_matrix   = (C_ksi.T @ Beta_ksi).T
     
-    for t in np.arange(Nt): # single core version
-        # CDF of the generated X
-        pX[:,t] = pRW(X[:,t], phi_vec, gamma_vec, tau)
-        censored_idx = np.where(pX[:,t] <= p)[0]
-        exceed_idx   = np.where(pX[:,t] > p)[0]
+    # # single core version
+    # pX           = np.full(shape = (Ns, Nt), fill_value = np.nan)
+    # Y            = np.full(shape = (Ns, Nt), fill_value = np.nan)
+    # for t in np.arange(Nt):
+    #     # CDF of the generated X
+    #     pX[:,t] = pRW(X[:,t], phi_vec, gamma_vec, tau)
+    #     censored_idx = np.where(pX[:,t] <= p)[0]
+    #     exceed_idx   = np.where(pX[:,t] > p)[0]
 
-        # censored below
-        Y[censored_idx,t]  = u_matrix[censored_idx,t]
+    #     # censored below
+    #     Y[censored_idx,t]  = u_matrix[censored_idx,t]
 
-        # threshold exceeded
-        Y[exceed_idx,t]  = qCGP(pX[exceed_idx, t], p, 
-                                u_matrix[exceed_idx, t], 
-                                sigma_matrix[exceed_idx, t],
-                                ksi_matrix[exceed_idx, t])
+    #     # threshold exceeded
+    #     Y[exceed_idx,t]  = qCGP(pX[exceed_idx, t], p, 
+    #                             u_matrix[exceed_idx, t], 
+    #                             sigma_matrix[exceed_idx, t],
+    #                             ksi_matrix[exceed_idx, t])
 
-    if rank == 0:
-        np.save(savefolder+'/miss_matrix_bool', miss_matrix)
-        np.save(savefolder+'/sites_xy',         sites_xy)
-        np.save(savefolder+'/elevations',       elevations)
-        np.save(savefolder+'/logsigma_matrix',  np.log(sigma_matrix))
-        np.save(savefolder+'/ksi_matrix',       ksi_matrix)
-        np.save(savefolder+'/Y',                Y)
+    # multi core version
+    def transform_to_Y(args):
+        X_vec, phi_vec, gamma_vec, tau, p, u_vec, sigma_vec, ksi_vec = args
+
+        Y_vec      = np.full(shape = (Ns,), fill_value = np.nan)
+        pX_vec     = pRW(X_vec, phi_vec, gamma_vec, tau)
+
+        censored_idx        = np.where(pX_vec <= p)[0]
+        Y_vec[censored_idx] = u_vec[censored_idx]
+
+        exceed_idx          = np.where(pX_vec > p)[0]
+        Y_vec[exceed_idx]   = qCGP(pX_vec[exceed_idx],
+                               p, 
+                               u_vec[exceed_idx],
+                               sigma_vec[exceed_idx],
+                               ksi_vec[exceed_idx])
         
-    for t in range(Nt):
-        Y[:,t][miss_matrix[:,t]] = np.nan
+        return Y_vec
 
-    # %% Check Data Generation ----------------------------------------------------------------------------------------
+    args_list = []
+    for t in range(Nt):
+        args = (X[:,t], phi_vec, gamma_vec, tau,
+                p, u_matrix[:,t], sigma_matrix[:,t], ksi_matrix[:,t])
+        args_list.append(args)
+    with multiprocessing.Pool(processes=50) as pool:
+        results = pool.map(transform_to_Y, args_list)
+    
+    Y_noNA = np.column_stack(results)
+    Y_NA   = np.where(miss_matrix, np.nan, Y_noNA)
+
+
+    # %%
+
+    # Save Simulated Dataset
+
+    # .npy files
+
+    np.save(savefolder+'/miss_matrix_bool', miss_matrix)
+    np.save(savefolder+'/sites_xy',         sites_xy)
+    np.save(savefolder+'/elevations',       elevations)
+    np.save(savefolder+'/logsigma_matrix',  np.log(sigma_matrix))
+    np.save(savefolder+'/ksi_matrix',       ksi_matrix)
+    np.save(savefolder+'/Y_noNA',           Y_noNA)
+    np.save(savefolder+'/Y_NA',             Y_NA)
+        
+    # .RData file
+
+    Y_ro = numpy2rpy(Y_NA)
+    GP_estimates            = np.column_stack(((C_logsigma.T @ Beta_logsigma).T[:,0],
+                                               (C_ksi.T @ Beta_ksi).T[:,0]))
+    GP_estimates_ro         = numpy2rpy(GP_estimates)
+    stations_ro             = numpy2rpy(sites_xy)
+    elev_ro                 = numpy2rpy(elevations)
+
+    r.assign('Y', Y_ro)
+    r.assign('GP_estimates', GP_estimates_ro)
+    r.assign('stations', stations_ro)
+    r.assign('elev', elev_ro)
+
+    r('''
+      GP_estimates <- as.data.frame(GP_estimates)
+      colnames(GP_estimates) <- c('logsigma','xi')
+
+      stations <- as.data.frame(stations)
+      colnames(stations) <- c('x','y')
+
+      elev <- c(elev)
+
+      save(Y, GP_estimates, stations, elev,
+           file = 'simulated_data.RData')
+      ''')
+
+
+    # %%
+
+    # Check Data Generation
 
     # checking stable variables S -------------------------------------------------------------------------------------
 
@@ -343,8 +480,8 @@ if __name__ == "__main__":
     ## all pooled together
     pY = np.array([])
     for t in range(Nt):
-        exceed_idx = np.where(Y[:,t] > u_matrix[:,t])[0]
-        pY = np.append(pY, pGP(Y[exceed_idx,t],u_matrix[exceed_idx,t],sigma_matrix[exceed_idx,t],ksi_matrix[exceed_idx,t]))
+        exceed_idx = np.where(Y_NA[:,t] > u_matrix[:,t])[0]
+        pY = np.append(pY, pGP(Y_NA[exceed_idx,t],u_matrix[exceed_idx,t],sigma_matrix[exceed_idx,t],ksi_matrix[exceed_idx,t]))
     nquant = len(pY)
     emp_p = np.linspace(1/nquant, 1-1/nquant, num=nquant)
     emp_q = scipy.stats.uniform().ppf(emp_p)
@@ -379,6 +516,16 @@ if __name__ == "__main__":
         # influence coming from each of the knots
         weight_from_knots = weights_fun(d_from_knots, radius, bandwidth, cutoff = False)
         gaussian_weight_matrix_for_plot[site_id, :] = weight_from_knots
+
+    gaussian_weight_matrix_rho_for_plot = np.full(shape = (plotgrid_res_xy, k_rho), fill_value = np.nan)
+    for site_id in np.arange(plotgrid_res_xy):
+        # Compute distance between each pair of the two collections of inputs
+        d_from_knots = scipy.spatial.distance.cdist(XA = plotgrid_xy[site_id,:].reshape((-1,2)), 
+                                        XB = knots_xy)
+        # influence coming from each of the knots
+        weight_from_knots = weights_fun(d_from_knots, radius, bandwidth, cutoff = False)
+        gaussian_weight_matrix_rho_for_plot[site_id, :] = weight_from_knots
+
 
     wendland_weight_matrix_for_plot = np.full(shape = (plotgrid_res_xy,k), fill_value = np.nan)
     for site_id in np.arange(plotgrid_res_xy):
@@ -447,7 +594,7 @@ if __name__ == "__main__":
 
     # 4. Plot range surface
     # heatplot of range surface
-    range_vec_for_plot = gaussian_weight_matrix_for_plot @ range_at_knots
+    range_vec_for_plot = gaussian_weight_matrix_rho_for_plot @ rho_at_knots
     graph, ax = plt.subplots()
     heatmap = ax.imshow(range_vec_for_plot.reshape(plotgrid_res_y,plotgrid_res_x), 
                         cmap ='bwr', interpolation='nearest', extent = [minX, maxX, maxY, minY])
