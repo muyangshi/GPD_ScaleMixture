@@ -2,21 +2,49 @@
 
 This is to document the GPD project. Including it's file structure and along with any preparation that needs to be down to run the sampler.
 
-<!-- 
+
 ```
-code/
-  │
-  ├── cb_2018_us_state_20m/
-  ├── RW_inte_cpp.cpp
-  ├── RW_inte_cpp.so
-  ├── RW_inte.py
-  ├── utilities.py
-  │
-  ├── JJA_precip_maxima_nonimputed.RData
-  ├── simulate_data.py
-  ├── proposal_cov.py
-  └── MCMC.py
-``` -->
+GPD_ScaleMixture/
+│
+├── data/ # storing datafiles and emulator files
+│   │   # data files
+│   ├── cb_2018_us_state_20m/
+│   ├── <datafiles>/
+│   │     │
+│   │     ├── e.g. X, Y, Z.npy
+│   │     └── e.g. JJA_precip_maxima_nonimputed.RData
+│   │
+│   │   # emulator objects/data
+│   ├── <emulator>/
+│   │     │
+│   │     └── Neural-Net's activation, bias, and weights (e.g. NN_acts, NN_bs.pkl, NN_Ws.pkl, qRW_NN.keras )
+│   │     
+│   └──
+│
+├── scripts/
+│   │
+│   │   # sampler
+│   ├── simulate_data.py             # for simulating non-stationary dataset
+│   ├── simulate_data_stationary.py  # for simulating stationary dataset
+│   │
+│   │   # utilities functions
+│   ├── p_cubature.py   # for using 2d numerical integral
+│   ├── RW_inte_cpp.cpp # for using 1d numerical integral
+│   ├── RW_inte_cpp.so
+│   ├── RW_inte.py
+│   ├── utilities.py
+│   │
+│   │   # likelihood emulations
+│   ├── emulate_11_1t.py
+│   │
+│   │   # sampler
+│   ├── proposal_cov.py
+│   └── sampler.py
+│
+├── chains/ # storing (raw) traceplots
+│
+└── results/ # storing posterior summaries
+```
 
 
 ## Preparation
