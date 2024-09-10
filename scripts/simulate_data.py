@@ -69,14 +69,16 @@ if __name__ == "__main__":
     np.random.seed(data_seed)
     Nt       = 50 # number of time replicates
     Ns       = 590 # number of sites/stations
-    scenario = 'sc2'
+    scenario_phi = 'nonstatsc2'  # nonstatsc1, nonstatsc2, nonstatsc3, stat_AI, stat_AD
+    scenario_rho = 'stat' # nonstat, stats
     Time     = np.linspace(-Nt/2, Nt/2-1, Nt)/np.std(np.linspace(-Nt/2, Nt/2-1, Nt), ddof=1)
     
-    savefolder = '../data/nonstationary' + \
-                    '_seed' + str(data_seed) + \
-                    '_t' + str(Nt) + \
-                    '_s' + str(Ns) + \
-                    '_'  + scenario
+    savefolder = '../data/simulated' + \
+                            '_seed:'  + str(data_seed) + \
+                            '_t:'     + str(Nt) + \
+                            '_s:'     + str(Ns) + \
+                            '_phi:'   + scenario_phi + \
+                            '_rho:'   + scenario_rho
     Path(savefolder).mkdir(parents=True, exist_ok=True)
 
     # missing indicator matrix ------------------------------------------------
@@ -134,7 +136,7 @@ if __name__ == "__main__":
 
     # isometric knot grid -- for rho
 
-    N_outer_grid_rho = 9
+    N_outer_grid_rho = 16
     h_dist_between_knots_rho     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_rho))-1)
     v_dist_between_knots_rho     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_rho))-1)
     x_pos_rho                    = np.linspace(minX + h_dist_between_knots_rho/2, maxX + h_dist_between_knots_rho/2, 
@@ -236,7 +238,7 @@ if __name__ == "__main__":
 
     # Setup For the Copula/Data Model - X = e + X_star = R^phi * g(Z) -------------------------------------------------
 
-    # Nugget Variance
+    # Nugget
     tau = 10.0
 
     # Covariance K for Gaussian Field g(Z)
@@ -270,17 +272,17 @@ if __name__ == "__main__":
     # Data Model Parameters - X_star = R^phi * g(Z) -------------------------------------------------------------------
 
     # phi
-
-    match scenario:
-        case 'sc1': phi_at_knots = 0.65 - np.sqrt((knots_x-3)**2/4 + (knots_y-3)**2/3)/10
-        case 'sc2': phi_at_knots = 0.65 - np.sqrt((knots_x-5.1)**2/5 + (knots_y-5.3)**2/4)/11.6
-        case 'sc3': phi_at_knots = 0.37 + 5*(scipy.stats.multivariate_normal.pdf(knots_xy, mean = np.array([2.5,3]), cov = 2*np.matrix([[1,0.2],[0.2,1]])) + 
+    match scenario_phi:
+        case 'nonstatsc1': phi_at_knots = 0.65 - np.sqrt((knots_x-3)**2/4 + (knots_y-3)**2/3)/10
+        case 'nonstatsc2': phi_at_knots = 0.65 - np.sqrt((knots_x-5.1)**2/5 + (knots_y-5.3)**2/4)/11.6
+        case 'nonstatsc3': phi_at_knots = 0.37 + 5*(scipy.stats.multivariate_normal.pdf(knots_xy, mean = np.array([2.5,3]), cov = 2*np.matrix([[1,0.2],[0.2,1]])) + 
                                              scipy.stats.multivariate_normal.pdf(knots_xy, mean = np.array([7,7.5]), cov = 2*np.matrix([[1,-0.2],[-0.2,1]])))
-
+        case 'stat_AI'   : phi_at_knots = [0.3] * k
+        case 'stat_AD'   : phi_at_knots = [0.7] * k
     # rho
-
-    # rho_at_knots = np.sqrt(0.3*knots_x + 0.4*knots_y)/2 # range for spatial Matern Z
-    rho_at_knots = [1.0] * k_rho                        # for a stationary rho(s)
+    match scenario_rho:
+        case 'nonstat': rho_at_knots = np.sqrt(0.3*knots_x + 0.4*knots_y)/2 # range for spatial Matern Z
+        case 'stat'   : rho_at_knots = [1.5] * k_rho                        # for a stationary rho(s)
 
 
     # %%
@@ -447,11 +449,23 @@ if __name__ == "__main__":
     
     for site_i in range(Ns):
         if site_i % 50 == 0:
-            unif = pRW(X_star[site_i,:], phi_vec[site_i], gamma_vec[site_i], tau)
+            unif = RW_inte.pRW_standard_Pareto_vec(X_star[site_i,:], phi_vec[site_i], gamma_vec[site_i])
             scipy.stats.probplot(unif, dist="uniform", fit = False, plot=plt)
             plt.axline((0,0), slope=1, color='black')
             plt.title(f'QQPlot_Xstar_site_{site_i}')
             plt.savefig(savefolder + '/DataGeneration:QQPlot_Xstar_site_{}.pdf'.format(site_i))
+            plt.show()
+            plt.close()
+
+    # checking model X --------------------------------------------------------
+    
+    for site_i in range(Ns):
+        if site_i % 50 == 0:
+            unif = pRW(X[site_i,:], phi_vec[site_i], gamma_vec[site_i], tau)
+            scipy.stats.probplot(unif, dist="uniform", fit = False, plot=plt)
+            plt.axline((0,0), slope=1, color='black')
+            plt.title(f'QQPlot_X_site_{site_i}')
+            plt.savefig(savefolder + '/DataGeneration:QQPlot_X_site_{}.pdf'.format(site_i))
             plt.show()
             plt.close()
 
@@ -554,22 +568,12 @@ if __name__ == "__main__":
                                 cmap = 'bwr')
     ax.set_aspect('equal', 'box')
     plt.colorbar(elev_scatter)
-    plt.show()
     plt.savefig(savefolder+'/DataGeneration:station_elevation.pdf')
+    plt.show()
     plt.close()       
 
 
     # 3. phi surface
-
-    # phi_vec_for_plot = (gaussian_weight_matrix_for_plot @ phi_at_knots).round(3)
-    # graph, ax = plt.subplots()
-    # heatmap = ax.imshow(phi_vec_for_plot.reshape(plotgrid_res_y,plotgrid_res_x), 
-    #                     cmap ='bwr', interpolation='nearest', extent = [minX, maxX, maxY, minY])
-    # ax.invert_yaxis()
-    # graph.colorbar(heatmap)
-    # plt.savefig(savefolder+'/DataGeneration:true phi surface.pdf')
-    # plt.show()
-    # plt.close()
 
     phi_vec_for_plot = (gaussian_weight_matrix_for_plot @ phi_at_knots).round(3)
     fig, ax = plt.subplots()
@@ -605,19 +609,9 @@ if __name__ == "__main__":
 
     # 4. Plot range surface
 
-    # range_vec_for_plot = gaussian_weight_matrix_rho_for_plot @ rho_at_knots
-    # graph, ax = plt.subplots()
-    # heatmap = ax.imshow(range_vec_for_plot.reshape(plotgrid_res_y,plotgrid_res_x), 
-    #                     cmap ='bwr', interpolation='nearest', extent = [minX, maxX, maxY, minY])
-    # ax.invert_yaxis()
-    # graph.colorbar(heatmap)
-    # plt.savefig(savefolder+'/DataGeneration:true range surface.pdf')
-    # plt.show()
-    # plt.close()
-
     range_vec_for_plot = gaussian_weight_matrix_rho_for_plot @ rho_at_knots
     vmin = 0.0
-    vmax = np.floor(my_ceil(max(range_vec_for_plot),2))
+    vmax = np.ceil(max(range_vec_for_plot))
     fig, ax = plt.subplots()
     fig.set_size_inches(8,6)
     ax.set_aspect('equal', 'box')
@@ -647,4 +641,5 @@ if __name__ == "__main__":
     plt.savefig(savefolder+'/DataGeneration:true rho surface.pdf', bbox_inches='tight')
     plt.show()
     plt.close()
+
 # %%

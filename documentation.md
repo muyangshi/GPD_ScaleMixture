@@ -7,11 +7,17 @@ This is to document the GPD project. Including it's file structure and along wit
 GPD_ScaleMixture/
 │
 ├── data/ # storing datafiles and emulator files
-│   │   # data files
+│   │  
 │   ├── cb_2018_us_state_20m/
-│   ├── <datafiles>/
-│   │     │
-│   │     ├── e.g. X, Y, Z.npy
+│   │  
+│   │    # data files
+│   ├── <datafiles1>/
+│   │     │   # (simulated data)
+│   │     ├── simulated .npy files (e.g. Y_NA.npy, sites_xy.npy, etc.)
+│   │     ├── data checking plots (e.g. .pdf QQplots)
+│   │     └── simulated_data.RData (simulated combined)
+│   ├── <datafiles2>/
+│   │     │   # (real data)
 │   │     └── e.g. JJA_precip_maxima_nonimputed.RData
 │   │
 │   │   # emulator objects/data

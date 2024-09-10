@@ -10,47 +10,59 @@ datafiles (Y, sites) should be placed in ./data/datafolder/
 """
 if __name__ == "__main__":
     # %%
-    import sys
-    data_seed = int(sys.argv[1]) if len(sys.argv) == 2 else 2345
+    # imports
 
-    # %% imports
+    # base python -------------------------------------------------------------
+
+    import sys
     import os
+    import multiprocessing
+    import pickle
+    import time
+    from time import strftime, localtime
+    from pathlib import Path
     os.environ["OMP_NUM_THREADS"] = "1" # export OMP_NUM_THREADS=1
     os.environ["OPENBLAS_NUM_THREADS"] = "1" # export OPENBLAS_NUM_THREADS=1
     os.environ["MKL_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
     os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
     os.environ["NUMEXPR_NUM_THREADS"] = "1" # export NUMEXPR_NUM_THREADS=1
+
+    # packages ----------------------------------------------------------------
+    
+    from mpi4py import MPI
+    comm             = MPI.COMM_WORLD
+    rank             = comm.Get_rank()
+    size             = comm.Get_size()
+    random_generator = np.random.RandomState((rank+1)*7)
+
     import numpy as np
     import matplotlib
     import matplotlib.pyplot as plt
     import scipy
-    from mpi4py import MPI
-    from utilities import *
     import gstools as gs
-    import rpy2.robjects as robjects
-    from rpy2.robjects import r 
-    from rpy2.robjects.numpy2ri import numpy2rpy
-    from rpy2.robjects.packages import importr
-    import pickle
-    from time import strftime, localtime
-    import time
     import geopandas as gpd
-    state_map = gpd.read_file('./data/cb_2018_us_state_20m/cb_2018_us_state_20m.shp')
+    import rpy2.robjects as robjects
+    from   rpy2.robjects import r 
+    from   rpy2.robjects.numpy2ri import numpy2rpy
+    from   rpy2.robjects.packages import importr
 
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-    random_generator = np.random.RandomState((rank+1)*7)
+    # custom module -----------------------------------------------------------
+    
+    from utilities import *
+
+    if rank == 0: print('link function:', norm_pareto, 'Pareto')
+    if rank == 0: state_map = gpd.read_file('./data/cb_2018_us_state_20m/cb_2018_us_state_20m.shp')
+
+    # setup -------------------------------------------------------------------
     
     try:
+        data_seed = int(sys.argv[1])
         data_seed
     except:
         data_seed = 2345
     finally:
         if rank == 0: print('data_seed:', data_seed)
-    np.random.seed(data_seed)
-
-    if rank == 0: print('Pareto:', norm_pareto)
+        np.random.seed(data_seed)
 
     try:
         with open('iter.pkl','rb') as file:
@@ -65,7 +77,9 @@ if __name__ == "__main__":
     if norm_pareto == 'shifted': n_iters = 5000
     if norm_pareto == 'standard': n_iters = 400000
 
-    # %% Load Simulated Dataset ---------------------------------------------------------------------------------------
+
+    # %% 
+    # Load Simulated Dataset
 
     datafolder         = 'stationary_seed2345_t32_s500_phi0.7_rho1.0/'
     Y                  = np.load('./data/'+datafolder+'Y.npy')
