@@ -403,7 +403,7 @@ if __name__ == "__main__":
     r.assign('stations', stations_ro)
     r.assign('elev', elev_ro)
 
-    r('''
+    r(f'''
         GP_estimates <- as.data.frame(GP_estimates)
         colnames(GP_estimates) <- c('logsigma','xi')
 
@@ -413,7 +413,7 @@ if __name__ == "__main__":
         elev <- c(elev)
 
         save(Y, GP_estimates, stations, elev,
-            file = 'simulated_data.RData')
+            file = '{savefolder}/simulated_data.RData')
     ''')
 
 
@@ -426,6 +426,7 @@ if __name__ == "__main__":
     for i in range(k):
         scipy.stats.probplot(scipy.stats.levy.cdf(S_at_knots[i,:], scale = gamma), dist='uniform', fit=False, plot=plt)
         plt.axline((0,0), slope = 1, color = 'black')
+        plt.title(f'QQPlot_Stable_knot_{i}')
         plt.savefig(savefolder + '/DataGeneration:QQPlot_Stable_knot_{}.pdf'.format(i))
         plt.show()
         plt.close()
@@ -433,22 +434,24 @@ if __name__ == "__main__":
     # checking Pareto distribution --------------------------------------------
 
     for site_i in range(Ns):
-        if site_i % 20 == 0:
+        if site_i % 50 == 0:
             if norm_pareto == 'standard': scipy.stats.probplot(scipy.stats.pareto.cdf(W[site_i,:], b = 1, loc = 0, scale = 1), dist = 'uniform', fit = False, plot=plt)
             if norm_pareto == 'shifted':  scipy.stats.probplot(scipy.stats.pareto.cdf(W[site_i,:]+1, b = 1, loc = 0, scale = 1), dist='uniform', fit=False, plot=plt)
             plt.axline((0,0), slope = 1, color = 'black')
-            plt.savefig(savefolder + '/DataGeneration:QQPlot_Pareto_site_{}.pdf'.format(i))
+            plt.title(f'QQPlot_Pareto_site_{site_i}')
+            plt.savefig(savefolder + '/DataGeneration:QQPlot_Pareto_site_{}.pdf'.format(site_i))
             plt.show()
             plt.close()
 
     # checking model X_star ---------------------------------------------------
     
     for site_i in range(Ns):
-        if site_i % 20 == 0:
-            unif = pRW(X_star[site_i,:], phi_vec[site_i], gamma_vec[site_i])
+        if site_i % 50 == 0:
+            unif = pRW(X_star[site_i,:], phi_vec[site_i], gamma_vec[site_i], tau)
             scipy.stats.probplot(unif, dist="uniform", fit = False, plot=plt)
             plt.axline((0,0), slope=1, color='black')
-            plt.savefig(savefolder + '/DataGeneration:QQPlot_Xstar_site_{}.pdf'.format(i))
+            plt.title(f'QQPlot_Xstar_site_{site_i}')
+            plt.savefig(savefolder + '/DataGeneration:QQPlot_Xstar_site_{}.pdf'.format(site_i))
             plt.show()
             plt.close()
 
@@ -470,8 +473,8 @@ if __name__ == "__main__":
     plt.xlim((0,1))
     plt.ylim((0,1))
     plt.title('Generalized Pareto CDF of all exceedance')
-    plt.show()
     plt.savefig(savefolder+'/DataGeneration:QQPlot_Yexceed_all.pdf')
+    plt.show()
     plt.close()
 
     # %% 
@@ -508,9 +511,9 @@ if __name__ == "__main__":
     for site_id in np.arange(plotgrid_res_xy):
         # Compute distance between each pair of the two collections of inputs
         d_from_knots = scipy.spatial.distance.cdist(XA = plotgrid_xy[site_id,:].reshape((-1,2)), 
-                                        XB = knots_xy)
+                                                    XB = knots_xy_rho)
         # influence coming from each of the knots
-        weight_from_knots = weights_fun(d_from_knots, radius, bandwidth, cutoff = False)
+        weight_from_knots = weights_fun(d_from_knots, radius, bandwidth_rho, cutoff = False)
         gaussian_weight_matrix_rho_for_plot[site_id, :] = weight_from_knots
 
     # 1. Station, Knots 
@@ -589,8 +592,6 @@ if __name__ == "__main__":
     ax.scatter(knots_x, knots_y, marker='+', c='white', label='knot', s=300)
     for index, (x, y) in enumerate(knots_xy):
         ax.text(x+0.05, y+0.1, f'{index}', fontsize=12, ha='left')
-    plt.xlim([-104,-90])
-    plt.ylim([30,47])
     plt.xticks(fontsize = 20)
     plt.yticks(fontsize = 20)
     plt.xlabel('longitude', fontsize = 20)
@@ -638,8 +639,6 @@ if __name__ == "__main__":
     ax.scatter(knots_x_rho, knots_y_rho, marker='+', c='white', label='knot', s=300)
     for index, (x, y) in enumerate(knots_xy_rho):
         ax.text(x+0.05, y+0.1, f'{index}', fontsize=12, ha='left')
-    plt.xlim([-104,-90])
-    plt.ylim([30,47])
     plt.xticks(fontsize = 20)
     plt.yticks(fontsize = 20)
     plt.xlabel('longitude', fontsize = 20)
