@@ -11,7 +11,6 @@ redirect output to ../data/<savefolder>
 if __name__ == "__main__":
 
     # %%
-
     # imports
 
     # base python -------------------------------------------------------------
@@ -53,10 +52,16 @@ if __name__ == "__main__":
         data_seed = 2345
     finally:
         print('data_seed:', data_seed)
+    
+    def my_ceil(a, precision=0):
+        return np.true_divide(np.ceil(a * 10**precision), 10**precision)
+
+    def my_floor(a, precision=0):
+        return np.true_divide(np.floor(a * 10**precision), 10**precision)
+
 
 
     # %%
-
     # Simulate setup
 
     # Numbers - Ns, Nt --------------------------------------------------------   
@@ -279,7 +284,6 @@ if __name__ == "__main__":
 
 
     # %%
-
     # Generate Dataset
 
     np.random.seed(data_seed)
@@ -288,9 +292,9 @@ if __name__ == "__main__":
 
     range_vec = gaussian_weight_matrix_rho @ rho_at_knots
     K         = ns_cov(range_vec = range_vec, 
-                       coords = sites_xy,
+                       coords    = sites_xy,
                        sigsq_vec = sigsq_vec,
-                       kappa = nu, cov_model = "matern")
+                       kappa     = nu, cov_model = "matern")
     Z         = scipy.stats.multivariate_normal.rvs(mean=np.zeros(shape=(Ns,)),
                                                     cov=K,
                                                     size=Nt).T
@@ -373,7 +377,6 @@ if __name__ == "__main__":
 
 
     # %%
-
     # Save Simulated Dataset
 
     # .npy files
@@ -401,81 +404,55 @@ if __name__ == "__main__":
     r.assign('elev', elev_ro)
 
     r('''
-      GP_estimates <- as.data.frame(GP_estimates)
-      colnames(GP_estimates) <- c('logsigma','xi')
+        GP_estimates <- as.data.frame(GP_estimates)
+        colnames(GP_estimates) <- c('logsigma','xi')
 
-      stations <- as.data.frame(stations)
-      colnames(stations) <- c('x','y')
+        stations <- as.data.frame(stations)
+        colnames(stations) <- c('x','y')
 
-      elev <- c(elev)
+        elev <- c(elev)
 
-      save(Y, GP_estimates, stations, elev,
-           file = 'simulated_data.RData')
-      ''')
+        save(Y, GP_estimates, stations, elev,
+            file = 'simulated_data.RData')
+    ''')
 
 
     # %%
-
     # Check Data Generation
 
-    # checking stable variables S -------------------------------------------------------------------------------------
+    # checking stable variables S ---------------------------------------------
 
     # levy.cdf(R_at_knots, loc = 0, scale = gamma) should look uniform
-    site_i = int(np.floor(scipy.stats.uniform(0, k).rvs()))
-    print(site_i)
-    emp_p = np.linspace(1/Nt, 1-1/Nt, num=Nt)
-    emp_q = scipy.stats.uniform().ppf(emp_p)
-    plt.plot(emp_q, np.sort(scipy.stats.levy.cdf(S_at_knots[site_i,:], scale=gamma)),
-             c='blue',marker='o',linestyle='None')
-    plt.xlabel('Uniform')
-    plt.ylabel('Observed')
-    plt.axline((0,0), slope = 1, color = 'black')
-    plt.xlim((0,1))
-    plt.ylim((0,1))
-    plt.title('Levy CDF of S site {}'.format(site_i))
-    plt.show()
-    plt.savefig(savefolder+'/DataGeneration:QQPlot_Stable_site_{}.pdf'.format(site_i))
-    plt.close()
-    # scipy.stats.probplot(scipy.stats.levy.cdf(S_at_knots[i,:], scale=gamma), dist='uniform', fit=False, plot=plt)
-
-        
-    # checking Pareto distribution ------------------------------------------------------------------------------------
-    if norm_pareto == 'standard':
-        site_i = int(np.floor(scipy.stats.uniform(0, Ns).rvs()))
-        print(site_i)
-        emp_p = np.linspace(1/Nt, 1-1/Nt, num=Nt)
-        emp_q = scipy.stats.uniform().ppf(emp_p)
-        plt.plot(emp_q, np.sort(scipy.stats.pareto.cdf(W[site_i,:], b = 1)),
-                c='blue',marker='o',linestyle='None')
-        plt.xlabel('Uniform')
-        plt.ylabel('Observed')
+    for i in range(k):
+        scipy.stats.probplot(scipy.stats.levy.cdf(S_at_knots[i,:], scale = gamma), dist='uniform', fit=False, plot=plt)
         plt.axline((0,0), slope = 1, color = 'black')
-        plt.xlim((0,1))
-        plt.ylim((0,1))
-        plt.title('Pareto CDF of W site {}'.format(site_i))
+        plt.savefig(savefolder + '/DataGeneration:QQPlot_Stable_knot_{}.pdf'.format(i))
         plt.show()
-        plt.savefig(savefolder+'/DataGeneration:QQPlot_Pareto_site_{}.pdf'.format(site_i))
         plt.close()
-        # scipy.stats.probplot(scipy.stats.pareto.cdf(W[site_i,:], b = 1, loc = 0, scale = 1), dist='uniform', fit=False, plot=plt)
+        
+    # checking Pareto distribution --------------------------------------------
 
-    # checking model X_star -------------------------------------------------------------------------------------------
-    site_i = int(np.floor(scipy.stats.uniform(0, Ns).rvs()))
-    print(site_i)
-    emp_p = np.linspace(1/Nt, 1-1/Nt, num=Nt)
-    emp_q = scipy.stats.uniform().ppf(emp_p)
-    plt.plot(emp_q, np.sort(pRW(X[site_i,:], phi_vec[site_i], gamma_vec[site_i], tau)),
-                c='blue',marker='o',linestyle='None')
-    plt.xlabel('Uniform')
-    plt.ylabel('Observed')
-    plt.axline((0,0), slope = 1, color = 'black')
-    plt.xlim((0,1))
-    plt.ylim((0,1))
-    plt.title('pRW CDF of X site {}'.format(site_i))
-    plt.show()
-    plt.savefig(savefolder+'/DataGeneration:QQPlot_X_site_{}.pdf'.format(site_i))
-    plt.close()
+    for site_i in range(Ns):
+        if site_i % 20 == 0:
+            if norm_pareto == 'standard': scipy.stats.probplot(scipy.stats.pareto.cdf(W[site_i,:], b = 1, loc = 0, scale = 1), dist = 'uniform', fit = False, plot=plt)
+            if norm_pareto == 'shifted':  scipy.stats.probplot(scipy.stats.pareto.cdf(W[site_i,:]+1, b = 1, loc = 0, scale = 1), dist='uniform', fit=False, plot=plt)
+            plt.axline((0,0), slope = 1, color = 'black')
+            plt.savefig(savefolder + '/DataGeneration:QQPlot_Pareto_site_{}.pdf'.format(i))
+            plt.show()
+            plt.close()
 
-    # checking marginal exceedance ------------------------------------------------------------------------------------
+    # checking model X_star ---------------------------------------------------
+    
+    for site_i in range(Ns):
+        if site_i % 20 == 0:
+            unif = pRW(X_star[site_i,:], phi_vec[site_i], gamma_vec[site_i])
+            scipy.stats.probplot(unif, dist="uniform", fit = False, plot=plt)
+            plt.axline((0,0), slope=1, color='black')
+            plt.savefig(savefolder + '/DataGeneration:QQPlot_Xstar_site_{}.pdf'.format(i))
+            plt.show()
+            plt.close()
+
+    # checking marginal exceedance --------------------------------------------
     
     ## all pooled together
     pY = np.array([])
@@ -497,16 +474,26 @@ if __name__ == "__main__":
     plt.savefig(savefolder+'/DataGeneration:QQPlot_Yexceed_all.pdf')
     plt.close()
 
-    # %% Plot Generated Surfaces --------------------------------------------------------------------------------------
+    # %% 
+    # Plot Generated Surfaces 
 
     # 0. Grids for plots
-    plotgrid_res_x = 150
-    plotgrid_res_y = 175
-    plotgrid_res_xy = plotgrid_res_x * plotgrid_res_y
-    plotgrid_x = np.linspace(minX,maxX,plotgrid_res_x)
-    plotgrid_y = np.linspace(minY,maxY,plotgrid_res_y)
+    plotgrid_res_x         = 150
+    plotgrid_res_y         = 175
+    plotgrid_res_xy        = plotgrid_res_x * plotgrid_res_y
+    plotgrid_x             = np.linspace(minX,maxX,plotgrid_res_x)
+    plotgrid_y             = np.linspace(minY,maxY,plotgrid_res_y)
     plotgrid_X, plotgrid_Y = np.meshgrid(plotgrid_x, plotgrid_y)
-    plotgrid_xy = np.vstack([plotgrid_X.ravel(), plotgrid_Y.ravel()]).T
+    plotgrid_xy            = np.vstack([plotgrid_X.ravel(), plotgrid_Y.ravel()]).T
+
+    wendland_weight_matrix_for_plot = np.full(shape = (plotgrid_res_xy,k), fill_value = np.nan)
+    for site_id in np.arange(plotgrid_res_xy):
+        # Compute distance between each pair of the two collections of inputs
+        d_from_knots = scipy.spatial.distance.cdist(XA = plotgrid_xy[site_id,:].reshape((-1,2)), 
+                                        XB = knots_xy)
+        # influence coming from each of the knots
+        weight_from_knots = wendland_weights_fun(d_from_knots, radius_from_knots)
+        wendland_weight_matrix_for_plot[site_id, :] = weight_from_knots
 
     gaussian_weight_matrix_for_plot = np.full(shape = (plotgrid_res_xy, k), fill_value = np.nan)
     for site_id in np.arange(plotgrid_res_xy):
@@ -526,18 +513,8 @@ if __name__ == "__main__":
         weight_from_knots = weights_fun(d_from_knots, radius, bandwidth, cutoff = False)
         gaussian_weight_matrix_rho_for_plot[site_id, :] = weight_from_knots
 
-
-    wendland_weight_matrix_for_plot = np.full(shape = (plotgrid_res_xy,k), fill_value = np.nan)
-    for site_id in np.arange(plotgrid_res_xy):
-        # Compute distance between each pair of the two collections of inputs
-        d_from_knots = scipy.spatial.distance.cdist(XA = plotgrid_xy[site_id,:].reshape((-1,2)), 
-                                        XB = knots_xy)
-        # influence coming from each of the knots
-        weight_from_knots = wendland_weights_fun(d_from_knots, radius_from_knots)
-        wendland_weight_matrix_for_plot[site_id, :] = weight_from_knots
-
-
     # 1. Station, Knots 
+
     fig, ax = plt.subplots()
     fig.set_size_inches(10,8)
     ax.set_aspect('equal', 'box')
@@ -552,23 +529,23 @@ if __name__ == "__main__":
     ax.add_patch(space_rectangle)
     ax.set_xticks(np.linspace(minX, maxX,num=3))
     ax.set_yticks(np.linspace(minY, maxY,num=5))
+    plt.xticks(fontsize=20)
+    plt.yticks(fontsize=20)
+    plt.xlabel('Longitude', fontsize=20)
+    plt.ylabel('Latitude', fontsize=20)    
     box = ax.get_position()
     legend_elements = [matplotlib.lines.Line2D([0], [0], marker= '.', linestyle='None', color='b', label='Site'),
                     matplotlib.lines.Line2D([0], [0], marker='+', linestyle = "None", color='red', label='Knot Center',  markersize=20),
                     matplotlib.lines.Line2D([0], [0], marker = 'o', linestyle = 'None', label = 'Knot Radius', markerfacecolor = 'grey', markersize = 20, alpha = 0.2),
                     matplotlib.lines.Line2D([], [], color='None', marker='s', linestyle='None', markeredgecolor = 'black', markersize=20, label='Spatial Domain')]
     plt.legend(handles = legend_elements, bbox_to_anchor=(1.01,1.01), fontsize = 20)
-    plt.xticks(fontsize = 20)
-    plt.yticks(fontsize = 20)
-    plt.xlabel('longitude', fontsize = 20)
-    plt.ylabel('latitude', fontsize = 20)
-    plt.subplots_adjust(right=0.6)
-    plt.show()
+    # plt.subplots_adjust(right=0.6)
     plt.savefig(savefolder+'/DataGeneration:stations.pdf',bbox_inches="tight")
+    plt.show()
     plt.close()
 
-
     # 2. Elevation
+
     fig, ax = plt.subplots()
     elev_scatter = ax.scatter(sites_x, sites_y, s=10, c = elevations,
                                 cmap = 'bwr')
@@ -580,27 +557,95 @@ if __name__ == "__main__":
 
 
     # 3. phi surface
-    # heatplot of phi surface
+
+    # phi_vec_for_plot = (gaussian_weight_matrix_for_plot @ phi_at_knots).round(3)
+    # graph, ax = plt.subplots()
+    # heatmap = ax.imshow(phi_vec_for_plot.reshape(plotgrid_res_y,plotgrid_res_x), 
+    #                     cmap ='bwr', interpolation='nearest', extent = [minX, maxX, maxY, minY])
+    # ax.invert_yaxis()
+    # graph.colorbar(heatmap)
+    # plt.savefig(savefolder+'/DataGeneration:true phi surface.pdf')
+    # plt.show()
+    # plt.close()
+
     phi_vec_for_plot = (gaussian_weight_matrix_for_plot @ phi_at_knots).round(3)
-    graph, ax = plt.subplots()
+    fig, ax = plt.subplots()
+    fig.set_size_inches(8,6)
+    ax.set_aspect('equal', 'box')
     heatmap = ax.imshow(phi_vec_for_plot.reshape(plotgrid_res_y,plotgrid_res_x), 
-                        cmap ='bwr', interpolation='nearest', extent = [minX, maxX, maxY, minY])
+                        vmin = 0.0, vmax = 1.0,
+                        cmap ='seismic', interpolation='nearest', extent = [minX, maxX, maxY, minY])
+    ax.set_xticks(np.linspace(minX, maxX,num=3))
+    ax.set_yticks(np.linspace(minY, maxY,num=5))
     ax.invert_yaxis()
-    graph.colorbar(heatmap)
+    cbar = fig.colorbar(heatmap, ax=ax)
+    cbar.ax.tick_params(labelsize=20)  # Set the fontsize here
+    # Plot knots and circles
+    for i in range(k):
+        circle_i = plt.Circle((knots_xy[i, 0], knots_xy[i, 1]), radius_from_knots[i],
+                            color='r', fill=False, fc='None', ec='lightgrey', alpha=0.5)
+        ax.add_patch(circle_i)
+    # Scatter plot for sites and knots
+    ax.scatter(knots_x, knots_y, marker='+', c='white', label='knot', s=300)
+    for index, (x, y) in enumerate(knots_xy):
+        ax.text(x+0.05, y+0.1, f'{index}', fontsize=12, ha='left')
+    plt.xlim([-104,-90])
+    plt.ylim([30,47])
+    plt.xticks(fontsize = 20)
+    plt.yticks(fontsize = 20)
+    plt.xlabel('longitude', fontsize = 20)
+    plt.ylabel('latitude', fontsize = 20)
+    plt.title(r'True $\phi$ surface', fontsize = 20)
+    plt.savefig(savefolder + '/DataGeneration:true phi surface.pdf', bbox_inches='tight')
     plt.show()
-    plt.savefig(savefolder+'/DataGeneration:true phi surface.pdf')
     plt.close()
 
 
+
     # 4. Plot range surface
-    # heatplot of range surface
+
+    # range_vec_for_plot = gaussian_weight_matrix_rho_for_plot @ rho_at_knots
+    # graph, ax = plt.subplots()
+    # heatmap = ax.imshow(range_vec_for_plot.reshape(plotgrid_res_y,plotgrid_res_x), 
+    #                     cmap ='bwr', interpolation='nearest', extent = [minX, maxX, maxY, minY])
+    # ax.invert_yaxis()
+    # graph.colorbar(heatmap)
+    # plt.savefig(savefolder+'/DataGeneration:true range surface.pdf')
+    # plt.show()
+    # plt.close()
+
     range_vec_for_plot = gaussian_weight_matrix_rho_for_plot @ rho_at_knots
-    graph, ax = plt.subplots()
-    heatmap = ax.imshow(range_vec_for_plot.reshape(plotgrid_res_y,plotgrid_res_x), 
-                        cmap ='bwr', interpolation='nearest', extent = [minX, maxX, maxY, minY])
+    vmin = 0.0
+    vmax = np.floor(my_ceil(max(range_vec_for_plot),2))
+    fig, ax = plt.subplots()
+    fig.set_size_inches(8,6)
+    ax.set_aspect('equal', 'box')
+    # state_map.boundary.plot(ax=ax, color = 'black')
+    heatmap = ax.imshow(range_vec_for_plot.reshape(plotgrid_res_y,plotgrid_res_x),
+                        vmin = vmin, vmax = vmax, 
+                        cmap ='Reds', interpolation='nearest', extent = [minX, maxX, maxY, minY])
+    ax.set_xticks(np.linspace(minX, maxX,num=3))
+    ax.set_yticks(np.linspace(minY, maxY,num=5))
     ax.invert_yaxis()
-    graph.colorbar(heatmap)
+    cbar = fig.colorbar(heatmap, ax=ax)
+    cbar.ax.tick_params(labelsize=20)  # Set the fontsize here
+    # Plot knots and circles
+    for i in range(k_rho):
+        circle_i = plt.Circle((knots_xy_rho[i, 0], knots_xy_rho[i, 1]), radius_from_knots[i],
+                            color='r', fill=False, fc='None', ec='lightgrey', alpha=0.5)
+        ax.add_patch(circle_i)
+    # Scatter plot for sites and knots
+    ax.scatter(knots_x_rho, knots_y_rho, marker='+', c='white', label='knot', s=300)
+    for index, (x, y) in enumerate(knots_xy_rho):
+        ax.text(x+0.05, y+0.1, f'{index}', fontsize=12, ha='left')
+    plt.xlim([-104,-90])
+    plt.ylim([30,47])
+    plt.xticks(fontsize = 20)
+    plt.yticks(fontsize = 20)
+    plt.xlabel('longitude', fontsize = 20)
+    plt.ylabel('latitude', fontsize = 20)
+    plt.title(r'True $\rho$ surface', fontsize = 20)
+    plt.savefig(savefolder+'/DataGeneration:true rho surface.pdf', bbox_inches='tight')
     plt.show()
-    plt.savefig(savefolder+'/DataGeneration:true range surface.pdf')
     plt.close()
 # %%
