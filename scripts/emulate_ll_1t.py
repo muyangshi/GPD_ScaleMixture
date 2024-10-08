@@ -3,7 +3,7 @@ Overview:
 
     Write a "non-optimized" ll function (calculate qRW inside ll function)
     LHS Design X
-    Calculate Design Y
+    Calculate Design Y <- Y is calculated from reversing GP scale and shape
     NN train on (X,Y)
 
 """

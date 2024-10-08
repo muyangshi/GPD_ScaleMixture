@@ -4,7 +4,7 @@ Overview:
     Write a "non-optimized" ll function (calculate qRW inside ll function)
     LHS Design X
         Also use space filling design to generate Y, then rule out those not in domain
-    Calculate Design Y
+    Calculate Design Y <- Y is generated from genpareto
     NN train on (X,Y)
 
 """
