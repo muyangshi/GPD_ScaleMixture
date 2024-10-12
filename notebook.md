@@ -1,5 +1,22 @@
 # Notebook on GPD Project
 
+# Meetings
+
+## Oct.8 Meeting with Likun/Mark/Ben
+
+- Daily data from Mark
+  - Need to <mark>break the temporal independence</mark>
+  - Maybe aggresively filter the data by time blocks, make $N_t$ to be roughly matching to 75.
+    - Check in next meeting on how/what to do
+- "task order":
+  - Work on getting the sampler to work, first
+  - Get a emulator, either for the `qRW` quantile function or for the `ll` likelihood function
+
+- [ ] Organize and Solidify the distribution functions
+- [ ] Work on the sampler
+
+---
+
 # Notes
 
 ## Emulating the quantile funtion `qRW`
@@ -31,6 +48,7 @@
 
 Pareto distribution function
   $$F(x) = 1 - \left(\dfrac{x_m}{x}\right)^{\alpha}$$
+
   - $x_m$ = 1, minimum value, so support $[x_m, \infty)$
   - $\alpha = 1$, shape
 Pareto density function
@@ -39,7 +57,9 @@ Pareto density function
 
 #### CDF `pRW(x, phi_j, gamma_j)` no nugget
 
-$$F_{X^*_j}(x) = 1 - \left\{\sqrt{\frac{1}{\pi}}{\gamma\left(\frac{1}{2},\frac{\bar{\gamma}_{j}}{2x^{1/\phi_j}}\right)} + x^{-1}\sqrt{\frac{1}{\pi}}\left(\frac{\bar{\gamma}_{j}}{2}\right)^{\phi_j}{\Gamma\left(\frac{1}{2}-\phi_j,\frac{\bar{\gamma}_{j}}{2x^{1/\phi_j}}\right)}\right\}$$
+$$
+F_{X^*_j}(x) = 1 - \left\{\sqrt{\frac{1}{\pi}}{\gamma\left(\frac{1}{2},\frac{\bar{\gamma}_{j}}{2x^{1/\phi_j}}\right)} + x^{-1}\sqrt{\frac{1}{\pi}}\left(\frac{\bar{\gamma}_{j}}{2}\right)^{\phi_j}{\Gamma\left(\frac{1}{2}-\phi_j,\frac{\bar{\gamma}_{j}}{2x^{1/\phi_j}}\right)}\right\}
+$$
 
 - Ported from original paper Appendix B, modified such that 
   - $1/\phi_j$ should only stay on the <mark>denominator</mark>
@@ -60,7 +80,10 @@ $$F_{X^*_j}(x) = 1 - \left\{\sqrt{\frac{1}{\pi}}{\gamma\left(\frac{1}{2},\frac{\
   $$
 
 #### pdf `dRW(x, phi_j, gamma_j)` no nugget
-$$f_{X^*_j}(x)= x^{-2}\sqrt{\frac{1}{\pi}}\left(\frac{\bar{\gamma}_{j}}{2}\right)^{\phi_j}{\Gamma\left(\frac{1}{2}-\phi_j,\frac{\bar{\gamma}_{j}}{2x^{1/\phi_j}}\right)}$$
+
+$$
+f_{X^*_j}(x)= x^{-2}\sqrt{\frac{1}{\pi}}\left(\frac{\bar{\gamma}_{j}}{2}\right)^{\phi_j}{\Gamma\left(\frac{1}{2}-\phi_j,\frac{\bar{\gamma}_{j}}{2x^{1/\phi_j}}\right)}
+$$
 
 - Details:
   $$
@@ -110,13 +133,14 @@ $$
 - numerical approximation for $F_{X_j^*}(x)$:
 
   $$F_{X_j^*}(x) \approx x\left(\frac{\bar{\gamma}_{j}}{2}\right)^{-\phi_j}\frac{\Gamma(\phi_j+1/2)}{\sqrt{\pi}} \text{ as } x \rightarrow 0$$
+
   - how? Proposition 2.1 in the original paper defines three different cases base on $\phi$ and $\alpha$
   
 
 #### pdf `dRW(x, phi_j, gamma_j)` no nugget
 
 $$
-  f_{X_j^*}(x)=\sqrt{\frac{\bar{\gamma}_{j}}{2\pi}}\int_{0}^\infty \frac{r^{\phi_j-3/2}}{(x+r^{\phi_j})^2}\exp\left\{-\frac{\bar{\gamma}_{j}}{2r}\right\}dr
+f_{X_j^*}(x)=\sqrt{\frac{\bar{\gamma}_{j}}{2\pi}}\int_{0}^\infty \frac{r^{\phi_j-3/2}}{(x+r^{\phi_j})^2}\exp\left\{-\frac{\bar{\gamma}_{j}}{2r}\right\}dr
 $$
 
 #### CDF `pRW(x, phi_j, gamma_j, tau)` with Gaussian nugget
@@ -131,6 +155,7 @@ $$
   \end{split}
   \end{equation*}
   $$
+
 -  $\varphi$ is the Gaussian distribution of $\epsilon$, i.e. $N(0, \tau^2)$.
 
 
@@ -142,7 +167,9 @@ $$
     &= \int_{-\infty}^x \varphi(\epsilon) \textcolor{orange}{f_{X_j^*}(x-\epsilon)} d\epsilon
   \end{align*}
   $$
+
 - Details:
+
   $$
   \begin{align*}
     \dfrac{d}{dx} F_{X_j}(x) &= 
@@ -152,7 +179,7 @@ $$
     \right) \\
     \text{part 1} &= \dfrac{d}{dx} \int_{x}^{\infty} \varphi(\epsilon) d\epsilon = -\varphi(x) \\
     \text{part 2} &= \dfrac{d}{dx} \sqrt{\frac{\bar{\gamma}_{j}}{2\pi}}\int_{-\infty}^{x} \varphi(\epsilon)\int_{0}^\infty \frac{r^{\phi_j-3/2}}{x-\epsilon+r^{\phi_j}}\exp\left\{-\frac{\bar{\gamma}_{j}}{2r}\right\}drd\epsilon \\
-  \text{(Use Leibniz)}  &= \sqrt{\frac{\bar{\gamma}_{j}}{2\pi}} \cdot
+    \text{(Use Leibniz)}  &= \sqrt{\frac{\bar{\gamma}_{j}}{2\pi}} \cdot
     \left[ 
     \dfrac{d}{dx}(\textcolor{orange}{x}) \cdot \varphi(\textcolor{orange}{x}) \int_{0}^\infty \frac{r^{\phi_j-3/2}}{x-\textcolor{orange}{x}+r^{\phi_j}}\exp\left\{-\frac{\bar{\gamma}_{j}}{2r}\right\}dr \right. \\
     &\quad +
@@ -170,20 +197,3 @@ $$
   \end{align*}
   $$
 
-
----
-
-# Meetings
-
-## Oct.8 Meeting with Likun/Mark/Ben
-
-- Daily data from Mark
-  - Need to <mark>break the temporal independence</mark>
-  - Maybe aggresively filter the data by time blocks, make $N_t$ to be roughly matching to 75.
-    - Check in next meeting on how/what to do
-- "task order":
-  - Work on getting the sampler to work, first
-  - Get a emulator, either for the `qRW` quantile function or for the `ll` likelihood function
-
-- [ ] Organize and Solidify the distribution functions
-- [ ] Work on the sampler
