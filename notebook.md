@@ -12,7 +12,7 @@
   - Work on getting the sampler to work, first
   - Get a emulator, either for the `qRW` quantile function or for the `ll` likelihood function
 
-- [ ] Organize and Solidify the distribution functions
+- [x] Organize and Solidify the distribution functions
 - [ ] Work on the sampler
 
 ---
@@ -44,7 +44,9 @@
 - Inverse function theorem 
   - the derivative of $F^{-1}(t)$ is equal to $1/F'(F^{-1}(t))$ as long as $F'(F^{-1}(t))\neq 0$.
 
-### Standard Pareto -----------------------------------------------------------
+### Standard Pareto 
+
+---
 
 Pareto distribution function
   $$F(x) = 1 - \left(\dfrac{x_m}{x}\right)^{\alpha}$$
@@ -72,7 +74,7 @@ $$
         1-F_{X^*_j}(x)&=P(R_j^{\phi_j}W_j>x)\\
         &=\int_0^\infty P(W_j>x/r^{\phi_j})f_{R_j}(r)dr\\
         &=\int_{x^{1/\phi_j}}^\infty f_{R_j}(r)dr+\int_0^{x^{1/\phi_j}} r^{\phi_j}f_{R_j}(r)/xdr\\
-        &= \text{(lots of ommited details using variable substitute, verified in oldest paper notebook)}\\
+        &= \text{(lots of omited details using variable substitute, verified in oldest paper notebook)}\\
         &=1-\text{erfc}\left(\sqrt{\frac{\bar{\gamma}_{j}}{2x^{1/\phi_j}}}\right)+x^{-1}\sqrt{\frac{1}{\pi}}\left(\frac{\bar{\gamma}_{j}}{2}\right)^{\phi_j}\Gamma\left(\frac{1}{2}-\phi_j,\frac{\bar{\gamma}_{j}}{2x^{1/\phi_j}}\right)\\
         &=\sqrt{\frac{1}{\pi}}{\gamma\left(\frac{1}{2},\frac{\bar{\gamma}_{j}}{2x^{1/\phi_j}}\right)} + x^{-1}\sqrt{\frac{1}{\pi}}\left(\frac{\bar{\gamma}_{j}}{2}\right)^{\phi_j}{\Gamma\left(\frac{1}{2}-\phi_j,\frac{\bar{\gamma}_{j}}{2x^{1/\phi_j}}\right)}
     \end{split}
@@ -99,12 +101,53 @@ $$
 
 
 #### CDF `pRW(x, phi_j, gamma_j, tau)` with nugget
-  - In Notability note page 63
+
+$$
+1 - \left\{\bar{\Phi}(x) + \sqrt{\dfrac{1}{\pi}}\int_0^\infty\gamma\left(\dfrac{1}{2}, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\phi(x-t)dt + \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j} \int_0^\infty \dfrac{1}{t} \Gamma \left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}_j}{2t^{\phi_j}}\right)\phi(x-t)dt\right\}
+$$
+
+  - $\Phi$ and $\phi$ are the distribution and density functions of $N(0, \tau^2)$
+  - Details:
+    - In Notability note page 63
+
+    $$
+    \begin{align*}
+      1 - F_{X_j}(x) = \bar{F}_{X_j}(x) &= \int_{-\infty}^\infty P(X_j^* > x-\epsilon)\phi(\epsilon)d\epsilon \\
+      &= \int_{-\infty}^xP(X_j^* > x - \epsilon)\phi(\epsilon)d\epsilon +\int_x^\infty P(X_j^* > x - \epsilon)\phi(\epsilon)d\epsilon \\
+      &= \int_{-\infty}^xP(X_j^* > x - \epsilon)\phi(\epsilon)d\epsilon +\int_x^\infty 1 \cdot \phi(\epsilon)d\epsilon \\
+      &= \bar{\Phi}(x) + \int_{-\infty}^x \bar{F}_{X_j^*}(x - \epsilon)\phi(\epsilon)d\epsilon \\
+      &\text{define $t = x-\epsilon$} \\
+      &\text{then $\epsilon \in (-\infty, x) \rightarrow t \in (\infty, 0)$} \\
+      &= \bar{\Phi}(x) + \int_{t=\infty}^{t=0} \bar{F}_{X_j^*}(t)\phi(x-t)(-1)dt \text{\quad as $\quad \dfrac{dt}{d\epsilon}=-1$} \\
+      &= \bar{\Phi}(x) + \int_{t=0}^{t=\infty} \bar{F}_{X_j^*}(t)\phi(x-t)dt \\
+      &= \bar{\Phi}(x) + \int_0^\infty \left\{\sqrt{\dfrac{1}{\pi}}\gamma\left(\dfrac{1}{2}, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right) + \dfrac{1}{t} \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma_j}}{2}\right)^{\phi_j} \Gamma\left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right) \right\} \phi(x-t)dt
+    \end{align*}
+    $$
+    
+    - Computation with gaussian density, using **definite** integral, in $\int_0^\infty \cdots \ \phi(x-t)dt$
+      - $-38 \tau \leq x - t \leq 38 \tau$ as C/GSL's gaussian pdf vanishes after 38 SDs
+      - $x-38\tau \leq t \leq x + 38\tau$ $\rightarrow$ $\max(0, x-38\tau) \leq t \leq x + 38\tau$
 
 #### pdf `dRW(x, phi_j, gamma_j, tau)` with nugget
-  - In Notability note page 63
 
-### Shifted (Type II) Pareto --------------------------------------------------
+$$
+f_{X_j}(x) = \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}}{2}\right)^\phi \int_0^\infty \dfrac{1}{t^2} \Gamma\left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}}{2t^{1/\phi_j}} \right) \phi(x -t) dt
+$$
+
+- Details:
+  $$
+  \begin{align*}
+  f_{X_j}(x) &= \int_{-\infty}^\infty f_{X_j^*}(x-\epsilon)\phi(\epsilon)d\epsilon \\
+  &= \int_{-\infty}^x f_{X_j^*}(x-\epsilon)\phi(\epsilon)d\epsilon \text{$\quad$ as  $X_j^* > 0$} \\
+  &= \int_0^\infty f_{X_j^*}(t)\phi(x-t)dt \text{$\quad$ same as before let $t = x - \epsilon$} \\
+  &= \int_0^\infty \dfrac{1}{t^2} \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j} \Gamma \left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\phi(x-t)dt
+  \end{align*}
+  $$
+  - In Notability note page 63
+  - Same trick as before on definite integral bound with gaussian density inside
+
+### Shifted (Type II) Pareto 
+---
 
 Pareto distribution function
 
@@ -120,21 +163,27 @@ Pareto distribution function
 #### CDF `pRW(x, phi_j, gamma_j)` no nugget
 
 $$
-\begin{equation*}
-\begin{split}
-    1-F_{X_j^*}(x)&=P(R_j^{\phi_j}W_j>x)\\
-    &=\int_0^\infty P(W_j>x/r^{\phi_j})f_{R_j}(r)dr\\
-    &=\int_0^\infty 1/(1+x/r^{\phi_j})f_{R_j}(r)dr\\
-    &=\sqrt{\frac{\bar{\gamma}_{j}}{2\pi}}\int_{0}^\infty \frac{r^{\phi_j-3/2}}{x+r^{\phi_j}}\exp\left\{-\frac{\bar{\gamma}_{j}}{2r}\right\}dr      
-\end{split}
-\end{equation*}
+F_{X_j^*}(x) = 1 - \sqrt{\frac{\bar{\gamma}_{j}}{2\pi}}\int_{0}^\infty \frac{r^{\phi_j-3/2}}{x+r^{\phi_j}}\exp\left\{-\frac{\bar{\gamma}_{j}}{2r}\right\}dr 
 $$
 
-- numerical approximation for $F_{X_j^*}(x)$:
+- Details:
 
-  $$F_{X_j^*}(x) \approx x\left(\frac{\bar{\gamma}_{j}}{2}\right)^{-\phi_j}\frac{\Gamma(\phi_j+1/2)}{\sqrt{\pi}} \text{ as } x \rightarrow 0$$
+  $$
+  \begin{equation*}
+  \begin{split}
+      1-F_{X_j^*}(x)&=P(R_j^{\phi_j}W_j>x)\\
+      &=\int_0^\infty P(W_j>x/r^{\phi_j})f_{R_j}(r)dr\\
+      &=\int_0^\infty 1/(1+x/r^{\phi_j})f_{R_j}(r)dr\\
+      &=\sqrt{\frac{\bar{\gamma}_{j}}{2\pi}}\int_{0}^\infty \frac{r^{\phi_j-3/2}}{x+r^{\phi_j}}\exp\left\{-\frac{\bar{\gamma}_{j}}{2r}\right\}dr      
+  \end{split}
+  \end{equation*}
+  $$
 
-  - how? Proposition 2.1 in the original paper defines three different cases base on $\phi$ and $\alpha$
+  - numerical approximation for $F_{X_j^*}(x)$:
+
+    $$F_{X_j^*}(x) \approx x\left(\frac{\bar{\gamma}_{j}}{2}\right)^{-\phi_j}\frac{\Gamma(\phi_j+1/2)}{\sqrt{\pi}} \text{ as } x \rightarrow 0$$
+
+    - <mark>how?</mark> Proposition 2.1 in the original paper defines three different cases base on $\phi$ and $\alpha$
   
 
 #### pdf `dRW(x, phi_j, gamma_j)` no nugget
@@ -144,19 +193,25 @@ f_{X_j^*}(x)=\sqrt{\frac{\bar{\gamma}_{j}}{2\pi}}\int_{0}^\infty \frac{r^{\phi_j
 $$
 
 #### CDF `pRW(x, phi_j, gamma_j, tau)` with Gaussian nugget
-- Under the Gaussian nugget terms $\epsilon_{i}\stackrel{iid}{\sim} N(0,\tau^2)$, we have
+
+$$
+F_{X_j}(x) = 1 - \left(\int_{x}^{\infty} \varphi(\epsilon)d\epsilon + \sqrt{\frac{\bar{\gamma}_{j}}{2\pi}}\int_{-\infty}^{x} \varphi(\epsilon)\int_{0}^\infty \frac{r^{\phi_j-3/2}}{x-\epsilon+r^{\phi_j}}\exp\left\{-\frac{\bar{\gamma}_{j}}{2r}\right\}drd\epsilon \right)
+$$
+
+-  $\varphi$ is the Gaussian distribution of $\epsilon$, i.e. $N(0, \tau^2)$.
+
+- Details:
 
   $$
   \begin{equation*}
   \begin{split}
     1-F_{X_j}(x) &= \int_{-\infty}^{\infty} P(X_j^* > x-\epsilon)\varphi(\epsilon)d\epsilon \\
-    &= \int_{x}^{\infty} \varphi(\epsilon)d\epsilon+ \sqrt{\frac{\bar{\gamma}_{j}}{2\pi}}\int_{-\infty}^{x} \varphi(\epsilon)\int_{0}^\infty \frac{r^{\phi_j-3/2}}{x-\epsilon+r^{\phi_j}}\exp\left\{-\frac{\bar{\gamma}_{j}}{2r}\right\}drd\epsilon \\
-    F_{X_j}(x) &= 1 - \left(\int_{x}^{\infty} \varphi(\epsilon)d\epsilon + \sqrt{\frac{\bar{\gamma}_{j}}{2\pi}}\int_{-\infty}^{x} \varphi(\epsilon)\int_{0}^\infty \frac{r^{\phi_j-3/2}}{x-\epsilon+r^{\phi_j}}\exp\left\{-\frac{\bar{\gamma}_{j}}{2r}\right\}drd\epsilon \right)
+    &= \int_{x}^{\infty} \varphi(\epsilon)d\epsilon+ \sqrt{\frac{\bar{\gamma}_{j}}{2\pi}}\int_{-\infty}^{x} \varphi(\epsilon)\int_{0}^\infty \frac{r^{\phi_j-3/2}}{x-\epsilon+r^{\phi_j}}\exp\left\{-\frac{\bar{\gamma}_{j}}{2r}\right\}drd\epsilon
   \end{split}
   \end{equation*}
   $$
 
--  $\varphi$ is the Gaussian distribution of $\epsilon$, i.e. $N(0, \tau^2)$.
+
 
 
 #### pdf `dRW(x, phi_j, gamma_j, tau)` with Gaussian nugget
