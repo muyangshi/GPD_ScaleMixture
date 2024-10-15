@@ -103,7 +103,7 @@ $$
 #### CDF `pRW(x, phi_j, gamma_j, tau)` with nugget
 
 $$
-1 - \left\{\bar{\Phi}(x) + \sqrt{\dfrac{1}{\pi}}\int_0^\infty\gamma\left(\dfrac{1}{2}, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\phi(x-t)dt + \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j} \int_0^\infty \dfrac{1}{t} \Gamma \left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}_j}{2t^{\phi_j}}\right)\phi(x-t)dt\right\}
+1 - \left\{\bar{\Phi}(x) + \sqrt{\dfrac{1}{\pi}}\int_0^\infty\gamma\left(\dfrac{1}{2}, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\phi(x-t)dt + \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j} \int_0^\infty \dfrac{1}{t} \Gamma \left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}_j}{2t^{\phi_j}}\right)\phi(x-t)dt \right\}
 $$
 
   - $\Phi$ and $\phi$ are the distribution and density functions of $N(0, \tau^2)$
@@ -127,6 +127,8 @@ $$
     - Computation with gaussian density, using **definite** integral, in $\int_0^\infty \cdots \ \phi(x-t)dt$
       - $-38 \tau \leq x - t \leq 38 \tau$ as C/GSL's gaussian pdf vanishes after 38 SDs
       - $x-38\tau \leq t \leq x + 38\tau$ $\rightarrow$ $\max(0, x-38\tau) \leq t \leq x + 38\tau$
+    - Do not transform to definite integral from 0 to 1
+      - gives unstable integration
 
 #### pdf `dRW(x, phi_j, gamma_j, tau)` with nugget
 
@@ -145,6 +147,9 @@ $$
   $$
   - In Notability note page 63
   - Same trick as before on definite integral bound with gaussian density inside
+  - Do not transform to definite integral between 0 and 1
+    - gives unstable integration
+
 
 ### Shifted (Type II) Pareto 
 ---
