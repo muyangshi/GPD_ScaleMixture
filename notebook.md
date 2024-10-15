@@ -14,6 +14,7 @@
 
 - [x] Organize and Solidify the distribution functions
 - [ ] Work on the sampler
+  -  MPI oversubscribe
 
 ---
 
