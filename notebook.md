@@ -2,6 +2,11 @@
 
 # Meetings
 
+## Oct. 15 Meeting with Likun/Ben
+
+- Summarize (shrink) the data into 10-day max
+  - fit GP to the 10-day max
+
 ## Oct.8 Meeting with Likun/Mark/Ben
 
 - Daily data from Mark
@@ -13,12 +18,18 @@
   - Get a emulator, either for the `qRW` quantile function or for the `ll` likelihood function
 
 - [x] Organize and Solidify the distribution functions
-- [ ] Work on the sampler
+- Work on the sampler
   -  MPI oversubscribe
 
 ---
 
 # Notes
+
+- [ ] Separate knot_$\phi$ and knot_$\rho$
+- [ ] Simulation study with threshold exeedance without marginals
+  - [ ] Stationary data w.r.t. $\rho$
+  - [ ] Nonstationary data
+- [ ] Marginal model in the sampler
 
 ## Emulating the quantile funtion `qRW`
 
