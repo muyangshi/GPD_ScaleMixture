@@ -7,6 +7,21 @@
 - Summarize (shrink) the data into 10-day max
   - fit GP to the 10-day max
 
+### Work
+
+- [ ] Separate knot_$\phi$ and knot_$\rho$
+
+- Elevation from data generation should not be negative
+
+- Do not simplify and combine likelihood, $X^*$, $f_X(x)$ etc. calculations
+
+### Question
+
+- Do we want to not fix $\gamma_k$ this time?
+- How to get site level MLE estimates for $\sigma$ and $\xi$ for GP?
+- How to estimate the initial nugget -- maybe from empirical semivariogram
+- Go over hierarchical model and full conditionals
+
 ## Oct.8 Meeting with Likun/Mark/Ben
 
 - Daily data from Mark
@@ -25,10 +40,12 @@
 
 # Notes
 
-- [ ] Separate knot_$\phi$ and knot_$\rho$
+
 - [ ] Simulation study with threshold exeedance without marginals
   - [ ] Stationary data w.r.t. $\rho$
   - [ ] Nonstationary data
+- [ ] Imputation
+  - [ ] Posterior Predicative Check
 - [ ] Marginal model in the sampler
 
 ## Emulating the quantile funtion `qRW`
