@@ -415,21 +415,21 @@ def Y_censored_ll_1t(Y, p, u_vec, scale_vec, shape_vec,         # marginal obser
     return np.sum(censored_ll) + np.sum(exceed_ll)
 
 # full conditional likelihood of smooth process X_star
-def X_star_conditional_ll_1t(X_star, R_vec, phi_vec, K, # original Pr(X_star | R_vec, phi_vec, K)
-                             Z_vec):                    # things to facilitate computation
-    # Note:
-    #   Z_vec = ginv(X_star/R_vec**phi_vec)
+# def X_star_conditional_ll_1t(X_star, R_vec, phi_vec, K, # original Pr(X_star | R_vec, phi_vec, K)
+#                              Z_vec):                    # things to facilitate computation
+#     # Note:
+#     #   Z_vec = ginv(X_star/R_vec**phi_vec)
 
-    D = len(Z_vec)
+#     D = len(Z_vec)
 
-    # log of the D-dimensional joint gaussian density
-    D_gauss_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = np.zeros(D), cov=K) # log D-dimensional joint gaussian density
+#     # log of the D-dimensional joint gaussian density
+#     D_gauss_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = np.zeros(D), cov=K) # log D-dimensional joint gaussian density
 
-    # log of the (determinant of) Jacobian
-    # log_J      = (D/2)*np.log(2*np.pi) + 0.5*np.sum(Z_vec**2) + np.sum(-phi_vec*np.log(R_vec) - 2*np.log(g(Z_vec)))
-    log_J      = (D/2)*np.log(2*np.pi) + 0.5*np.sum(Z_vec**2) + np.sum(phi_vec * np.log(R_vec)) - 2*np.sum(np.log(X_star))
+#     # log of the (determinant of) Jacobian
+#     # log_J      = (D/2)*np.log(2*np.pi) + 0.5*np.sum(Z_vec**2) + np.sum(-phi_vec*np.log(R_vec) - 2*np.log(g(Z_vec)))
+#     log_J      = (D/2)*np.log(2*np.pi) + 0.5*np.sum(Z_vec**2) + np.sum(phi_vec * np.log(R_vec)) - 2*np.sum(np.log(X_star))
 
-    return D_gauss_ll + log_J
+#     return D_gauss_ll + log_J
 
 # marginal censored (log) likelihood of Y at 1 time
 def Y_censored_ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,         # marginal observation and parameter
@@ -456,67 +456,67 @@ def Y_censored_ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,         # margina
     return (np.sum(censored_ll), np.sum(exceed_ll))
 
 # full conditional likelihood of smooth process X_star
-def X_star_conditional_ll_1t_detail(X_star, R_vec, phi_vec, K, # original Pr(X_star | R_vec, phi_vec, K)
-                                    Z_vec):                    # things to facilitate computation
-    # Note:
-    #   Z_vec = ginv(X_star/R_vec**phi_vec)
+# def X_star_conditional_ll_1t_detail(X_star, R_vec, phi_vec, K, # original Pr(X_star | R_vec, phi_vec, K)
+#                                     Z_vec):                    # things to facilitate computation
+#     # Note:
+#     #   Z_vec = ginv(X_star/R_vec**phi_vec)
 
-    D = len(Z_vec)
+#     D = len(Z_vec)
 
-    # log of the D-dimensional joint gaussian density
-    D_gauss_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = np.zeros(D), cov=K) # log D-dimensional joint gaussian density
+#     # log of the D-dimensional joint gaussian density
+#     D_gauss_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = np.zeros(D), cov=K) # log D-dimensional joint gaussian density
 
-    # log of the (determinant of) Jacobian
-    log_J_1 = (D/2)*np.log(2*np.pi) + 0.5*np.sum(np.square(Z_vec)) 
-    # log_J_2      = np.sum(-phi_vec*np.log(R_vec) - 2*np.log(g(Z_vec)))
-    log_J_2 = np.sum(phi_vec * np.log(R_vec)) - 2*np.sum(np.log(X_star))
+#     # log of the (determinant of) Jacobian
+#     log_J_1 = (D/2)*np.log(2*np.pi) + 0.5*np.sum(np.square(Z_vec)) 
+#     # log_J_2      = np.sum(-phi_vec*np.log(R_vec) - 2*np.log(g(Z_vec)))
+#     log_J_2 = np.sum(phi_vec * np.log(R_vec)) - 2*np.sum(np.log(X_star))
 
-    return (D_gauss_ll, log_J_1, log_J_2)
+#     return (D_gauss_ll, log_J_1, log_J_2)
 
 # %% Imputation for missing data
 # imputaiton for missing data -----------------------------------------------------------------------------------------
 
-def impute_1t_(miss_index, obs_index, 
-              R_vec, Z_vec, phi_vec, gamma_vec, tau, K, # Ingredients
-              p, u_vec, sigma_vec, ksi_vec,             # Marginal data parameters
-              random_generator):                        # for generating epsilons
+# def impute_1t_(miss_index, obs_index, 
+#               R_vec, Z_vec, phi_vec, gamma_vec, tau, K, # Ingredients
+#               p, u_vec, sigma_vec, ksi_vec,             # Marginal data parameters
+#               random_generator):                        # for generating epsilons
 
-    if len(miss_index) == 0:
-        return (None, None)
+#     if len(miss_index) == 0:
+#         return (None, None)
 
-    # Calculate conditional mean and covariance
-    Z_obs     = Z_vec[obs_index]
-    K11       = K[miss_index,:][:,miss_index] # shape(miss, miss)
-    K12       = K[miss_index,:][:,obs_index]  # shape(miss, obs)
-    K21       = K[obs_index,:][:,miss_index]  # shape(obs, miss)
-    K22       = K[obs_index,:][:,obs_index]   # shape(obs, obs)
-    K22_inv   = np.linalg.inv(K22)
-    cond_mean = K12 @ K22_inv @ Z_obs
-    cond_cov  = K11 - K12 @ K22_inv @ K21
+#     # Calculate conditional mean and covariance
+#     Z_obs     = Z_vec[obs_index]
+#     K11       = K[miss_index,:][:,miss_index] # shape(miss, miss)
+#     K12       = K[miss_index,:][:,obs_index]  # shape(miss, obs)
+#     K21       = K[obs_index,:][:,miss_index]  # shape(obs, miss)
+#     K22       = K[obs_index,:][:,obs_index]   # shape(obs, obs)
+#     K22_inv   = np.linalg.inv(K22)
+#     cond_mean = K12 @ K22_inv @ Z_obs
+#     cond_cov  = K11 - K12 @ K22_inv @ K21
 
-    # Make Kriging Prediciton
-    phi_vec_miss   = phi_vec[miss_index]
-    gamma_vec_miss = gamma_vec[miss_index]
-    R_vec_miss     = R_vec[miss_index]
-    u_vec_miss     = u_vec[miss_index]
-    sigma_vec_miss = sigma_vec[miss_index]
-    ksi_vec_miss   = ksi_vec[miss_index]
-    Z_miss = scipy.stats.multivariate_normal.rvs(mean = cond_mean, cov = cond_cov)
+#     # Make Kriging Prediciton
+#     phi_vec_miss   = phi_vec[miss_index]
+#     gamma_vec_miss = gamma_vec[miss_index]
+#     R_vec_miss     = R_vec[miss_index]
+#     u_vec_miss     = u_vec[miss_index]
+#     sigma_vec_miss = sigma_vec[miss_index]
+#     ksi_vec_miss   = ksi_vec[miss_index]
+#     Z_miss = scipy.stats.multivariate_normal.rvs(mean = cond_mean, cov = cond_cov)
 
-    # Generate X and Y
-    X_star_miss = R_vec_miss**phi_vec_miss * g(Z_miss)
-    X_miss      = X_star_miss + scipy.stats.norm.rvs(loc = 0, scale = tau, size = len(miss_index), random_state = random_generator)
-    Y_miss = qCGP(pRW(X_miss, phi_vec_miss, gamma_vec_miss, tau), 
-                  p,
-                  u_vec_miss, sigma_vec_miss, ksi_vec_miss)
+#     # Generate X and Y
+#     X_star_miss = R_vec_miss**phi_vec_miss * g(Z_miss)
+#     X_miss      = X_star_miss + scipy.stats.norm.rvs(loc = 0, scale = tau, size = len(miss_index), random_state = random_generator)
+#     Y_miss = qCGP(pRW(X_miss, phi_vec_miss, gamma_vec_miss, tau), 
+#                   p,
+#                   u_vec_miss, sigma_vec_miss, ksi_vec_miss)
 
-    return (Z_miss, X_star_miss, X_miss, Y_miss)
+#     return (Z_miss, X_star_miss, X_miss, Y_miss)
 
-def impute_Y_1t(miss_idx, obs_idx,
-                R_vec, Z_vec, phi_vec, gamma_vec, tau, K,
-                p, u_vec, sigma_vec, ksi_vec,
-                random_generator):
-    # initial imputation is coded inside the sampler
-    # this is for during the MCMC updates (i.e. when K changes)
+# def impute_Y_1t(miss_idx, obs_idx,
+#                 R_vec, Z_vec, phi_vec, gamma_vec, tau, K,
+#                 p, u_vec, sigma_vec, ksi_vec,
+#                 random_generator):
+#     # initial imputation is coded inside the sampler
+#     # this is for during the MCMC updates (i.e. when K changes)
     
-    pass
+#     pass
