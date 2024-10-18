@@ -1130,6 +1130,7 @@ exceed_idx_1t_current   = np.where(Y_1t_current  > u_vec)[0]
 
 # Note:
 #   The X_1t and dX_1t NEED TO CHANGE whenever 
+#       - we do imputation
 #       - the marginal parameters change (sigma, ksi), or
 #       - the dependence model parameters change (phi, tau)
 #
@@ -1167,10 +1168,14 @@ if rank == 0:
     start_time = time.time()
     print('started on:', strftime('%Y-%m-%d %H:%M:%S', localtime(time.time())))
 
-llik_1t_current = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                    R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
-                                    X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
-                + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
+# llik_1t_current = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+#                                     R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+#                                     X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
+#                 + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
+
+llik_1t_current = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+                        R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_vec, tau_current,
+                        censored_idx_1t_current, exceed_idx_1t_current)
 
 if np.isfinite(llik_1t_current):
     llik_1t_current_gathered = comm.gather(llik_1t_current, root = 0)
@@ -1194,10 +1199,16 @@ for iter in range(start_iter, n_iters):
 
         # Data Likelihood -----------------------------------------------------------------------------------------
 
-        llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                            R_vec_proposal, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
-                                            X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
-                            + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
+        # "Simplified" version, as X and dX are calulated outside
+        # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+        #                                     R_vec_proposal, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+        #                                     X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
+        #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
+
+        # "Full" version, X and dX are calculated within the ll_1t function
+        llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+                                 R_vec_proposal, Z_1t_current, K_current, phi_vec_current, gamma_vec, tau_current,
+                                 censored_idx_1t_current, exceed_idx_1t_current)
 
         # Prior Density -------------------------------------------------------------------------------------------
         lprior_1t_current  = np.sum(scipy.stats.levy.logpdf(np.exp(S_current_log),  scale = gamma) + S_current_log)
@@ -1232,10 +1243,16 @@ for iter in range(start_iter, n_iters):
 
         # Data Likelihood -----------------------------------------------------------------------------------------
 
-        llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                            R_vec_current, Z_1t_proposal, phi_vec_current, gamma_vec, tau_current,
-                                            X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
-                            + scipy.stats.multivariate_normal.logpdf(Z_1t_proposal, mean = None, cov = K_current)
+        # # "Simplified" version, as X and dX are calulated outside
+        # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+        #                                     R_vec_current, Z_1t_proposal, phi_vec_current, gamma_vec, tau_current,
+        #                                     X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
+        #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_proposal, mean = None, cov = K_current)
+
+        # "Full" version, X and dX are calculated within the ll_1t function
+        llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+                                 R_vec_current, Z_1t_proposal, K_current, phi_vec_current, gamma_vec, tau_current,
+                                 censored_idx_1t_current, exceed_idx_1t_current)
 
         # Update --------------------------------------------------------------------------------------------------
         r = np.exp(llik_1t_proposal - llik_1t_current)
@@ -1269,17 +1286,23 @@ for iter in range(start_iter, n_iters):
         if not all(0 < phi < 1 for phi in phi_knots_proposal):
             llik_1t_proposal = np.NINF
         else:
-            phi_vec_proposal       = gaussian_weight_matrix_phi @ phi_knots_proposal
-            X_star_1t_proposal     = (R_vec_current ** phi_vec_proposal) * g(Z_1t_current)
-            X_1t_proposal = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
-                                phi_vec_proposal, gamma_vec, tau_current)
-            dX_1t_proposal = dRW(X_1t_proposal, phi_vec_proposal, gamma_vec, tau_current)
+            phi_vec_proposal   = gaussian_weight_matrix_phi @ phi_knots_proposal
+            
+            # "simplified" version as X and dX are calculated outside
+            # X_star_1t_proposal = (R_vec_current ** phi_vec_proposal) * g(Z_1t_current)
+            # X_1t_proposal    = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+            #                        phi_vec_proposal, gamma_vec, tau_current)
+            # dX_1t_proposal   = dRW(X_1t_proposal, phi_vec_proposal, gamma_vec, tau_current)
 
-            # Without Jacobian
-            llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                                R_vec_current, Z_1t_current, phi_vec_proposal, gamma_vec, tau_current,
-                                                X_1t_proposal, X_star_1t_proposal, dX_1t_proposal, censored_idx_1t_current, exceed_idx_1t_current) \
-                                + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
+            # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+            #                                     R_vec_current, Z_1t_current, phi_vec_proposal, gamma_vec, tau_current,
+            #                                     X_1t_proposal, X_star_1t_proposal, dX_1t_proposal, censored_idx_1t_current, exceed_idx_1t_current) \
+            #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
+
+            # "full" version as X and dX are calculated within the ll_1t function
+            llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+                                     R_vec_current, Z_1t_current, K_current, phi_vec_proposal, gamma_vec, tau_current,
+                                     censored_idx_1t_current, exceed_idx_1t_current)
 
         # Update --------------------------------------------------------------------------------------------------
         phi_accepted = False
@@ -1297,9 +1320,13 @@ for iter in range(start_iter, n_iters):
         if phi_accepted:
             phi_knots_current = phi_knots_proposal.copy()
             phi_vec_current   = phi_vec_proposal.copy()
-            X_star_1t_current = X_star_1t_proposal.copy()
-            X_1t_current      = X_1t_proposal.copy()
-            dX_1t_current     = dX_1t_proposal.copy()
+            # X_star_1t_current = X_star_1t_proposal.copy()
+            # X_1t_current      = X_1t_proposal.copy()
+            # dX_1t_current     = dX_1t_proposal.copy()
+            X_star_1t_current = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
+            X_1t_current      = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+                                    phi_vec_current, gamma_vec, tau_current)
+            dX_1t_current     = dRW(X_1t_current, phi_vec_current, gamma_vec, tau_current)
             llik_1t_current   = llik_1t_proposal
 
     # Save --------------------------------------------------------------------------------------------------------
@@ -1327,11 +1354,17 @@ for iter in range(start_iter, n_iters):
             range_vec_proposal = gaussian_weight_matrix_rho @ range_knots_proposal
             K_proposal = ns_cov(range_vec = range_vec_proposal,
                                 sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = "matern")
-            # Without Jacobian
-            llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                                R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
-                                                X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
-                                + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_proposal)
+            
+            # # "simplified" version as X and dX are calculated outside
+            # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+            #                                     R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+            #                                     X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
+            #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_proposal)
+
+            # "full" version as X and dX are calculated within the ll_1t function
+            llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+                                     R_vec_current, Z_1t_current, K_proposal, phi_vec_current, gamma_vec, tau_current,
+                                     censored_idx_1t_current, exceed_idx_1t_current)
 
         # Update --------------------------------------------------------------------------------------------------
         range_accepted = False
@@ -1370,15 +1403,21 @@ for iter in range(start_iter, n_iters):
     if not tau_proposal > 0:
         llik_1t_proposal = np.NINF
     else:
-        X_1t_proposal = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
-                            phi_vec_current, gamma_vec, tau_proposal)
-        dX_1t_proposal = dRW(X_1t_proposal, phi_vec_current, gamma_vec, tau_proposal)
+        # "simplified" version as X and dX are calculated outside
+        # X_1t_proposal = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+        #                     phi_vec_current, gamma_vec, tau_proposal)
+        # dX_1t_proposal = dRW(X_1t_proposal, phi_vec_current, gamma_vec, tau_proposal)
 
-        # Without Jacobian
-        llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                            R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_proposal,
-                                            X_1t_proposal, X_star_1t_current, dX_1t_proposal, censored_idx_1t_current, exceed_idx_1t_current) \
-                            + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
+        # # Without Jacobian
+        # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+        #                                     R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_proposal,
+        #                                     X_1t_proposal, X_star_1t_current, dX_1t_proposal, censored_idx_1t_current, exceed_idx_1t_current) \
+        #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
+
+        # "full" version as X and dX are calculated within the ll_1t function
+        llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+                                 R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_vec, tau_proposal,
+                                 censored_idx_1t_current, exceed_idx_1t_current)
 
     # Update ------------------------------------------------------------------------------------------------------
     tau_accepted = False
@@ -1397,8 +1436,11 @@ for iter in range(start_iter, n_iters):
 
     if tau_accepted:
         tau_current     = tau_proposal
-        X_1t_current    = X_1t_proposal.copy()
-        dX_1t_current   = dX_1t_proposal.copy()
+        # X_1t_current    = X_1t_proposal.copy()
+        # dX_1t_current   = dX_1t_proposal.copy()
+        X_1t_current    = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+                              phi_vec_current, gamma_vec, tau_current)
+        dX_1t_current   = dRW(X_1t_current, phi_vec_current, gamma_vec, tau_current)
         llik_1t_current = llik_1t_proposal
 
     # Save --------------------------------------------------------------------------------------------------------
@@ -1419,30 +1461,21 @@ for iter in range(start_iter, n_iters):
     llik_1t_current_gathered = comm.gather(llik_1t_current, root = 0)
     if rank == 0: loglik_trace[iter, 0] = np.sum(llik_1t_current_gathered)
 
-    # # With the Jacobian
+    # "simplified" version, as X and dX are calculated outside
     # censored_ll_1t, exceed_ll_1t = Y_censored_ll_1t_detail(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-    #                                                        R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
-    #                                                        X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current)
-    # D_gauss_ll_1t, log_J_1_1t, log_J_2_1t = X_star_conditional_ll_1t_detail(X_star_1t_current, R_vec_current, phi_vec_current, K_current, Z_1t_current)
-    # censored_ll_gathered = comm.gather(censored_ll_1t, root = 0)
-    # exceed_ll_gathered   = comm.gather(exceed_ll_1t,   root = 0)
-    # D_gauss_ll_gathered  = comm.gather(D_gauss_ll_1t,  root = 0)
-    # log_J_1_gathered     = comm.gather(log_J_1_1t,     root = 0)
-    # log_J_2_gathered     = comm.gather(log_J_2_1t,     root = 0)
-    # if rank == 0: loglik_detail_trace[iter, :] = np.sum(np.array([censored_ll_gathered, exceed_ll_gathered,
-    #                                                               D_gauss_ll_gathered, log_J_1_gathered, log_J_2_gathered]),
-    #                                                     axis = 1)
-
-    # Without the Jacobian
-    censored_ll_1t, exceed_ll_1t = Y_censored_ll_1t_detail(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                                            R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
-                                                            X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current)
-    D_gauss_ll_1t = scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov=K_current)
+    #                                                         R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+    #                                                         X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current)
+    # D_gauss_ll_1t = scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov=K_current)
+    
+    # "full" version, as X and dX are calculated within the ll_1t function
+    censored_ll_1t, exceed_ll_1t, D_gauss_ll_1t = ll_1t_detail(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+                                                               R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_vec, tau_current,
+                                                               censored_idx_1t_current, exceed_idx_1t_current)
     censored_ll_gathered = comm.gather(censored_ll_1t, root = 0)
     exceed_ll_gathered   = comm.gather(exceed_ll_1t,   root = 0)
     D_gauss_ll_gathered  = comm.gather(D_gauss_ll_1t,  root = 0)
     if rank == 0: loglik_detail_trace[iter, [0,1,2]] = np.sum(np.array([censored_ll_gathered, exceed_ll_gathered, D_gauss_ll_gathered]),
-                                                                axis = 1)
+                                                              axis = 1)
 
     comm.Barrier()
 

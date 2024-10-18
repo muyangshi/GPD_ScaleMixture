@@ -387,32 +387,73 @@ if norm_pareto == 'shifted':
     pRW = print('2D Integral No Implementation!' )
     qRW = print('2D Integral No Implementation!' )
 
+# %% Likelihood Not Simplified
+
+def ll_1t(Y, p, u_vec, scale_vec, shape_vec,
+          R_vec, Z_vec, K, phi_vec, gamma_vec, tau,
+          censored_idx, exceed_idx):
+    
+    X_star = (R_vec ** phi_vec) * g(Z_vec)
+    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_vec, tau)
+    dX     = dRW(X, u_vec, scale_vec, shape_vec)
+    
+    # log censored likelihood of y on censored sites
+    censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
+    # log censored likelihood of y on exceedance sites
+    exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
+                    + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
+                    - np.log(dX[exceed_idx])
+    # log conditional likelihood of Z
+    conditional_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+
+    return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(conditional_ll)
+
+def ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,
+          R_vec, Z_vec, K, phi_vec, gamma_vec, tau,
+          censored_idx, exceed_idx):
+    
+    X_star = (R_vec ** phi_vec) * g(Z_vec)
+    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_vec, tau)
+    dX     = dRW(X, u_vec, scale_vec, shape_vec)
+    
+    # log censored likelihood of y on censored sites
+    censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
+    # log censored likelihood of y on exceedance sites
+    exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
+                    + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
+                    - np.log(dX[exceed_idx])
+    # log conditional likelihood of Z
+    conditional_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+
+    return (np.sum(censored_ll),np.sum(exceed_ll), np.sum(conditional_ll))
+
+
 # %% Likelihood
 # Likelihood
 
 # marginal censored (log) likelihood of Y at 1 time
-def Y_censored_ll_1t(Y, p, u_vec, scale_vec, shape_vec,         # marginal observation and parameter
-                     R_vec, Z_vec, phi_vec, gamma_vec, tau,     # coupla model parameter
-                     X, X_star, dX, censored_idx, exceed_idx):  # things to facilitate computation
-    # Note: 
-    #   X_star = (R_vec ** phi_vec) * g(Z_vec)
-    #   X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_vec, tau)
-    #   censored_idx = np.where(Y <= u_vec)[0]
-    #   exceed_idx   = np.where(Y > u_vec)[0]
-    #   If necessary, 
-    #       dRW can be optimized too (by passing a dedicate argument for it)
-    if(isinstance(Y, (int, np.int64, float))): 
-        Y = np.array([Y], dtype='float64')
+# def Y_censored_ll_1t(Y, p, u_vec, scale_vec, shape_vec,         # marginal observation and parameter
+#                      R_vec, Z_vec, phi_vec, gamma_vec, tau,     # coupla model parameter
+#                      X, X_star, dX, censored_idx, exceed_idx):  # things to facilitate computation
+#     # Note: 
+#     #   X_star = (R_vec ** phi_vec) * g(Z_vec)
+#     #   X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_vec, tau)
+#     #   censored_idx = np.where(Y <= u_vec)[0]
+#     #   exceed_idx   = np.where(Y > u_vec)[0]
+#     #   If necessary, 
+#     #       dRW can be optimized too (by passing a dedicate argument for it)
+#     if(isinstance(Y, (int, np.int64, float))): 
+#         Y = np.array([Y], dtype='float64')
     
-    # log likelihood of the censored sites
-    censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
+#     # log likelihood of the censored sites
+#     censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
 
-    # log likelihood of the exceedance sites
-    exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
-                    + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
-                    - np.log(dX[exceed_idx])
+#     # log likelihood of the exceedance sites
+#     exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
+#                     + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
+#                     - np.log(dX[exceed_idx])
 
-    return np.sum(censored_ll) + np.sum(exceed_ll)
+#     return np.sum(censored_ll) + np.sum(exceed_ll)
 
 # full conditional likelihood of smooth process X_star
 # def X_star_conditional_ll_1t(X_star, R_vec, phi_vec, K, # original Pr(X_star | R_vec, phi_vec, K)
@@ -432,28 +473,28 @@ def Y_censored_ll_1t(Y, p, u_vec, scale_vec, shape_vec,         # marginal obser
 #     return D_gauss_ll + log_J
 
 # marginal censored (log) likelihood of Y at 1 time
-def Y_censored_ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,         # marginal observation and parameter
-                     R_vec, Z_vec, phi_vec, gamma_vec, tau,     # coupla model parameter
-                     X, X_star, dX, censored_idx, exceed_idx):  # things to facilitate computation
-    # Note: 
-    #   X_star = (R_vec ** phi_vec) * g(Z_vec)
-    #   X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_vec, tau)
-    #   censored_idx = np.where(Y <= u_vec)[0]
-    #   exceed_idx   = np.where(Y > u_vec)[0]
-    #   If necessary, 
-    #       dRW can be optimized too (by passing a dedicate argument for it)
-    if(isinstance(Y, (int, np.int64, float))): 
-        Y = np.array([Y], dtype='float64')
+# def Y_censored_ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,         # marginal observation and parameter
+#                      R_vec, Z_vec, phi_vec, gamma_vec, tau,     # coupla model parameter
+#                      X, X_star, dX, censored_idx, exceed_idx):  # things to facilitate computation
+#     # Note: 
+#     #   X_star = (R_vec ** phi_vec) * g(Z_vec)
+#     #   X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_vec, tau)
+#     #   censored_idx = np.where(Y <= u_vec)[0]
+#     #   exceed_idx   = np.where(Y > u_vec)[0]
+#     #   If necessary, 
+#     #       dRW can be optimized too (by passing a dedicate argument for it)
+#     if(isinstance(Y, (int, np.int64, float))): 
+#         Y = np.array([Y], dtype='float64')
     
-    # log likelihood of the censored sites
-    censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
+#     # log likelihood of the censored sites
+#     censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
 
-    # log likelihood of the exceedance sites
-    exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
-                    + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
-                    - np.log(dX[exceed_idx])
+#     # log likelihood of the exceedance sites
+#     exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
+#                     + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
+#                     - np.log(dX[exceed_idx])
 
-    return (np.sum(censored_ll), np.sum(exceed_ll))
+#     return (np.sum(censored_ll), np.sum(exceed_ll))
 
 # full conditional likelihood of smooth process X_star
 # def X_star_conditional_ll_1t_detail(X_star, R_vec, phi_vec, K, # original Pr(X_star | R_vec, phi_vec, K)
