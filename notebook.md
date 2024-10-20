@@ -9,11 +9,16 @@
 
 ### Work
 
-- [ ] Separate knot_$\phi$ and knot_$\rho$
+- [x] Separated knot_$S$, knot_$\phi$ and knot_$\rho$
+- [x] Do not simplify likelihood calculation
+  - e.g. $X_t$, `dRW`($X_t$);
+  - easier for later emulator integration
+  - exceedance/censored index can be simplified -- we can build an emulator just for the likelihood of the exceedances.
 
-- Elevation from data generation should not be negative
+- [x] Summarize the likelihood into equations here
 
-- Do not simplify and combine likelihood, $X^*$, $f_X(x)$ etc. calculations
+- [ ] Elevation from simulation data generation should not be negative
+  - doesn't REALLY matter, but better if changed
 
 ### Question
 
@@ -21,6 +26,16 @@
 - How to get site level MLE estimates for $\sigma$ and $\xi$ for GP?
 - How to estimate the initial nugget -- maybe from empirical semivariogram
 - Go over hierarchical model and full conditionals
+- In the MCMC updating $Z_t$, proposing $Z_t$ will surely change $X^*$ as $X^* = R^\phi g(Z)$. HOWEVER, <mark>do we need to change $X$ too based on $Z$ (or $R$) during update?</mark> i.e. do we need to keep track of our current $\epsilon$?
+  - After the update?
+  - I think no because $X$ is marginal transformation from $Y$, which only depends are the marginal paraemter, $\phi$, ($\gamma$), and $\tau$.
+- <mark>Check</mark> that for updating $R_t$ and $Z_t$, because of assumed temporal independence, no need to gather likelihood and compare the sum; comparison of the individual ($ll_t$) is enough
+
+### Logistics
+
+- 3 minute talk in Golden -- separate slides?
+- spring 2025 TA and summer 2025 RA?
+- [JCSDS](https://www.jconf-sds.com) 2025 7/11 - 13
 
 ## Oct.8 Meeting with Likun/Mark/Ben
 
@@ -42,7 +57,8 @@
 
 
 - [ ] Simulation study with threshold exeedance without marginals
-  - [ ] Stationary data w.r.t. $\rho$
+  - [ ] Do MCMC for separately for each parameter (see who works)
+  - [ ] Completely Stationary data w.r.t. $\phi$ and $\rho$
   - [ ] Nonstationary data
 - [ ] Imputation
   - [ ] Posterior Predicative Check
@@ -60,6 +76,60 @@
 - `emulate_ll_1t_2.py` fill the training X with LHS, including the marginal Y that is also LHS'ly filled
   - had issue where $Y$ is out of support, leading to problem in $\log(\text{density})$, so created some filters
 
+## Hierarchical Model and Likelihood
+
+### Hierarcichal dependence model (and priors):
+$$
+\begin{align*}
+F_{Y \mid \bm{\theta}_{GP}, t}(Y_t(\bm{s})) &= F_{X \mid \phi(\bm{s}), \bar{\gamma}(\bm{s}), \tau, t}(X_t(\bm{s})) \\
+&= F_{X \mid \phi(\bm{s}), \bar{\gamma}(\bm{s}), \tau, t}(R_t(\bm{s})^{\phi(\bm{s})}Z_t(\bm{s}) + \epsilon_t(\bm{s})) \\
+\bm{S}_t \mid \bm{\gamma} &\sim \text{Stable}(\alpha \equiv 0.5, \beta \equiv 1, \bm{\gamma}, \delta \equiv 0) \\
+\bm{Z}_t \mid \bm{\rho} &\sim \text{MVN}(0, \bm{\Sigma}_{\bm{\rho}})
+\end{align*}
+$$
+priors:
+$$
+\begin{align*}
+\bm{\phi} &\sim \text{Beta}(5, 5) \\
+\rho &\sim \text{halfNorm}(0, 2) \\
+\tau &\sim \textcolor{yellow}{\text{halfNorm(0, 2)?}}
+\end{align*}
+$$
+marginal model:
+$$
+\begin{align*}
+\sigma_t(\bm{s}) &\equiv \sigma(\bm{s}) = \beta_0^{(\sigma)} + \beta_1^{(\sigma)} \cdot \text{elev}(\bm{s}) \\
+\xi_t(\bm{s}) &\equiv \xi(\bm{s}) = \beta_0^{(\xi)} + \beta_1^{(\xi)} \cdot \text{elev}(\bm{s})
+\end{align*}
+$$
+
+### Likelihood (pieces):
+$$
+\begin{align*}
+p(\Theta | y) &\propto f(y | \Theta) \cdot \pi(\Theta = \left\{\bm{\phi}, \bm{\rho}, \bm{\gamma}, \tau, \bm{\sigma}, \bm{\xi}\right\}) \quad \text{i.e., assume $\theta_t(s) \equiv \theta(s)$ for $\theta \in \Theta$} \\
+&= \prod_{t=1}^T \left[f(\bm{Y}_t \mid \Theta) \right] \cdot \pi(\Theta) \\
+&= \prod_{t=1}^T\left[f(\bm{Y}_t \mid \bm{R}_t, \bm{Z}_t, \bm{\phi}, \bar{\bm{\gamma}}, \bm{\rho}, \bm{\tau}, \bm{\sigma}, \bm{\xi}) \ p(\bm{R}_t \mid \bar{\bm{\gamma}}) \ p(\bm{Z}_t \mid \bm{\rho}) \right] \pi(\bm{\phi}, \bm{\rho}, \bm{\gamma}, \tau, \bm{\sigma}, \bm{\xi})
+\end{align*}
+$$
+where:
+$$
+\begin{align*}
+f(\bm{Y}_t \mid \bm{S}_t, \bm{Z}_t, \bm{\phi}, \bm{\gamma}, \bm{\rho}, \bm{\tau}, \bm{\sigma}, \bm{\xi}) &= 
+  \begin{cases}
+  \Phi\left(F_{X \mid \phi(\bm{s}_i), \bar{\gamma}(\bm{s}_i), \tau}^{-1}(p) \mid X^*_t(\bm{s}_i), \tau\right) & \text{if } Y_t(\bm{s}_i)\leq u_t(\bm{s}_i)\\
+  \\
+  \varphi\left(X_t(\bm{s}_i) \mid X^*_t(\bm{s}_i),\tau\right)\frac{f_Y(Y_t(\bm{s}_i))}{f_X\left(X_t(\bm{s}_i)\right)}&\text{if } Y_t(\bm{s}_i)> u_t(\bm{s}_i)
+  \end{cases} \\
+  p(\bm{R}_t \mid \bar{\bm{\gamma}}) &= f_{\text{Stable(0.5, 1, $\bar{\bm{\gamma}}$, 0)}}(\bm{S}_t) \\
+  p(\bm{Z}_t \mid \bm{\rho}) &= f_{\text{MVN}(\bm{0}, \bm{\Sigma}_{\bm{\rho}})}(\bm{Z}_t)
+\end{align*}
+$$
+in which
+
+- $\Phi(\ \cdot \mid X_t^*(s_i), \tau)$ 
+- $\varphi(\ \cdot \mid X_t^*(s_i), \tau)$ 
+
+respectively represents the cumulative distribution function and the density function of $N(\mu = X_t^*(s_i), \text{sd} = \tau)$. 
 
 ## Organize and Recalculate the distribution functions
 
