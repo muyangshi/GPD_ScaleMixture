@@ -389,9 +389,9 @@ if norm_pareto == 'shifted':
 
 # %% Likelihood Not Simplified
 
-def ll_1t(Y, p, u_vec, scale_vec, shape_vec,
-          R_vec, Z_vec, K, phi_vec, gamma_vec, tau,
-          censored_idx, exceed_idx):
+def ll_1t(Y, p, u_vec, scale_vec, shape_vec,        # marginal model parameters
+          R_vec, Z_vec, K, phi_vec, gamma_vec, tau, # dependence model parameters
+          logS_vec, censored_idx, exceed_idx):         # auxilury information
     
     X_star = (R_vec ** phi_vec) * g(Z_vec)
     X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_vec, tau)
@@ -403,14 +403,18 @@ def ll_1t(Y, p, u_vec, scale_vec, shape_vec,
     exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
                     + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
                     - np.log(dX[exceed_idx])
-    # log conditional likelihood of Z
-    conditional_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
 
-    return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(conditional_ll)
+    # log likelihood of S
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = 0.5) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+
+    # log likelihood of Z
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+
+    return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(S_ll) + np.sum(Z_ll)
 
 def ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,
           R_vec, Z_vec, K, phi_vec, gamma_vec, tau,
-          censored_idx, exceed_idx):
+          logS_vec, censored_idx, exceed_idx):
     
     X_star = (R_vec ** phi_vec) * g(Z_vec)
     X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_vec, tau)
@@ -422,10 +426,14 @@ def ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,
     exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
                     + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
                     - np.log(dX[exceed_idx])
-    # log conditional likelihood of Z
-    conditional_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+    
+    # log likelihood of S
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = 0.5) + logS_vec
 
-    return (np.sum(censored_ll),np.sum(exceed_ll), np.sum(conditional_ll))
+    # log conditional likelihood of Z
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+
+    return (np.sum(censored_ll),np.sum(exceed_ll), np.sum(S_ll), np.sum(Z_ll))
 
 
 # %% Likelihood

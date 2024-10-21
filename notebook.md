@@ -2,9 +2,12 @@
 
 # Meetings
 
+## Oct. 22 Meeting with Likun/Mark/Ben
+
 ## Oct. 15 Meeting with Likun/Ben
 
 - Summarize (shrink) the data into 10-day max
+  - truncate to summertime data
   - fit GP to the 10-day max
 
 ### Work
@@ -16,6 +19,8 @@
   - exceedance/censored index can be simplified -- we can build an emulator just for the likelihood of the exceedances.
 
 - [x] Summarize the likelihood into equations here
+- [x] Incorporate $S_t$ likelihood into `ll_1t` function
+  - [x] Change code updating $S_t$
 
 - [ ] Elevation from simulation data generation should not be negative
   - doesn't REALLY matter, but better if changed
@@ -26,16 +31,19 @@
 - How to get site level MLE estimates for $\sigma$ and $\xi$ for GP?
 - How to estimate the initial nugget -- maybe from empirical semivariogram
 - Go over hierarchical model and full conditionals
+  - In the likelihood, <mark>do we need a piece for $R_t$, i.e. $p(R_t \mid \bar{\gamma})$</mark>? Or just put the $p(\bm{S}_t \mid \bm{\gamma})$? Are they the same?
+  - We update $S_t$ on log scale, so there's a jacobian; we also update $\sigma$ on a log scale, but we are actually update $\beta$, do we need a jacobian for the $\sigma$?
 - In the MCMC updating $Z_t$, proposing $Z_t$ will surely change $X^*$ as $X^* = R^\phi g(Z)$. HOWEVER, <mark>do we need to change $X$ too based on $Z$ (or $R$) during update?</mark> i.e. do we need to keep track of our current $\epsilon$?
   - After the update?
   - I think no because $X$ is marginal transformation from $Y$, which only depends are the marginal paraemter, $\phi$, ($\gamma$), and $\tau$.
-- <mark>Check</mark> that for updating $R_t$ and $Z_t$, because of assumed temporal independence, no need to gather likelihood and compare the sum; comparison of the individual ($ll_t$) is enough
+- Check that for updating $S_t$ and $Z_t$, because of assumed temporal independence, no need to gather likelihood and compare the sum; comparison of the individual ($ll_t$) is enough
 
-### Logistics
+### Others
 
 - 3 minute talk in Golden -- separate slides?
 - spring 2025 TA and summer 2025 RA?
 - [JCSDS](https://www.jconf-sds.com) 2025 7/11 - 13
+- Supervise undergraduate students
 
 ## Oct.8 Meeting with Likun/Mark/Ben
 
@@ -55,7 +63,7 @@
 
 # Notes
 
-
+- will it be faster if the entire likelihood function is implemented in `Cpp`?
 - [ ] Simulation study with threshold exeedance without marginals
   - [ ] Do MCMC for separately for each parameter (see who works)
   - [ ] Completely Stationary data w.r.t. $\phi$ and $\rho$
@@ -79,27 +87,41 @@
 ## Hierarchical Model and Likelihood
 
 ### Hierarcichal dependence model (and priors):
+
+With index
+
 $$
 \begin{align*}
-F_{Y \mid \bm{\theta}_{GP}, t}(Y_t(\bm{s})) &= F_{X \mid \phi(\bm{s}), \bar{\gamma}(\bm{s}), \tau, t}(X_t(\bm{s})) \\
-&= F_{X \mid \phi(\bm{s}), \bar{\gamma}(\bm{s}), \tau, t}(R_t(\bm{s})^{\phi(\bm{s})}Z_t(\bm{s}) + \epsilon_t(\bm{s})) \\
+k &\in \{1, 2, \dots, K\} \quad \text{denoting number of knots (total $K$ knots)} \\
+t &\in \{1, 2, \dots, T\} \quad \text{denoting time index (total $T$ time replicates)} \\
+j &\in \{1, 2, \dots, D\} \quad \text{denoting site index (total $D$ locations)}
+\end{align*}
+$$
+
+Hierarchical model written as:
+
+$$
+\begin{align*}
+F_{Y \mid \bm{\theta}_{GP}, t}(Y_t(\bm{s}_j)) &= F_{X \mid \phi(\bm{s}_j), \bar{\gamma}(\bm{s}_j), \tau, t}(X_t(\bm{s}_j)) \\
+&= F_{X \mid \phi(\bm{s}_j), \bar{\gamma}(\bm{s}_j), \tau, t}(R_t(\bm{s}_j)^{\phi(\bm{s}_j)}Z_t(\bm{s}_j) + \epsilon_t(\bm{s}_j)) \\
 \bm{S}_t \mid \bm{\gamma} &\sim \text{Stable}(\alpha \equiv 0.5, \beta \equiv 1, \bm{\gamma}, \delta \equiv 0) \\
-\bm{Z}_t \mid \bm{\rho} &\sim \text{MVN}(0, \bm{\Sigma}_{\bm{\rho}})
+\bm{Z}_t \mid \bm{\rho} &\sim \text{MVN}(0, \bm{\Sigma}_{\bm{\rho}}) \\
+\epsilon_t(\bm{s}_j) &\stackrel{\text{iid}}{\sim} \text{N}(0, \text{Var} = \tau^2)
 \end{align*}
 $$
 priors:
 $$
 \begin{align*}
-\bm{\phi} &\sim \text{Beta}(5, 5) \\
-\rho &\sim \text{halfNorm}(0, 2) \\
+\phi_k &\sim \text{Beta}(5, 5) \\
+\rho_k &\sim \text{halfNorm}(0, 2) \\
 \tau &\sim \textcolor{yellow}{\text{halfNorm(0, 2)?}}
 \end{align*}
 $$
 marginal model:
 $$
 \begin{align*}
-\sigma_t(\bm{s}) &\equiv \sigma(\bm{s}) = \beta_0^{(\sigma)} + \beta_1^{(\sigma)} \cdot \text{elev}(\bm{s}) \\
-\xi_t(\bm{s}) &\equiv \xi(\bm{s}) = \beta_0^{(\xi)} + \beta_1^{(\xi)} \cdot \text{elev}(\bm{s})
+\log\sigma_t(\bm{s}_j) &\equiv \log\sigma(\bm{s}_j) = \beta_0^{(\sigma)} + \beta_1^{(\sigma)} \cdot \text{elev}(\bm{s}_j) \\
+\xi_t(\bm{s}_j) &\equiv \xi(\bm{s}_j) = \beta_0^{(\xi)} + \beta_1^{(\xi)} \cdot \text{elev}(\bm{s}_j)
 \end{align*}
 $$
 
@@ -108,19 +130,23 @@ $$
 \begin{align*}
 p(\Theta | y) &\propto f(y | \Theta) \cdot \pi(\Theta = \left\{\bm{\phi}, \bm{\rho}, \bm{\gamma}, \tau, \bm{\sigma}, \bm{\xi}\right\}) \quad \text{i.e., assume $\theta_t(s) \equiv \theta(s)$ for $\theta \in \Theta$} \\
 &= \prod_{t=1}^T \left[f(\bm{Y}_t \mid \Theta) \right] \cdot \pi(\Theta) \\
-&= \prod_{t=1}^T\left[f(\bm{Y}_t \mid \bm{R}_t, \bm{Z}_t, \bm{\phi}, \bar{\bm{\gamma}}, \bm{\rho}, \bm{\tau}, \bm{\sigma}, \bm{\xi}) \ p(\bm{R}_t \mid \bar{\bm{\gamma}}) \ p(\bm{Z}_t \mid \bm{\rho}) \right] \pi(\bm{\phi}, \bm{\rho}, \bm{\gamma}, \tau, \bm{\sigma}, \bm{\xi})
+&= \prod_{t=1}^T\left[f(\bm{Y}_t \mid \textcolor{yellow}{\bm{S}_t}, \bm{Z}_t, \bm{\phi}, \bm{\gamma}, \bm{\rho}, \bm{\tau}, \bm{\sigma}, \bm{\xi}) \ \textcolor{yellow}{ p(\bm{S}_t \mid \bm{\gamma})} \ p(\bm{Z}_t \mid \bm{\rho}) \right] \pi(\bm{\phi}, \bm{\rho}, \bm{\gamma}, \tau, \bm{\sigma}, \bm{\xi})
 \end{align*}
 $$
+
 where:
+
 $$
 \begin{align*}
 f(\bm{Y}_t \mid \bm{S}_t, \bm{Z}_t, \bm{\phi}, \bm{\gamma}, \bm{\rho}, \bm{\tau}, \bm{\sigma}, \bm{\xi}) &= 
   \begin{cases}
-  \Phi\left(F_{X \mid \phi(\bm{s}_i), \bar{\gamma}(\bm{s}_i), \tau}^{-1}(p) \mid X^*_t(\bm{s}_i), \tau\right) & \text{if } Y_t(\bm{s}_i)\leq u_t(\bm{s}_i)\\
+  \Phi\left(F_{X \mid \phi(\bm{s}_j), \bar{\gamma}(\bm{s}_j), \tau}^{-1}(p) \mid X^*_t(\bm{s}_j), \tau\right) & \text{if } Y_t(\bm{s}_j)\leq u_t(\bm{s}_j)\\
   \\
-  \varphi\left(X_t(\bm{s}_i) \mid X^*_t(\bm{s}_i),\tau\right)\frac{f_Y(Y_t(\bm{s}_i))}{f_X\left(X_t(\bm{s}_i)\right)}&\text{if } Y_t(\bm{s}_i)> u_t(\bm{s}_i)
+  \varphi\left(X_t(\bm{s}_j) \mid X^*_t(\bm{s}_j),\tau\right)\frac{f_Y(Y_t(\bm{s}_j))}{f_X\left(X_t(\bm{s}_j)\right)}&\text{if } Y_t(\bm{s}_j)> u_t(\bm{s}_j)
   \end{cases} \\
-  p(\bm{R}_t \mid \bar{\bm{\gamma}}) &= f_{\text{Stable(0.5, 1, $\bar{\bm{\gamma}}$, 0)}}(\bm{S}_t) \\
+  p(\bm{S}_t \mid \bm{\gamma}) &= f_{\text{Stable(0.5, 1, $\bm{\gamma}$, 0)}}(\bm{S}_t) \\
+  &= f_{\text{Stable(0.5, 1, $\bm{\gamma}$, 0)}}(\exp [\log (\bm{S}_t)]) \cdot \left\lvert \dfrac{d\bm{S}_t}{d\log\bm{S}_t} \right\rvert \quad \text{ as we propose and update $\log(\bm{S}_t)$} \\
+  &= f_{\text{Stable(0.5, 1, $\bm{\gamma}$, 0)}}(\bm{S}_t) \cdot \bm{S}_t\\
   p(\bm{Z}_t \mid \bm{\rho}) &= f_{\text{MVN}(\bm{0}, \bm{\Sigma}_{\bm{\rho}})}(\bm{Z}_t)
 \end{align*}
 $$
@@ -129,7 +155,7 @@ in which
 - $\Phi(\ \cdot \mid X_t^*(s_i), \tau)$ 
 - $\varphi(\ \cdot \mid X_t^*(s_i), \tau)$ 
 
-respectively represents the cumulative distribution function and the density function of $N(\mu = X_t^*(s_i), \text{sd} = \tau)$. 
+respectively represents the distribution and the density function of $N(\mu = X_t^*(s_i), \text{sd} = \tau)$. 
 
 ## Organize and Recalculate the distribution functions
 

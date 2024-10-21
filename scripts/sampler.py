@@ -1175,7 +1175,7 @@ if rank == 0:
 
 llik_1t_current = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                         R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_vec, tau_current,
-                        censored_idx_1t_current, exceed_idx_1t_current)
+                        S_current_log, censored_idx_1t_current, exceed_idx_1t_current)
 
 if np.isfinite(llik_1t_current):
     llik_1t_current_gathered = comm.gather(llik_1t_current, root = 0)
@@ -1195,7 +1195,7 @@ for iter in range(start_iter, n_iters):
         S_proposal_log[change_idx] = S_current_log[change_idx] + np.sqrt(sigma_m_sq_St[i]) * random_generator.normal(0.0, 1.0, size = 1)
 
         R_vec_proposal             = wendland_weight_matrix_S @ np.exp(S_proposal_log)
-        X_star_1t_proposal         = (R_vec_proposal ** phi_vec_current) * g(Z_1t_current)
+        # X_star_1t_proposal         = (R_vec_proposal ** phi_vec_current) * g(Z_1t_current)
 
         # Data Likelihood -----------------------------------------------------------------------------------------
 
@@ -1208,14 +1208,17 @@ for iter in range(start_iter, n_iters):
         # "Full" version, X and dX are calculated within the ll_1t function
         llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                  R_vec_proposal, Z_1t_current, K_current, phi_vec_current, gamma_vec, tau_current,
-                                 censored_idx_1t_current, exceed_idx_1t_current)
+                                 S_proposal_log, censored_idx_1t_current, exceed_idx_1t_current)
 
         # Prior Density -------------------------------------------------------------------------------------------
-        lprior_1t_current  = np.sum(scipy.stats.levy.logpdf(np.exp(S_current_log),  scale = gamma) + S_current_log)
-        lprior_1t_proposal = np.sum(scipy.stats.levy.logpdf(np.exp(S_proposal_log), scale = gamma) + S_proposal_log)
+        
+        # Already included in the new ll_1t function
+        # lprior_1t_current  = np.sum(scipy.stats.levy.logpdf(np.exp(S_current_log),  scale = gamma) + S_current_log)
+        # lprior_1t_proposal = np.sum(scipy.stats.levy.logpdf(np.exp(S_proposal_log), scale = gamma) + S_proposal_log)
 
         # Update --------------------------------------------------------------------------------------------------
-        r = np.exp(llik_1t_proposal + lprior_1t_proposal - llik_1t_current - lprior_1t_current)
+        # r = np.exp(llik_1t_proposal + lprior_1t_proposal - llik_1t_current - lprior_1t_current)
+        r = np.exp(llik_1t_proposal - llik_1t_current)
         u = random_generator.uniform()
         if np.isfinite(r) and r >= u:
             num_accepted_St[i] += 1
@@ -1239,7 +1242,7 @@ for iter in range(start_iter, n_iters):
         idx                = np.array([i])
         Z_1t_proposal      = Z_1t_current.copy()
         Z_1t_proposal[idx] = Z_1t_current[idx] + np.sqrt(sigma_m_sq_Zt[i]) * random_generator.normal(0.0, 1.0, size = 1)
-        X_star_1t_proposal = (R_vec_current ** phi_vec_current) * g(Z_1t_proposal)
+        # X_star_1t_proposal = (R_vec_current ** phi_vec_current) * g(Z_1t_proposal)
 
         # Data Likelihood -----------------------------------------------------------------------------------------
 
@@ -1252,7 +1255,7 @@ for iter in range(start_iter, n_iters):
         # "Full" version, X and dX are calculated within the ll_1t function
         llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                  R_vec_current, Z_1t_proposal, K_current, phi_vec_current, gamma_vec, tau_current,
-                                 censored_idx_1t_current, exceed_idx_1t_current)
+                                 S_current_log, censored_idx_1t_current, exceed_idx_1t_current)
 
         # Update --------------------------------------------------------------------------------------------------
         r = np.exp(llik_1t_proposal - llik_1t_current)
@@ -1302,7 +1305,7 @@ for iter in range(start_iter, n_iters):
             # "full" version as X and dX are calculated within the ll_1t function
             llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                      R_vec_current, Z_1t_current, K_current, phi_vec_proposal, gamma_vec, tau_current,
-                                     censored_idx_1t_current, exceed_idx_1t_current)
+                                     S_current_log, censored_idx_1t_current, exceed_idx_1t_current)
 
         # Update --------------------------------------------------------------------------------------------------
         phi_accepted = False
@@ -1364,7 +1367,7 @@ for iter in range(start_iter, n_iters):
             # "full" version as X and dX are calculated within the ll_1t function
             llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                      R_vec_current, Z_1t_current, K_proposal, phi_vec_current, gamma_vec, tau_current,
-                                     censored_idx_1t_current, exceed_idx_1t_current)
+                                     S_current_log, censored_idx_1t_current, exceed_idx_1t_current)
 
         # Update --------------------------------------------------------------------------------------------------
         range_accepted = False
@@ -1417,7 +1420,7 @@ for iter in range(start_iter, n_iters):
         # "full" version as X and dX are calculated within the ll_1t function
         llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                  R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_vec, tau_proposal,
-                                 censored_idx_1t_current, exceed_idx_1t_current)
+                                 S_current_log, censored_idx_1t_current, exceed_idx_1t_current)
 
     # Update ------------------------------------------------------------------------------------------------------
     tau_accepted = False
@@ -1468,13 +1471,14 @@ for iter in range(start_iter, n_iters):
     # D_gauss_ll_1t = scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov=K_current)
     
     # "full" version, as X and dX are calculated within the ll_1t function
-    censored_ll_1t, exceed_ll_1t, D_gauss_ll_1t = ll_1t_detail(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+    censored_ll_1t, exceed_ll_1t, S_ll_1t, D_gauss_ll_1t = ll_1t_detail(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                                                R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_vec, tau_current,
-                                                               censored_idx_1t_current, exceed_idx_1t_current)
+                                                               S_current_log, censored_idx_1t_current, exceed_idx_1t_current)
     censored_ll_gathered = comm.gather(censored_ll_1t, root = 0)
     exceed_ll_gathered   = comm.gather(exceed_ll_1t,   root = 0)
+    S_ll_gathered        = comm.gather(S_ll_1t,        root = 0)
     D_gauss_ll_gathered  = comm.gather(D_gauss_ll_1t,  root = 0)
-    if rank == 0: loglik_detail_trace[iter, [0,1,2]] = np.sum(np.array([censored_ll_gathered, exceed_ll_gathered, D_gauss_ll_gathered]),
+    if rank == 0: loglik_detail_trace[iter, [0,1,2,3]] = np.sum(np.array([censored_ll_gathered, exceed_ll_gathered, S_ll_gathered,D_gauss_ll_gathered]),
                                                               axis = 1)
 
     comm.Barrier()
