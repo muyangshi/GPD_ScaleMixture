@@ -21,22 +21,24 @@
 - [x] Summarize the likelihood into equations here
 - [x] Incorporate $S_t$ likelihood into `ll_1t` function
   - [x] Change code updating $S_t$
+  - [ ] Use the exceedance and censored idx to facilitate calculation of qRW and dRW
 
-- [ ] Elevation from simulation data generation should not be negative
+- Elevation from simulation data generation should not be negative
   - doesn't REALLY matter, but better if changed
 
 ### Question
 
-- Do we want to not fix $\gamma_k$ this time?
-- How to get site level MLE estimates for $\sigma$ and $\xi$ for GP?
-- How to estimate the initial nugget -- maybe from empirical semivariogram
-- Go over hierarchical model and full conditionals
-  - In the likelihood, <mark>do we need a piece for $R_t$, i.e. $p(R_t \mid \bar{\gamma})$</mark>? Or just put the $p(\bm{S}_t \mid \bm{\gamma})$? Are they the same?
-  - We update $S_t$ on log scale, so there's a jacobian; we also update $\sigma$ on a log scale, but we are actually update $\beta$, do we need a jacobian for the $\sigma$?
+- [ ] Do we want to not fix $\gamma_k$ this time?
+- [ ] How to get site level MLE estimates for $\sigma$ and $\xi$ for GP?
+- [ ] How to estimate the initial nugget -- maybe from empirical semivariogram?
+- [ ] Go over hierarchical model and full conditionals
+  - [ ] In the likelihood, <mark>do we need a piece for $R_t$, i.e. $p(R_t \mid \bar{\gamma})$</mark>? Or just put the $p(\bm{S}_t \mid \bm{\gamma})$? Are they the same?
+  - [ ] We update $S_t$ on log scale, so there's a jacobian; we also update $\sigma$ on a log scale, but we are actually update $\beta$, do we need a jacobian for the $\sigma$?
 - In the MCMC updating $Z_t$, proposing $Z_t$ will surely change $X^*$ as $X^* = R^\phi g(Z)$. HOWEVER, <mark>do we need to change $X$ too based on $Z$ (or $R$) during update?</mark> i.e. do we need to keep track of our current $\epsilon$?
-  - After the update?
+  - [ ] After the update? (e.g. after accept proposed $Z$, we certainly change $X^*$, do we also change $X$?)
   - I think no because $X$ is marginal transformation from $Y$, which only depends are the marginal paraemter, $\phi$, ($\gamma$), and $\tau$.
-- Check that for updating $S_t$ and $Z_t$, because of assumed temporal independence, no need to gather likelihood and compare the sum; comparison of the individual ($ll_t$) is enough
+- [ ] Check that for updating $S_t$ and $Z_t$, because of assumed temporal independence, no need to gather likelihood and compare the sum; comparison of the individual ($ll_t$) is enough
+- [ ] Are we still conditioning on Time $t$? There is a lot more time replicates.
 
 ### Others
 
