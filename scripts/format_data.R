@@ -10,7 +10,7 @@ rm(stations)
 # Y_daily_JJA <- t(precip_mat[JJA_indices, ]) # we want to have a matrix of size (Ns, Nt)
 # dim(Y_daily_JJA)
 
-# Select 90 summer days
+# Select 90 summer days from 6-22 to 9-19
 
 # Convert time_info$time to Date object if not already
 time_info$time <- as.Date(time_info$time, format = "%Y-%m-%d")
@@ -25,8 +25,9 @@ dim(Y_daily_summer)
 
 
 # Truncate the data:
-#   1. Break the matrix Y_daily_JJA into 75 chunks, each representing a 3-month period (June, July, August).
-#   2. For each chunk (which has 92 days), break it into 9 pieces.
+#   1. Break the matrix Y_daily_JJA into 75 chunks (75 years), 
+#     each representing a 3-month period of summer from 6-22 to 9-19 (to perfectly match 90 days).
+#   2. For each chunk (which has 90 days), break it into 9 pieces of 10-day blocks
 #   3. Take the maximum of each of these 9 pieces.
 #   4. Combine the results.
 
@@ -55,10 +56,10 @@ process_monthly_chunk <- function(month_data) {
         # } else {
         #     end_idx <- i * piece_size
         # }
-        # Take the maximum of this piece across each location
         if(end_idx - start_idx + 1 != 10){
             print("size not 10!")
         }
+        # Take the maximum of this piece across each location
         apply(month_data[, start_idx:end_idx], 1, max)
     })
 
