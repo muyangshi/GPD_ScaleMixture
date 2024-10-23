@@ -6,11 +6,23 @@ stations_full <- stations
 rm(stations)
 
 # Subset to JJA observations
+# JJA_indices <- which(time_info$raw.month %in% c(6, 7, 8))
+# Y_daily_JJA <- t(precip_mat[JJA_indices, ]) # we want to have a matrix of size (Ns, Nt)
+# dim(Y_daily_JJA)
 
-JJA_indices <- which(time_info$raw.month %in% c(6, 7, 8))
+# Select 90 summer days
 
-Y_daily_JJA <- t(precip_mat[JJA_indices, ]) # we want to have a matrix of size (Ns, Nt)
-dim(Y_daily_JJA)
+# Convert time_info$time to Date object if not already
+time_info$time <- as.Date(time_info$time, format = "%Y-%m-%d")
+# Extract month and day information from the Date object
+time_info$month_day <- format(time_info$time, "%m-%d")
+# Get the indices of the rows where the date is between June 22 and September 19
+summer_indices <- which(time_info$month_day > "06-21" & time_info$month_day < "09-20")
+
+Y_daily_summer <- t(precip_mat[summer_indices, ])
+dim(Y_daily_summer)
+
+
 
 # Truncate the data:
 #   1. Break the matrix Y_daily_JJA into 75 chunks, each representing a 3-month period (June, July, August).
@@ -19,7 +31,8 @@ dim(Y_daily_JJA)
 #   4. Combine the results.
 
 # Number of days in each year (June, July, August)
-JJA_days <- 92
+# JJA_days <- 92
+summer_days <- 90
 # Number of years
 n_years <- 75
 
@@ -35,13 +48,17 @@ process_monthly_chunk <- function(month_data) {
     max_values <- sapply(1:9, function(i) {
         # Define the start and end index for each piece
         start_idx <- (i - 1) * piece_size + 1
-        if (i == 9) {
-            # The last piece should include all remaining days
-            end_idx <- n_days
-        } else {
-            end_idx <- i * piece_size
-        }
+        end_idx <- i * piece_size
+        # if (i == 9) {
+        #     # The last piece should include all remaining days
+        #     end_idx <- n_days
+        # } else {
+        #     end_idx <- i * piece_size
+        # }
         # Take the maximum of this piece across each location
+        if(end_idx - start_idx + 1 != 10){
+            print("size not 10!")
+        }
         apply(month_data[, start_idx:end_idx], 1, max)
     })
 
@@ -55,17 +72,17 @@ season_maxs <- list()
 # Loop over each year and process the data
 for (i in 1:n_years) {
     # Extract the data for each 3-month chunk (92 days)
-    start_day <- (i - 1) * JJA_days + 1
-    end_day <- i * JJA_days
-    year_data <- Y_daily_JJA[, start_day:end_day]
+    start_day <- (i - 1) * summer_days + 1
+    end_day <- i * summer_days
+    year_data <- Y_daily_summer[, start_day:end_day]
 
     # Process the monthly chunk and get the max values for each of the 9 pieces
     season_maxs[[i]] <- process_monthly_chunk(year_data)
 }
 
 # Combine the results from all years
-Y_JJA <- do.call(cbind, season_maxs)
-dim(Y_JJA)
+Y <- do.call(cbind, season_maxs)
+dim(Y)
 
 
 # HOW TO GET GP ESTIMATES?
@@ -107,7 +124,7 @@ extract_gpd_parameters <- function(data, threshold_prob = 0.95) {
     return(list(thresholds = threshold_params, shape = shape_params, scale = scale_params))
 }
 
-gpd_results <- extract_gpd_parameters(Y_JJA)
+gpd_results <- extract_gpd_parameters(Y)
 
 
 # Save into one data object
@@ -121,4 +138,4 @@ GP_estimates <- data.frame(
 elev <- stations_full$elevation
 stations <- data.frame("x" = stations_full$longitude, "y" = stations_full$latitude)
 
-save(Y_JJA, GP_estimates, elev, stations, file = "./data/realdata/JJA_precip_nonimputed.RData")
+save(Y, GP_estimates, elev, stations, file = "./data/realdata/JJA_precip_nonimputed.RData")
