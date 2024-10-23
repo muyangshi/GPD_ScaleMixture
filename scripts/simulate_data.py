@@ -45,6 +45,8 @@ if __name__ == "__main__":
 
     # setup -------------------------------------------------------------------
     
+    n_processes = 4
+
     try:
         data_seed = int(sys.argv[1])
         data_seed
@@ -67,10 +69,10 @@ if __name__ == "__main__":
     # Numbers - Ns, Nt --------------------------------------------------------   
     
     np.random.seed(data_seed)
-    Nt       = 50 # number of time replicates
-    Ns       = 590 # number of sites/stations
+    Nt       = 10 # number of time replicates
+    Ns       = 50 # number of sites/stations
     scenario_phi = 'nonstatsc2'  # nonstatsc1, nonstatsc2, nonstatsc3, stat_AI, stat_AD
-    scenario_rho = 'stat' # nonstat, stats
+    scenario_rho = 'nonstat' # nonstat, stats
     Time     = np.linspace(-Nt/2, Nt/2-1, Nt)/np.std(np.linspace(-Nt/2, Nt/2-1, Nt), ddof=1)
     
     savefolder = '../data/simulated' + \
@@ -97,8 +99,10 @@ if __name__ == "__main__":
 
     # Elevation Function ------------------------------------------------------
 
-    elev_surf_generator = gs.SRF(gs.Gaussian(dim=2, var = 1, len_scale = 2), seed=data_seed)
+    elev_surf_generator = gs.SRF(gs.Gaussian(dim=2, var = 1, len_scale = 2),seed=data_seed)
     elevations = elev_surf_generator((sites_x, sites_y))
+    elevations += np.abs(np.min(elevations))
+
 
     # Knots - isometric grid ----------------------------------------------------------------------
 
@@ -112,7 +116,7 @@ if __name__ == "__main__":
 
     # isometric knot grid -- for R^phi
 
-    N_outer_grid = 16
+    N_outer_grid = 9
     h_dist_between_knots     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid))-1)
     v_dist_between_knots     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid))-1)
     x_pos                    = np.linspace(minX + h_dist_between_knots/2, maxX + h_dist_between_knots/2, 
@@ -136,7 +140,7 @@ if __name__ == "__main__":
 
     # isometric knot grid -- for rho
 
-    N_outer_grid_rho = 16
+    N_outer_grid_rho = 9
     h_dist_between_knots_rho     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_rho))-1)
     v_dist_between_knots_rho     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_rho))-1)
     x_pos_rho                    = np.linspace(minX + h_dist_between_knots_rho/2, maxX + h_dist_between_knots_rho/2, 
@@ -163,15 +167,15 @@ if __name__ == "__main__":
     # Influence Radius from knots:
 
     # R <- weighted sum of Stable S
-    radius            = 2 # radius of R's Wendland Kernel for R
+    radius            = 4 # radius of R's Wendland Kernel for R
     radius_from_knots = np.repeat(radius, k)
 
     # phi
-    eff_range = 2 # range where phi's gaussian kernel drops to 0.05
+    eff_range = 4 # range where phi's gaussian kernel drops to 0.05
     bandwidth = eff_range**2/6
 
     # rho
-    eff_range_rho = 2 # range where rho's gaussian kernel drops to 0.05
+    eff_range_rho = 4 # range where rho's gaussian kernel drops to 0.05
     bandwidth_rho = eff_range_rho**2/6
 
     # Weight matrices (matrix expand from knots to sites):
@@ -219,7 +223,7 @@ if __name__ == "__main__":
     """
 
     # Threshold u(t,s) --------------------------------------------------------
-    u_matrix = np.full(shape = (Ns, Nt), fill_value = 20.0)
+    u_matrix = np.full(shape = (Ns, Nt), fill_value = 60.0)
 
     # Scale logsigma(s) -------------------------------------------------------
     
@@ -266,8 +270,8 @@ if __name__ == "__main__":
 
     # Marginal Parameters - GP(sigma, ksi) ----------------------------------------------------------------------------
     
-    Beta_logsigma = np.array([2.0, 0.0])
-    Beta_ksi      = np.array([0.25, 0.0])
+    Beta_logsigma = np.array([3.0, 0.0])
+    Beta_ksi      = np.array([0.1, 0.0])
 
     # Data Model Parameters - X_star = R^phi * g(Z) -------------------------------------------------------------------
 
@@ -371,11 +375,11 @@ if __name__ == "__main__":
         args = (X[:,t], phi_vec, gamma_vec, tau,
                 p, u_matrix[:,t], sigma_matrix[:,t], ksi_matrix[:,t])
         args_list.append(args)
-    with multiprocessing.Pool(processes=50) as pool:
+    with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
         results = pool.map(transform_to_Y, args_list)
     
     Y_noNA = np.column_stack(results)
-    Y_NA   = np.where(miss_matrix, np.nan, Y_noNA)
+    Y_wNA   = np.where(miss_matrix, np.nan, Y_noNA)
 
 
     # %%
@@ -384,37 +388,38 @@ if __name__ == "__main__":
     # .npy files
 
     np.save(savefolder+'/miss_matrix_bool', miss_matrix)
-    np.save(savefolder+'/sites_xy',         sites_xy)
-    np.save(savefolder+'/elevations',       elevations)
+    np.save(savefolder+'/stations',         sites_xy)
+    np.save(savefolder+'/elev',             elevations)
     np.save(savefolder+'/logsigma_matrix',  np.log(sigma_matrix))
     np.save(savefolder+'/ksi_matrix',       ksi_matrix)
     np.save(savefolder+'/Y_noNA',           Y_noNA)
-    np.save(savefolder+'/Y_NA',             Y_NA)
+    np.save(savefolder+'/Y',                Y_wNA)
         
     # .RData file
 
-    Y_ro = numpy2rpy(Y_NA)
-    GP_estimates            = np.column_stack(((C_logsigma.T @ Beta_logsigma).T[:,0],
-                                               (C_ksi.T @ Beta_ksi).T[:,0]))
-    GP_estimates_ro         = numpy2rpy(GP_estimates)
-    stations_ro             = numpy2rpy(sites_xy)
-    elev_ro                 = numpy2rpy(elevations)
-
+    Y_ro = numpy2rpy(Y_wNA)
+    GP_estimates    = np.column_stack((u_matrix[:,0],
+                                       (C_logsigma.T @ Beta_logsigma).T[:,0],
+                                       (C_ksi.T @ Beta_ksi).T[:,0]))
+    GP_estimates_ro = numpy2rpy(GP_estimates)
+    elev_ro         = numpy2rpy(elevations)
+    stations_ro     = numpy2rpy(sites_xy)
+    
     r.assign('Y', Y_ro)
     r.assign('GP_estimates', GP_estimates_ro)
-    r.assign('stations', stations_ro)
     r.assign('elev', elev_ro)
+    r.assign('stations', stations_ro)
 
     r(f'''
         GP_estimates <- as.data.frame(GP_estimates)
-        colnames(GP_estimates) <- c('logsigma','xi')
+        colnames(GP_estimates) <- c('mu','logsigma','xi')
 
         stations <- as.data.frame(stations)
         colnames(stations) <- c('x','y')
 
         elev <- c(elev)
 
-        save(Y, GP_estimates, stations, elev,
+        save(Y, GP_estimates, elev, stations,
             file = '{savefolder}/simulated_data.RData')
     ''')
 
@@ -474,8 +479,8 @@ if __name__ == "__main__":
     ## all pooled together
     pY = np.array([])
     for t in range(Nt):
-        exceed_idx = np.where(Y_NA[:,t] > u_matrix[:,t])[0]
-        pY = np.append(pY, pGP(Y_NA[exceed_idx,t],u_matrix[exceed_idx,t],sigma_matrix[exceed_idx,t],ksi_matrix[exceed_idx,t]))
+        exceed_idx = np.where(Y_wNA[:,t] > u_matrix[:,t])[0]
+        pY = np.append(pY, pGP(Y_wNA[exceed_idx,t],u_matrix[exceed_idx,t],sigma_matrix[exceed_idx,t],ksi_matrix[exceed_idx,t]))
     nquant = len(pY)
     emp_p = np.linspace(1/nquant, 1-1/nquant, num=nquant)
     emp_q = scipy.stats.uniform().ppf(emp_p)
