@@ -125,6 +125,10 @@ where $N_s$ denotes the number of stations and $N_t$ denotes the number of years
 
 TODO
 
+- simulated dataset will output the $Y$ values 
+  - as is if they are above threshold
+  - just output the threshold if the value is below the threshold
+
 <!-- If we are not performing an application on a real dataset, we could simulate a dataset to test the model.
 
 File:
