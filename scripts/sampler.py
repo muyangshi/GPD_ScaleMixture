@@ -78,20 +78,42 @@ except Exception as e:
     start_iter = 1
 
 if norm_pareto == 'shifted': n_iters = 5000
-if norm_pareto == 'standard': n_iters = 400000
+if norm_pareto == 'standard': n_iters = 5000
 
 # %%
 # Load Dataset --------------------------------------------------------------------------------------------------------
 
 # data
-if from_simulation == True: datafolder = '../data/nonstationary_seed2345_t50_s590_sc2/'
-if from_simulation == False: datafolder = '../data/realdata'
 
-Y                  = np.load(datafolder+'Y.npy')
-logsigma_estimates = np.load(datafolder+'logsigma_matrix.npy')[:,0]
-ksi_estimates      = np.load(datafolder+'ksi_matrix.npy')[:,0]
-stations           = np.load(datafolder+'sites_xy.npy')
-elevations         = np.load(datafolder+'elevations.npy')
+if from_simulation == True: 
+    datafolder = '../data/simulated_seed:2345_t:50_s:100_phi:nonstatsc2_rho:nonstat/'
+    datafile   = 'simulated_data.RData'
+if from_simulation == False: 
+    datafolder = '../data/realdata/'
+    datafile   = 'JJA_precip_nonimputed.RData'
+
+# Load from .RData file the following
+#   Y, 
+#   GP_estimates (u, logsigma, xi), 
+#   elev, 
+#   stations
+
+r(f'''
+    load("{datafolder}/{datafile}")
+''')
+
+Y = np.array(r('Y'))
+GP_estimates = np.array(r('GP_estimates')).T
+logsigma_estimates = GP_estimates[:,1]
+ksi_estimates      = GP_estimates[:,2]
+elevations         = np.array(r('elev'))
+stations           = np.array(r('stations')).T
+
+# this `u_vec` is the threshold, 
+# spatially varying but temporally constant
+# ie, each site has its own threshold
+u_vec              = GP_estimates[:,0] 
+
 
 # truncate if only running a random subset
 
@@ -161,7 +183,7 @@ minY, maxY = np.floor(np.min(sites_y)), np.ceil(np.max(sites_y))
 # k                        = len(knots_id_in_domain)
 
 # isometric knot grid - for R (de-coupled from phi and rho)
-N_outer_grid_S = 16
+N_outer_grid_S = 9
 h_dist_between_knots_S     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_S))-1)
 v_dist_between_knots_S     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_S))-1)
 x_pos_S                    = np.linspace(minX + h_dist_between_knots_S/2, maxX + h_dist_between_knots_S/2,
@@ -184,7 +206,7 @@ knots_y_S                  = knots_xy_S[:,1]
 k_S                        = len(knots_id_in_domain_S)
 
 # isometric knot grid - for phi (de-coupled from R and rho)
-N_outer_grid_phi = 16
+N_outer_grid_phi = 9
 h_dist_between_knots_phi     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_phi))-1)
 v_dist_between_knots_phi     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_phi))-1)
 x_pos_phi                    = np.linspace(minX + h_dist_between_knots_phi/2, maxX + h_dist_between_knots_phi/2,
@@ -207,7 +229,7 @@ knots_y_phi                  = knots_xy_phi[:,1]
 k_phi                        = len(knots_id_in_domain_phi)
 
 # isometric knot grid - for rho (de-coupled from R and phi)
-N_outer_grid_rho = 16
+N_outer_grid_rho = 9
 h_dist_between_knots_rho     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_rho))-1)
 v_dist_between_knots_rho     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_rho))-1)
 x_pos_rho                    = np.linspace(minX + h_dist_between_knots_rho/2, maxX + h_dist_between_knots_rho/2,
@@ -233,9 +255,9 @@ k_rho                        = len(knots_id_in_domain_rho)
 
 # Basis Parameters - for the Gaussian and Wendland Basis
 
-radius_S            = 3                      # radius of Wendland Basis for S
-eff_range_phi       = 3                      # effective range for phi
-eff_range_rho       = 3                      # effective range for rho
+radius_S            = 4                      # radius of Wendland Basis for S
+eff_range_phi       = 4                      # effective range for phi
+eff_range_rho       = 4                      # effective range for rho
 
 radius_S_from_knots = np.repeat(radius_S, k_S) # influence radius from a knot
 bandwidth_phi       = eff_range_phi**2/6
@@ -305,7 +327,7 @@ gamma_vec = np.sum(np.multiply(wendland_weight_matrix_S, gamma_at_knots)**(alpha
 # %%
 # Estimate Parameters -------------------------------------------------------------------------------------------------
 
-if start_iter == 1:
+if start_iter == 1 and from_simulation == False:
     # We estimate parameter's initial values to start the chains
 
     # Marginal Parameters - GP(sigma, ksi) ------------------------------------
@@ -326,7 +348,7 @@ if start_iter == 1:
 
     # Nugget Variance (var = tau^2, stdev = tau)
 
-    tau = 10 # potentially, use empirical semivariogram estimates
+    tau = 10.0 # potentially, use empirical semivariogram estimates
 
     # rho - covariance K
 
@@ -426,11 +448,11 @@ if from_simulation == True:
 
     np.random.seed(data_seed)
 
-    u_matrix = np.full(shape = (Ns, Nt), fill_value = 20.0)
+    u_matrix = np.full(shape = (Ns, Nt), fill_value = 60.0)
     u_vec    = u_matrix[:,rank]
 
-    Beta_logsigma       = np.array([0.0, 0.0])
-    Beta_ksi            = np.array([0.25, 0.0])
+    Beta_logsigma       = np.array([3.0, 0.0])
+    Beta_ksi            = np.array([0.1, 0.0])
     sigma_Beta_logsigma = 1
     sigma_Beta_ksi      = 1
 
@@ -1233,222 +1255,222 @@ for iter in range(start_iter, n_iters):
 
     comm.Barrier()
 
-    # %% Update Zt ------------------------------------------------------------------------------------------------
-    ###########################################################
-    ####                 Update Zt                         ####
-    ###########################################################
-    for i in range(Ns):
-        # propose new Zt at site i  -------------------------------------------------------------------------------
-        idx                = np.array([i])
-        Z_1t_proposal      = Z_1t_current.copy()
-        Z_1t_proposal[idx] = Z_1t_current[idx] + np.sqrt(sigma_m_sq_Zt[i]) * random_generator.normal(0.0, 1.0, size = 1)
-        # X_star_1t_proposal = (R_vec_current ** phi_vec_current) * g(Z_1t_proposal)
+    # # %% Update Zt ------------------------------------------------------------------------------------------------
+    # ###########################################################
+    # ####                 Update Zt                         ####
+    # ###########################################################
+    # for i in range(Ns):
+    #     # propose new Zt at site i  -------------------------------------------------------------------------------
+    #     idx                = np.array([i])
+    #     Z_1t_proposal      = Z_1t_current.copy()
+    #     Z_1t_proposal[idx] = Z_1t_current[idx] + np.sqrt(sigma_m_sq_Zt[i]) * random_generator.normal(0.0, 1.0, size = 1)
+    #     # X_star_1t_proposal = (R_vec_current ** phi_vec_current) * g(Z_1t_proposal)
 
-        # Data Likelihood -----------------------------------------------------------------------------------------
+    #     # Data Likelihood -----------------------------------------------------------------------------------------
 
-        # # "Simplified" version, as X and dX are calulated outside
-        # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-        #                                     R_vec_current, Z_1t_proposal, phi_vec_current, gamma_vec, tau_current,
-        #                                     X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
-        #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_proposal, mean = None, cov = K_current)
+    #     # # "Simplified" version, as X and dX are calulated outside
+    #     # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+    #     #                                     R_vec_current, Z_1t_proposal, phi_vec_current, gamma_vec, tau_current,
+    #     #                                     X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
+    #     #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_proposal, mean = None, cov = K_current)
 
-        # "Full" version, X and dX are calculated within the ll_1t function
-        llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                 R_vec_current, Z_1t_proposal, K_current, phi_vec_current, gamma_vec, tau_current,
-                                 S_current_log, censored_idx_1t_current, exceed_idx_1t_current)
+    #     # "Full" version, X and dX are calculated within the ll_1t function
+    #     llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+    #                              R_vec_current, Z_1t_proposal, K_current, phi_vec_current, gamma_vec, tau_current,
+    #                              S_current_log, censored_idx_1t_current, exceed_idx_1t_current)
 
-        # Update --------------------------------------------------------------------------------------------------
-        r = np.exp(llik_1t_proposal - llik_1t_current)
-        if np.isfinite(r) and r >= random_generator.uniform():
-            num_accepted_Zt[i] += 1
-            Z_1t_current      = Z_1t_proposal.copy()
-            X_star_1t_current = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
-            llik_1t_current   = llik_1t_proposal
+    #     # Update --------------------------------------------------------------------------------------------------
+    #     r = np.exp(llik_1t_proposal - llik_1t_current)
+    #     if np.isfinite(r) and r >= random_generator.uniform():
+    #         num_accepted_Zt[i] += 1
+    #         Z_1t_current      = Z_1t_proposal.copy()
+    #         X_star_1t_current = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
+    #         llik_1t_current   = llik_1t_proposal
 
-    # Save --------------------------------------------------------------------------------------------------------
-    Z_1t_current_gathered = comm.gather(Z_1t_current, root = 0)
-    if rank == 0: Z_trace[iter,:,:]  = np.vstack(Z_1t_current_gathered).T
+    # # Save --------------------------------------------------------------------------------------------------------
+    # Z_1t_current_gathered = comm.gather(Z_1t_current, root = 0)
+    # if rank == 0: Z_trace[iter,:,:]  = np.vstack(Z_1t_current_gathered).T
 
-    comm.Barrier()
+    # comm.Barrier()
 
-    # %% Update phi ------------------------------------------------------------------------------------------------
-    ############################################################
-    ####                 Update phi                         ####
-    ############################################################
-    for key in phi_block_idx_dict.keys():
-        # Propose new phi_block at the change_indices -------------------------------------------------------------
-        idx = np.array(phi_block_idx_dict[key])
-        if rank == 0:
-            phi_knots_proposal = phi_knots_current.copy()
-            phi_knots_proposal[idx] += np.sqrt(sigma_m_sq[key]) * random_generator.multivariate_normal(np.zeros(len(idx)), Sigma_0[key])
-        else:
-            phi_knots_proposal = None
-        phi_knots_proposal     = comm.bcast(phi_knots_proposal, root = 0)
+    # # %% Update phi ------------------------------------------------------------------------------------------------
+    # ############################################################
+    # ####                 Update phi                         ####
+    # ############################################################
+    # for key in phi_block_idx_dict.keys():
+    #     # Propose new phi_block at the change_indices -------------------------------------------------------------
+    #     idx = np.array(phi_block_idx_dict[key])
+    #     if rank == 0:
+    #         phi_knots_proposal = phi_knots_current.copy()
+    #         phi_knots_proposal[idx] += np.sqrt(sigma_m_sq[key]) * random_generator.multivariate_normal(np.zeros(len(idx)), Sigma_0[key])
+    #     else:
+    #         phi_knots_proposal = None
+    #     phi_knots_proposal     = comm.bcast(phi_knots_proposal, root = 0)
 
-        # Data Likelihood -----------------------------------------------------------------------------------------
-        if not all(0 < phi < 1 for phi in phi_knots_proposal):
-            llik_1t_proposal = np.NINF
-        else:
-            phi_vec_proposal   = gaussian_weight_matrix_phi @ phi_knots_proposal
+    #     # Data Likelihood -----------------------------------------------------------------------------------------
+    #     if not all(0 < phi < 1 for phi in phi_knots_proposal):
+    #         llik_1t_proposal = np.NINF
+    #     else:
+    #         phi_vec_proposal   = gaussian_weight_matrix_phi @ phi_knots_proposal
             
-            # "simplified" version as X and dX are calculated outside
-            # X_star_1t_proposal = (R_vec_current ** phi_vec_proposal) * g(Z_1t_current)
-            # X_1t_proposal    = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
-            #                        phi_vec_proposal, gamma_vec, tau_current)
-            # dX_1t_proposal   = dRW(X_1t_proposal, phi_vec_proposal, gamma_vec, tau_current)
+    #         # "simplified" version as X and dX are calculated outside
+    #         # X_star_1t_proposal = (R_vec_current ** phi_vec_proposal) * g(Z_1t_current)
+    #         # X_1t_proposal    = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+    #         #                        phi_vec_proposal, gamma_vec, tau_current)
+    #         # dX_1t_proposal   = dRW(X_1t_proposal, phi_vec_proposal, gamma_vec, tau_current)
 
-            # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-            #                                     R_vec_current, Z_1t_current, phi_vec_proposal, gamma_vec, tau_current,
-            #                                     X_1t_proposal, X_star_1t_proposal, dX_1t_proposal, censored_idx_1t_current, exceed_idx_1t_current) \
-            #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
+    #         # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+    #         #                                     R_vec_current, Z_1t_current, phi_vec_proposal, gamma_vec, tau_current,
+    #         #                                     X_1t_proposal, X_star_1t_proposal, dX_1t_proposal, censored_idx_1t_current, exceed_idx_1t_current) \
+    #         #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
 
-            # "full" version as X and dX are calculated within the ll_1t function
-            llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                     R_vec_current, Z_1t_current, K_current, phi_vec_proposal, gamma_vec, tau_current,
-                                     S_current_log, censored_idx_1t_current, exceed_idx_1t_current)
+    #         # "full" version as X and dX are calculated within the ll_1t function
+    #         llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+    #                                  R_vec_current, Z_1t_current, K_current, phi_vec_proposal, gamma_vec, tau_current,
+    #                                  S_current_log, censored_idx_1t_current, exceed_idx_1t_current)
 
-        # Update --------------------------------------------------------------------------------------------------
-        phi_accepted = False
-        llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
-        llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
-        if rank == 0:
-            llik_current  = np.sum(llik_1t_current_gathered)  + np.sum(scipy.stats.beta.logpdf(phi_knots_current, a = 5, b = 5))
-            llik_proposal = np.sum(llik_1t_proposal_gathered) + np.sum(scipy.stats.beta.logpdf(phi_knots_proposal, a = 5, b = 5))
-            r = np.exp(llik_proposal - llik_current)
-            if np.isfinite(r) and r >= random_generator.uniform():
-                num_accepted[key] += 1
-                phi_accepted       = True
-        phi_accepted = comm.bcast(phi_accepted, root = 0)
+    #     # Update --------------------------------------------------------------------------------------------------
+    #     phi_accepted = False
+    #     llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
+    #     llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
+    #     if rank == 0:
+    #         llik_current  = np.sum(llik_1t_current_gathered)  + np.sum(scipy.stats.beta.logpdf(phi_knots_current, a = 5, b = 5))
+    #         llik_proposal = np.sum(llik_1t_proposal_gathered) + np.sum(scipy.stats.beta.logpdf(phi_knots_proposal, a = 5, b = 5))
+    #         r = np.exp(llik_proposal - llik_current)
+    #         if np.isfinite(r) and r >= random_generator.uniform():
+    #             num_accepted[key] += 1
+    #             phi_accepted       = True
+    #     phi_accepted = comm.bcast(phi_accepted, root = 0)
 
-        if phi_accepted:
-            phi_knots_current = phi_knots_proposal.copy()
-            phi_vec_current   = phi_vec_proposal.copy()
-            # X_star_1t_current = X_star_1t_proposal.copy()
-            # X_1t_current      = X_1t_proposal.copy()
-            # dX_1t_current     = dX_1t_proposal.copy()
-            X_star_1t_current = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
-            X_1t_current      = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
-                                    phi_vec_current, gamma_vec, tau_current)
-            dX_1t_current     = dRW(X_1t_current, phi_vec_current, gamma_vec, tau_current)
-            llik_1t_current   = llik_1t_proposal
+    #     if phi_accepted:
+    #         phi_knots_current = phi_knots_proposal.copy()
+    #         phi_vec_current   = phi_vec_proposal.copy()
+    #         # X_star_1t_current = X_star_1t_proposal.copy()
+    #         # X_1t_current      = X_1t_proposal.copy()
+    #         # dX_1t_current     = dX_1t_proposal.copy()
+    #         X_star_1t_current = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
+    #         X_1t_current      = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+    #                                 phi_vec_current, gamma_vec, tau_current)
+    #         dX_1t_current     = dRW(X_1t_current, phi_vec_current, gamma_vec, tau_current)
+    #         llik_1t_current   = llik_1t_proposal
 
-    # Save --------------------------------------------------------------------------------------------------------
-    if rank == 0: phi_knots_trace[iter,:] = phi_knots_current.copy()
-    comm.Barrier()
+    # # Save --------------------------------------------------------------------------------------------------------
+    # if rank == 0: phi_knots_trace[iter,:] = phi_knots_current.copy()
+    # comm.Barrier()
 
-    # %% Update rho ------------------------------------------------------------------------------------------------
-    ############################################################
-    ####                 Update rho                         ####
-    ############################################################
-    for key in range_block_idx_dict.keys():
-        # Propose new range_block at the change_indices -----------------------------------------------------------
-        idx = np.array(range_block_idx_dict[key])
-        if rank == 0:
-            range_knots_proposal = range_knots_current.copy()
-            range_knots_proposal[idx] += np.sqrt(sigma_m_sq[key]) * random_generator.multivariate_normal(np.zeros(len(idx)), Sigma_0[key])
-        else:
-            range_knots_proposal = None
-        range_knots_proposal     = comm.bcast(range_knots_proposal, root = 0)
+    # # %% Update rho ------------------------------------------------------------------------------------------------
+    # ############################################################
+    # ####                 Update rho                         ####
+    # ############################################################
+    # for key in range_block_idx_dict.keys():
+    #     # Propose new range_block at the change_indices -----------------------------------------------------------
+    #     idx = np.array(range_block_idx_dict[key])
+    #     if rank == 0:
+    #         range_knots_proposal = range_knots_current.copy()
+    #         range_knots_proposal[idx] += np.sqrt(sigma_m_sq[key]) * random_generator.multivariate_normal(np.zeros(len(idx)), Sigma_0[key])
+    #     else:
+    #         range_knots_proposal = None
+    #     range_knots_proposal     = comm.bcast(range_knots_proposal, root = 0)
 
-        # Data Likelihood -----------------------------------------------------------------------------------------
-        if not all(rho > 0 for rho in range_knots_proposal):
-            llik_1t_proposal = np.NINF
-        else:
-            range_vec_proposal = gaussian_weight_matrix_rho @ range_knots_proposal
-            K_proposal = ns_cov(range_vec = range_vec_proposal,
-                                sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = "matern")
+    #     # Data Likelihood -----------------------------------------------------------------------------------------
+    #     if not all(rho > 0 for rho in range_knots_proposal):
+    #         llik_1t_proposal = np.NINF
+    #     else:
+    #         range_vec_proposal = gaussian_weight_matrix_rho @ range_knots_proposal
+    #         K_proposal = ns_cov(range_vec = range_vec_proposal,
+    #                             sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = "matern")
             
-            # # "simplified" version as X and dX are calculated outside
-            # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-            #                                     R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
-            #                                     X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
-            #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_proposal)
+    #         # # "simplified" version as X and dX are calculated outside
+    #         # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+    #         #                                     R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_current,
+    #         #                                     X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
+    #         #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_proposal)
 
-            # "full" version as X and dX are calculated within the ll_1t function
-            llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                     R_vec_current, Z_1t_current, K_proposal, phi_vec_current, gamma_vec, tau_current,
-                                     S_current_log, censored_idx_1t_current, exceed_idx_1t_current)
+    #         # "full" version as X and dX are calculated within the ll_1t function
+    #         llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+    #                                  R_vec_current, Z_1t_current, K_proposal, phi_vec_current, gamma_vec, tau_current,
+    #                                  S_current_log, censored_idx_1t_current, exceed_idx_1t_current)
 
-        # Update --------------------------------------------------------------------------------------------------
-        range_accepted = False
-        llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
-        llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
-        if rank == 0:
-            llik_current  = np.sum(llik_1t_current_gathered)  + np.sum(scipy.stats.halfnorm.logpdf(range_knots_current, loc = 0, scale = 2))
-            llik_proposal = np.sum(llik_1t_proposal_gathered) + np.sum(scipy.stats.halfnorm.logpdf(range_knots_proposal, loc = 0, scale = 2))
-            r = np.exp(llik_proposal - llik_current)
-            if np.isfinite(r) and r >= random_generator.uniform():
-                num_accepted[key] += 1
-                range_accepted     = True
-        range_accepted = comm.bcast(range_accepted, root = 0)
+    #     # Update --------------------------------------------------------------------------------------------------
+    #     range_accepted = False
+    #     llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
+    #     llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
+    #     if rank == 0:
+    #         llik_current  = np.sum(llik_1t_current_gathered)  + np.sum(scipy.stats.halfnorm.logpdf(range_knots_current, loc = 0, scale = 2))
+    #         llik_proposal = np.sum(llik_1t_proposal_gathered) + np.sum(scipy.stats.halfnorm.logpdf(range_knots_proposal, loc = 0, scale = 2))
+    #         r = np.exp(llik_proposal - llik_current)
+    #         if np.isfinite(r) and r >= random_generator.uniform():
+    #             num_accepted[key] += 1
+    #             range_accepted     = True
+    #     range_accepted = comm.bcast(range_accepted, root = 0)
 
-        if range_accepted:
-            range_knots_current = range_knots_proposal.copy()
-            K_current           = K_proposal.copy()
-            llik_1t_current     = llik_1t_proposal
+    #     if range_accepted:
+    #         range_knots_current = range_knots_proposal.copy()
+    #         K_current           = K_proposal.copy()
+    #         llik_1t_current     = llik_1t_proposal
 
-    # Save --------------------------------------------------------------------------------------------------------
-    if rank == 0: range_knots_trace[iter,:] = range_knots_current.copy()
-    comm.Barrier()
+    # # Save --------------------------------------------------------------------------------------------------------
+    # if rank == 0: range_knots_trace[iter,:] = range_knots_current.copy()
+    # comm.Barrier()
 
-    # %% Update tau ------------------------------------------------------------------------------------------------
-    ############################################################
-    ####                 Update tau                         ####
-    ############################################################
-    # Propose new tau ---------------------------------------------------------------------------------------------
-    if rank == 0:
-        tau_proposal = tau_current + np.sqrt(sigma_m_sq['tau']) * random_generator.normal(0.0, 1.0)
-    else:
-        tau_proposal = None
-    tau_proposal = comm.bcast(tau_proposal, root = 0)
+    # # %% Update tau ------------------------------------------------------------------------------------------------
+    # ############################################################
+    # ####                 Update tau                         ####
+    # ############################################################
+    # # Propose new tau ---------------------------------------------------------------------------------------------
+    # if rank == 0:
+    #     tau_proposal = tau_current + np.sqrt(sigma_m_sq['tau']) * random_generator.normal(0.0, 1.0)
+    # else:
+    #     tau_proposal = None
+    # tau_proposal = comm.bcast(tau_proposal, root = 0)
 
-    # Data Likelihood ---------------------------------------------------------------------------------------------
-    if not tau_proposal > 0:
-        llik_1t_proposal = np.NINF
-    else:
-        # "simplified" version as X and dX are calculated outside
-        # X_1t_proposal = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
-        #                     phi_vec_current, gamma_vec, tau_proposal)
-        # dX_1t_proposal = dRW(X_1t_proposal, phi_vec_current, gamma_vec, tau_proposal)
+    # # Data Likelihood ---------------------------------------------------------------------------------------------
+    # if not tau_proposal > 0:
+    #     llik_1t_proposal = np.NINF
+    # else:
+    #     # "simplified" version as X and dX are calculated outside
+    #     # X_1t_proposal = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+    #     #                     phi_vec_current, gamma_vec, tau_proposal)
+    #     # dX_1t_proposal = dRW(X_1t_proposal, phi_vec_current, gamma_vec, tau_proposal)
 
-        # # Without Jacobian
-        # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-        #                                     R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_proposal,
-        #                                     X_1t_proposal, X_star_1t_current, dX_1t_proposal, censored_idx_1t_current, exceed_idx_1t_current) \
-        #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
+    #     # # Without Jacobian
+    #     # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+    #     #                                     R_vec_current, Z_1t_current, phi_vec_current, gamma_vec, tau_proposal,
+    #     #                                     X_1t_proposal, X_star_1t_current, dX_1t_proposal, censored_idx_1t_current, exceed_idx_1t_current) \
+    #     #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
 
-        # "full" version as X and dX are calculated within the ll_1t function
-        llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                 R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_vec, tau_proposal,
-                                 S_current_log, censored_idx_1t_current, exceed_idx_1t_current)
+    #     # "full" version as X and dX are calculated within the ll_1t function
+    #     llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+    #                              R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_vec, tau_proposal,
+    #                              S_current_log, censored_idx_1t_current, exceed_idx_1t_current)
 
-    # Update ------------------------------------------------------------------------------------------------------
-    tau_accepted = False
-    llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
-    llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
-    if rank == 0:
-        llik_current  = np.sum(llik_1t_current_gathered)
-        llik_proposal = np.sum(llik_1t_proposal_gathered)
-        lprior_tau_current  = np.log(dhalft(tau_current, nu = 1, mu = 0, sigma = 5))
-        lprior_tau_proposal = np.log(dhalft(tau_proposal, nu = 1, mu = 0, sigma = 5)) if tau_proposal > 0 else np.NINF
-        r = np.exp(llik_proposal + lprior_tau_proposal - llik_current - lprior_tau_current)
-        if np.isfinite(r) and r >= random_generator.uniform():
-            num_accepted['tau'] += 1
-            tau_accepted         = True
-    tau_accepted = comm.bcast(tau_accepted, root = 0)
+    # # Update ------------------------------------------------------------------------------------------------------
+    # tau_accepted = False
+    # llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
+    # llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
+    # if rank == 0:
+    #     llik_current  = np.sum(llik_1t_current_gathered)
+    #     llik_proposal = np.sum(llik_1t_proposal_gathered)
+    #     lprior_tau_current  = np.log(dhalft(tau_current, nu = 1, mu = 0, sigma = 5))
+    #     lprior_tau_proposal = np.log(dhalft(tau_proposal, nu = 1, mu = 0, sigma = 5)) if tau_proposal > 0 else np.NINF
+    #     r = np.exp(llik_proposal + lprior_tau_proposal - llik_current - lprior_tau_current)
+    #     if np.isfinite(r) and r >= random_generator.uniform():
+    #         num_accepted['tau'] += 1
+    #         tau_accepted         = True
+    # tau_accepted = comm.bcast(tau_accepted, root = 0)
 
-    if tau_accepted:
-        tau_current     = tau_proposal
-        # X_1t_current    = X_1t_proposal.copy()
-        # dX_1t_current   = dX_1t_proposal.copy()
-        X_1t_current    = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
-                              phi_vec_current, gamma_vec, tau_current)
-        dX_1t_current   = dRW(X_1t_current, phi_vec_current, gamma_vec, tau_current)
-        llik_1t_current = llik_1t_proposal
+    # if tau_accepted:
+    #     tau_current     = tau_proposal
+    #     # X_1t_current    = X_1t_proposal.copy()
+    #     # dX_1t_current   = dX_1t_proposal.copy()
+    #     X_1t_current    = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+    #                           phi_vec_current, gamma_vec, tau_current)
+    #     dX_1t_current   = dRW(X_1t_current, phi_vec_current, gamma_vec, tau_current)
+    #     llik_1t_current = llik_1t_proposal
 
-    # Save --------------------------------------------------------------------------------------------------------
-    if rank == 0: tau_trace[iter,:] = tau_current
-    comm.Barrier()
+    # # Save --------------------------------------------------------------------------------------------------------
+    # if rank == 0: tau_trace[iter,:] = tau_current
+    # comm.Barrier()
 
     # %% Update GPD ------------------------------------------------------------------------------------------------
     ############################################################
