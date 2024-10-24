@@ -70,16 +70,16 @@ def my_floor(a, precision=0):
 np.random.seed(data_seed)
 
 Nt       = 100 # number of time replicates
-Ns       = 10 # number of sites/stations
+Ns       = 50 # number of sites/stations
 Time     = np.linspace(-Nt/2, Nt/2-1, Nt)/np.std(np.linspace(-Nt/2, Nt/2-1, Nt), ddof=1)
 
 # Knots
 
 N_outer_grid     = 9 # for S and phi
 N_outer_grid_rho = 9 # for rho
-radius           = 4 # radius of R's Wendland Kernel for R
-eff_range        = 4 # range where phi's gaussian kernel drops to 0.05
-eff_range_rho    = 4 # range where rho's gaussian kernel drops to 0.05
+radius           = 3 # radius of R's Wendland Kernel for R
+eff_range        = 3 # range where phi's gaussian kernel drops to 0.05
+eff_range_rho    = 3 # range where rho's gaussian kernel drops to 0.05
 
 # gamma
 

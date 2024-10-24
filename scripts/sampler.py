@@ -86,7 +86,7 @@ if norm_pareto == 'standard': n_iters = 5000
 # data
 
 if from_simulation == True: 
-    datafolder = '../data/simulated_seed:2345_t:50_s:100_phi:nonstatsc2_rho:nonstat/'
+    datafolder = '../data/simulated_seed-2345_t-100_s-50_phi-nonstatsc2_rho-nonstat_tau-10.0/'
     datafile   = 'simulated_data.RData'
 if from_simulation == False: 
     datafolder = '../data/realdata/'
@@ -141,6 +141,15 @@ all_years  = np.linspace(start_year, end_year, Nt)
 Time       = (all_years - np.mean(all_years))/np.std(all_years, ddof=1) # delta degress of freedom, to match the n-1 in R
 Time       = Time[0:Nt] # if there is any truncation specified above
 
+# Knots number and radius
+
+N_outer_grid_S   = 9
+N_outer_grid_phi = 9
+N_outer_grid_rho = 9
+radius_S         = 3 # radius of Wendland Basis for S
+eff_range_phi    = 3 # effective range for phi
+eff_range_rho    = 3 # effective range for rho
+
 # threshold probability and quantile
 
 p        = 0.9
@@ -183,7 +192,7 @@ minY, maxY = np.floor(np.min(sites_y)), np.ceil(np.max(sites_y))
 # k                        = len(knots_id_in_domain)
 
 # isometric knot grid - for R (de-coupled from phi and rho)
-N_outer_grid_S = 9
+
 h_dist_between_knots_S     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_S))-1)
 v_dist_between_knots_S     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_S))-1)
 x_pos_S                    = np.linspace(minX + h_dist_between_knots_S/2, maxX + h_dist_between_knots_S/2,
@@ -206,7 +215,7 @@ knots_y_S                  = knots_xy_S[:,1]
 k_S                        = len(knots_id_in_domain_S)
 
 # isometric knot grid - for phi (de-coupled from R and rho)
-N_outer_grid_phi = 9
+
 h_dist_between_knots_phi     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_phi))-1)
 v_dist_between_knots_phi     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_phi))-1)
 x_pos_phi                    = np.linspace(minX + h_dist_between_knots_phi/2, maxX + h_dist_between_knots_phi/2,
@@ -229,7 +238,7 @@ knots_y_phi                  = knots_xy_phi[:,1]
 k_phi                        = len(knots_id_in_domain_phi)
 
 # isometric knot grid - for rho (de-coupled from R and phi)
-N_outer_grid_rho = 9
+
 h_dist_between_knots_rho     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_rho))-1)
 v_dist_between_knots_rho     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_rho))-1)
 x_pos_rho                    = np.linspace(minX + h_dist_between_knots_rho/2, maxX + h_dist_between_knots_rho/2,
@@ -254,10 +263,6 @@ k_rho                        = len(knots_id_in_domain_rho)
 # Copula Splines --------------------------------------------------------------
 
 # Basis Parameters - for the Gaussian and Wendland Basis
-
-radius_S            = 4                      # radius of Wendland Basis for S
-eff_range_phi       = 4                      # effective range for phi
-eff_range_rho       = 4                      # effective range for rho
 
 radius_S_from_knots = np.repeat(radius_S, k_S) # influence radius from a knot
 bandwidth_phi       = eff_range_phi**2/6
