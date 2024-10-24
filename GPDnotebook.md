@@ -4,12 +4,49 @@
 
 ## Oct. 22 Meeting with Likun/Mark/Ben
 
-- [ ] Make the data $Y$ be from 10-day intervals.
+- [x] Make the data $Y$ be from 10-day intervals.
   - Check the June 21 to Sept 21 definition of summer time
   - remove the 2 days or add additional 8 days
+  - Using June 22 to Sept 19 to match 90 days
+  - From the dataset, the scale and shape are estimated using spatially varying (temporal constant) thresholds.
+    - Later in the sampler, the sampler creates a all-constant threshold
 
-- [ ] Simulation study with threshold exeedance without marginals
+- Simulation study with threshold exeedance without marginals
+  - Simulated dataset generates censored data. (reporting the threshold when observation is below the threshold). The censoring is performed using the distribution functions `pRW` on X.
+  - For the realdata, however, 
+    - censoring is performed in the sampler.py empirically.
+    - Or it can happen in the data preprocessing (estimate $\sigma$ and $\xi$) to get spatially varying thresholds
   - [ ] Do MCMC for separately for each parameter (see who works)
+    - [x] Update $S_t$
+      - seems to work for $S_t$ when running only $S_t$ with $\gamma_k = 0.5$; using dataset `simulated_seed:2345_t:50_s:100_phi:nonstatsc2_rho:nonstat` radius = 4
+      - [ ] Try 50 sites, radius 3, will make it marginally faster for testing in progress
+    - [ ] Try update $\gamma_k$
+    - [ ] Try update both $S_t$ and $\gamma_k$
+    - [ ] Update $Z_t$
+
+- [ ] "Unfix" $\gamma_k$
+  - By changing the `gamma_at_knots`, `gamma_vec` ($\bar{\gamma}$) is calculated using Wendland basis matrix, and is used each time we call `qRW`
+  - [ ] Add the storage, update, and adaptive tuning for `gamma_at_knots`
+    - [x] storage
+    - [x] initialize
+    - [x] update
+      - [x] change corresponding `gamma_vec` to `gamma_vec_current`
+      - [x] Need also modify the `ll_1t` function to add the `gamma_at_knot` in there, because `ll_1t` contains $p(S_t \mid \gamma_k)$ where $\gamma_k$ is no longer fixed
+      - [x] Metropolis update -- <mark> discuss prior choice </mark>
+      - saving
+    - adaptive tuning
+      - initialize
+        - $\sigma_m^2$: `sigma_m_sq['gamma'] = list(np.diag(gamma_cov))` and `if rank == 0: with open('sigma_m_sq.pkl','rb') as file: sigma_m_sq = pickle.load(file)`
+        - counter: `num_accepted['gamma'] = [0] * k_S`
+      - tuning after $b$ iters
+        - $\sigma_m^2$
+        - counter
+
+    - [x] plotting
+
+  - [x] Change the `simulate_data.py` such that $\gamma_k$ is able to be spatially varying.
+    - [x] Modify how $S_t$ is generated as now $\gamma$ is changed
+    - [x] Modify the corresponding "hard coding truth for simulation" section in the `sampler.py`
 
 ## Oct. 15 Meeting with Likun/Ben
 
@@ -89,11 +126,17 @@
 
 ### TODOs
 
+- [ ] Marginal model in the sampler
+
+- [ ] Coverage Analysis
+
+- [ ] Imputation, i.e. update $X_t$ (or equivalently, $Y_t$)
+  - [ ] We need to keep track of (traceplot, varaibles) `X_star_1t_current` and `X_1t_current`, which are ommited/commented out for now
+  - [ ] We will need to build these into the `ll_1t` likelihood function
+  - [ ] Posterior Predicative Check
+
 - will it be faster if the entire likelihood function is implemented in `Cpp`?
 
-- [ ] Imputation
-  - Posterior Predicative Check
-- [ ] Marginal model in the sampler
 
 ### Emulating the quantile funtion `qRW`
 
@@ -137,7 +180,8 @@ $$
 \begin{align*}
 \phi_k &\sim \text{Beta}(5, 5) \\
 \rho_k &\sim \text{halfNorm}(0, 2) \\
-\tau &\sim \textcolor{yellow}{\text{halfNorm(0, 2)?}}
+\gamma_k &\sim \textcolor{yellow}{\text{halfNorm}(0, 2)} \\
+\tau &\sim \textcolor{yellow}{\text{halfT}_{\nu = 1}(\mu=0, \sigma=5)?}
 \end{align*}
 $$
 marginal model:

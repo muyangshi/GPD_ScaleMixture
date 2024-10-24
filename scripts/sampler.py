@@ -889,8 +889,10 @@ if start_iter == 1: # initialize the proposal scalar variance and covariance
     import proposal_cov as pc
 
     # sigma_m: proposal scalar variance for St, Zt, phi, range, tau, marginal Y, and regularization terms ---------
+    
     S_log_cov               = pc.S_log_cov               if pc.S_log_cov               is not None else np.tile(0.05*np.eye(k_S)[:,:,None], reps = (1,1,Nt))
     Z_cov                   = pc.Z_cov                   if pc.Z_cov                   is not None else np.tile(0.01*np.eye(Ns)[:,:,None],reps = (1,1,Nt))
+    gamma_cov               = pc.gamma_cov               if pc.gamma_cov               is not None else 0.1*np.eye(k_S)
     tau_var                 = pc.tau_var                 if pc.tau_var                 is not None else 1
     sigma_Beta_logsigma_var = pc.sigma_Beta_logsigma_var if pc.sigma_Beta_logsigma_var is not None else 1
     sigma_Beta_ksi_var      = pc.sigma_Beta_ksi_var      if pc.sigma_Beta_ksi_var      is not None else 1
@@ -912,6 +914,9 @@ if start_iter == 1: # initialize the proposal scalar variance and covariance
         # range
         for key in range_block_idx_dict.keys(): sigma_m_sq[key] = (2.4**2)/len(range_block_idx_dict[key])
 
+        # gamma
+        sigma_m_sq['gamma_at_knots'] = list(np.diag(gamma_cov))
+
         # tau
         sigma_m_sq['tau'] = tau_var
 
@@ -924,6 +929,7 @@ if start_iter == 1: # initialize the proposal scalar variance and covariance
         sigma_m_sq['sigma_Beta_ksi']      = sigma_Beta_ksi_var
 
     # Sigma0: proposal covariance matrix for phi, range, and marginal Y -------------------------------------------
+    
     phi_cov                 = pc.phi_cov           if pc.phi_cov           is not None else 1e-5 * np.identity(k_phi)
     range_cov               = pc.range_cov         if pc.range_cov         is not None else 0.5  * np.identity(k_rho)
     Beta_logsigma_cov       = pc.Beta_logsigma_cov if pc.Beta_logsigma_cov is not None else 1e-6 * np.identity(Beta_logsigma_m)
@@ -983,7 +989,7 @@ else: # start_iter != 1
         sigma_m_sq_Zt_list = None
     sigma_m_sq_Zt = comm.scatter(sigma_m_sq_Zt_list, root = 0) if size>1 else sigma_m_sq_Zt_list[0]
 
-    ## phi, range, tau, marginal Y, regularizations
+    ## phi, range, gamma, tau, marginal Y, regularizations
     if rank == 0:
         with open('sigma_m_sq.pkl','rb') as file: sigma_m_sq = pickle.load(file)
 
@@ -1004,19 +1010,26 @@ if norm_pareto == 'standard':
 num_accepted_Zt_list = [[0] * Ns] * size if rank == 0 else None
 num_accepted_Zt      = comm.scatter(num_accepted_Zt_list, root = 0) if size>1 else num_accepted_Zt_list[0]
 
-## Other variables: phi, range, tau, marginal Y, regularizaiton
+## Other variables: phi, range, gamma, tau, marginal Y, regularizaiton
 
 if rank == 0:
     num_accepted = {}
     # phi
     for key in phi_block_idx_dict.keys(): num_accepted[key] = 0
+
     # range
     for key in range_block_idx_dict.keys(): num_accepted[key] = 0
+
+    # gamma
+    num_accepted['gamma_at_knots'] = [0] * k_S
+
     # tau
     num_accepted['tau'] = 0
+
     # marginal Y
     num_accepted['Beta_logsigma'] = 0
     num_accepted['Beta_ksi']      = 0
+
     # regularization
     num_accepted['sigma_Beta_logsigma'] = 0
     num_accepted['sigma_Beta_ksi']      = 0
@@ -1192,9 +1205,9 @@ exceed_idx_1t_current   = np.where(Y_1t_current  > u_vec)[0]
 #       - the marginal parameters change (sigma, ksi), or
 #       - the dependence model parameters change (phi, tau)
 #
-X_1t_current  = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
-                    phi_vec_current, gamma_vec_current, tau_current)
-dX_1t_current = dRW(X_1t_current, phi_vec_current, gamma_vec_current, tau_current)
+# X_1t_current  = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+#                     phi_vec_current, gamma_vec_current, tau_current)
+# dX_1t_current = dRW(X_1t_current, phi_vec_current, gamma_vec_current, tau_current)
 
 
 
@@ -1282,7 +1295,7 @@ for iter in range(start_iter, n_iters):
             num_accepted_St[i] += 1
             S_current_log       = S_proposal_log.copy()
             R_vec_current       = wendland_weight_matrix_S @ np.exp(S_current_log)
-            X_star_1t_current   = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
+            # X_star_1t_current   = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
             llik_1t_current     = llik_1t_proposal
 
     # Save --------------------------------------------------------------------------------------------------------
@@ -1293,8 +1306,53 @@ for iter in range(start_iter, n_iters):
 
     # %% Update gamma_at_knots ------------------------------------------------------------------------------------------------
     ###########################################################
-    ####                 Update gamma_K                    ####
+    ####                 Update gamma_k                    ####
     ###########################################################
+    for i in range(k_S):
+        # propose new gamma at knot i ---------------------------------------------------------------------------------
+
+        if rank == 0:
+            gamma_at_knots_proposal = gamma_at_knots_current.copy()
+            gamma_at_knots_proposal[i] = gamma_at_knots_current[i] + \
+                                        np.sqrt(sigma_m_sq['gamma_at_knots'][i]) * random_generator.normal(0.0, 1.0, size = 1)
+        else:
+            gamma_at_knots_proposal = None
+        gamma_at_knots_proposal = comm.bcast(gamma_at_knots_proposal, root = 0)
+
+        # Data Likelihood -----------------------------------------------------------------------------------------
+        if not np.all(0 < gamma_at_knots_proposal):
+            llik_1t_proposal = np.NINF
+        else:
+            gamma_vec_proposal = np.sum(np.multiply(wendland_weight_matrix_S, gamma_at_knots_proposal)**(alpha),
+                                        axis = 1)**(1/alpha)
+            llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+                                        R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_vec_proposal, tau_current,
+                                        S_current_log, gamma_at_knots_proposal, censored_idx_1t_current, exceed_idx_1t_current)
+
+        # Update --------------------------------------------------------------------------------------------------
+        gamma_accepted = False
+        llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
+        llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
+        if rank == 0:
+            llik_current  = np.sum(llik_1t_current_gathered)  + np.sum(scipy.stats.halfnorm.logpdf(gamma_at_knots_current, loc = 0, scale = 2))
+            llik_proposal = np.sum(llik_1t_proposal_gathered) + np.sum(scipy.stats.halfnorm.logpdf(gamma_at_knots_proposal, loc = 0, scale = 2))
+            r = np.exp(llik_proposal - llik_current)
+            if np.isfinite(r) and r >= random_generator.uniform():
+                num_accepted['gamma_at_knots'][i] += 1
+                gamma_accepted                     = True
+        gamma_accepted = comm.bcast(gamma_accepted, root = 0)
+
+        if gamma_accepted:
+            gamma_at_knots_current = gamma_at_knots_proposal.copy()
+            gamma_vec_current      = gamma_vec_proposal.copy()
+            # X_1t_current           = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+            #                              phi_vec_current, gamma_vec_current, tau_current)
+            # dX_1t_current          = dRW(X_1t_current, phi_vec_current, gamma_vec_current, tau_current)
+            llik_1t_current        = llik_1t_proposal
+
+    # Save --------------------------------------------------------------------------------------------------------
+    if rank == 0: gamma_at_knots_trace[iter,:] = gamma_at_knots_current
+    comm.Barrier()
 
 
     # %% Update Zt ------------------------------------------------------------------------------------------------
@@ -1326,7 +1384,7 @@ for iter in range(start_iter, n_iters):
         if np.isfinite(r) and r >= random_generator.uniform():
             num_accepted_Zt[i] += 1
             Z_1t_current      = Z_1t_proposal.copy()
-            X_star_1t_current = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
+            # X_star_1t_current = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
             llik_1t_current   = llik_1t_proposal
 
     # Save --------------------------------------------------------------------------------------------------------
@@ -1390,10 +1448,10 @@ for iter in range(start_iter, n_iters):
             # X_star_1t_current = X_star_1t_proposal.copy()
             # X_1t_current      = X_1t_proposal.copy()
             # dX_1t_current     = dX_1t_proposal.copy()
-            X_star_1t_current = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
-            X_1t_current      = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
-                                    phi_vec_current, gamma_vec_current, tau_current)
-            dX_1t_current     = dRW(X_1t_current, phi_vec_current, gamma_vec_current, tau_current)
+            # X_star_1t_current = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
+            # X_1t_current      = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+            #                         phi_vec_current, gamma_vec_current, tau_current)
+            # dX_1t_current     = dRW(X_1t_current, phi_vec_current, gamma_vec_current, tau_current)
             llik_1t_current   = llik_1t_proposal
 
     # Save --------------------------------------------------------------------------------------------------------
@@ -1505,9 +1563,9 @@ for iter in range(start_iter, n_iters):
         tau_current     = tau_proposal
         # X_1t_current    = X_1t_proposal.copy()
         # dX_1t_current   = dX_1t_proposal.copy()
-        X_1t_current    = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
-                              phi_vec_current, gamma_vec_current, tau_current)
-        dX_1t_current   = dRW(X_1t_current, phi_vec_current, gamma_vec_current, tau_current)
+        # X_1t_current    = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+        #                       phi_vec_current, gamma_vec_current, tau_current)
+        # dX_1t_current   = dRW(X_1t_current, phi_vec_current, gamma_vec_current, tau_current)
         llik_1t_current = llik_1t_proposal
 
     # Save --------------------------------------------------------------------------------------------------------
@@ -1576,6 +1634,15 @@ for iter in range(start_iter, n_iters):
         comm.Barrier()
         sigma_m_sq_Zt_list = comm.gather(sigma_m_sq_Zt, root = 0)
 
+        # gamma_k
+        if rank == 0:
+            for i in range(k_S):
+                r_hat                             = num_accepted['gamma_at_knots'][i]/adapt_size
+                num_accepted['gamma_at_knots'][i] = 0
+                log_sigma_m_sq_hat                = np.log(sigma_m_sq['gamma_at_knots'][i]) + gamma2 * (r_hat - r_opt)
+                sigma_m_sq['gamma_at_knots'][i]   = np.exp(log_sigma_m_sq_hat)
+            comm.Barrier()
+
         # phi
         if rank == 0:
             for key in phi_block_idx_dict.keys():
@@ -1627,6 +1694,7 @@ for iter in range(start_iter, n_iters):
             np.save('phi_knots_trace',   phi_knots_trace)
             np.save('range_knots_trace', range_knots_trace)
             np.save('tau_trace',         tau_trace)
+            np.save('gamma_at_knots_trace', gamma_at_knots_trace)
 
             with open('iter.pkl', 'wb')               as file: pickle.dump(iter, file)
             with open('sigma_m_sq.pkl', 'wb')         as file: pickle.dump(sigma_m_sq, file)
@@ -1647,6 +1715,7 @@ for iter in range(start_iter, n_iters):
             phi_knots_trace_thin           = phi_knots_trace[0:iter:thin,:]
             range_knots_trace_thin         = range_knots_trace[0:iter:thin,:]
             tau_trace_thin                 = tau_trace[0:iter:thin,:]
+            gamma_at_knots_trace_thin      = gamma_at_knots_trace[0:iter:thin,:]
 
             # ---- log-likelihood ----
             plt.subplots()
@@ -1695,6 +1764,18 @@ for iter in range(start_iter, n_iters):
                 plt.ylabel('Zt')
                 plt.savefig('MCMC:trace_Zt'+str(t)+'.pdf')
                 plt.close()
+            
+            # ---- gamma ----
+            plt.subplots()
+            for i in range(k_S):
+                plt.plot(xs_thin2, gamma_at_knots_trace_thin[:,i], label='k'+str(i))
+                plt.annotate('k'+str(i), xy=(xs_thin2[-1], gamma_at_knots_trace_thin[:,i][-1]))
+            plt.title(r'traceplot for $\gamma_k$')
+            plt.xlabel('iter thinned by '+str(thin))
+            plt.ylabel('gamma_at_knots')
+            plt.legend(loc = 'upper left')
+            plt.savefig('MCMC:trace_gamma.pdf')
+            plt.close()
 
             # ---- phi ----
             plt.subplots()
