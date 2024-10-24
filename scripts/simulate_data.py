@@ -66,21 +66,56 @@ if __name__ == "__main__":
     # %%
     # Simulate setup
 
-    # Numbers - Ns, Nt --------------------------------------------------------   
+    # Configurations --------------------------------------------------------   
     
     np.random.seed(data_seed)
+
     Nt       = 100 # number of time replicates
     Ns       = 10 # number of sites/stations
-    scenario_phi = 'nonstatsc2'  # nonstatsc1, nonstatsc2, nonstatsc3, stat_AI, stat_AD
-    scenario_rho = 'nonstat' # nonstat, stats
     Time     = np.linspace(-Nt/2, Nt/2-1, Nt)/np.std(np.linspace(-Nt/2, Nt/2-1, Nt), ddof=1)
-    
+
+    # Knots
+
+    N_outer_grid     = 9 # for S and phi
+    N_outer_grid_rho = 9 # for rho
+
+    # gamma
+
+    gamma_at_knots = np.repeat(0.5, int(N_outer_grid + np.sqrt(N_outer_grid)))
+
+    # phi
+
+    scenario_phi = 'nonstatsc2'  # nonstatsc1, nonstatsc2, nonstatsc3, stat_AI, stat_AD
+
+    # rho
+
+    scenario_rho = 'nonstat' # nonstat, stats
+
+    # tau
+
+    tau = 10.0
+
+    # sigma
+
+    Beta_logsigma = np.array([3.0, 0.0])
+
+    # xi
+
+    Beta_ksi      = np.array([0.1, 0.0])
+
+    # censoring probability
+
+    p = 0.9
+
+    # save
+
     savefolder = '../data/simulated' + \
-                            '_seed:'  + str(data_seed) + \
-                            '_t:'     + str(Nt) + \
-                            '_s:'     + str(Ns) + \
-                            '_phi:'   + scenario_phi + \
-                            '_rho:'   + scenario_rho
+                            '_seed-'  + str(data_seed) + \
+                            '_t-'     + str(Nt) + \
+                            '_s-'     + str(Ns) + \
+                            '_phi-'   + scenario_phi + \
+                            '_rho-'   + scenario_rho + \
+                            '_tau-'   + str(tau)
     Path(savefolder).mkdir(parents=True, exist_ok=True)
 
     # missing indicator matrix ------------------------------------------------
@@ -116,7 +151,6 @@ if __name__ == "__main__":
 
     # isometric knot grid -- for R^phi
 
-    N_outer_grid = 9
     h_dist_between_knots     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid))-1)
     v_dist_between_knots     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid))-1)
     x_pos                    = np.linspace(minX + h_dist_between_knots/2, maxX + h_dist_between_knots/2, 
@@ -140,7 +174,6 @@ if __name__ == "__main__":
 
     # isometric knot grid -- for rho
 
-    N_outer_grid_rho = 9
     h_dist_between_knots_rho     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_rho))-1)
     v_dist_between_knots_rho     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_rho))-1)
     x_pos_rho                    = np.linspace(minX + h_dist_between_knots_rho/2, maxX + h_dist_between_knots_rho/2, 
@@ -242,8 +275,6 @@ if __name__ == "__main__":
 
     # Setup For the Copula/Data Model - X = e + X_star = R^phi * g(Z) -------------------------------------------------
 
-    # Nugget
-    tau = 10.0
 
     # Covariance K for Gaussian Field g(Z)
 
@@ -256,11 +287,8 @@ if __name__ == "__main__":
     delta = 0.0 # this is the delta in levy, stays 0
     alpha = 0.5
 
-    gamma = 0.5 # this is the gamma that goes in rlevy, gamma_at_knots
-    gamma_at_knots = np.repeat(gamma, k)
-    gamma_at_knots = np.linspace(0.5, 1.2, num = k)
     gamma_vec = np.sum(np.multiply(wendland_weight_matrix, gamma_at_knots)**(alpha), 
-                       axis = 1)**(1/alpha) # bar{gamma}, axis = 1 to sum over K knots
+                       axis = 1)**(1/alpha) # gamma_bar, axis = 1 to sum over K knots
 
     # -----------------------------------------------------------------------------------------------------------------
     # Parameter Configuration For the Model 
@@ -268,12 +296,10 @@ if __name__ == "__main__":
 
     # Censoring probability
     
-    p = 0.9
+    # p = 0.9
 
     # Marginal Parameters - GP(sigma, ksi) ----------------------------------------------------------------------------
     
-    Beta_logsigma = np.array([3.0, 0.0])
-    Beta_ksi      = np.array([0.1, 0.0])
 
     # Data Model Parameters - X_star = R^phi * g(Z) -------------------------------------------------------------------
 
@@ -431,7 +457,7 @@ if __name__ == "__main__":
 
     # checking stable variables S ---------------------------------------------
 
-    # levy.cdf(R_at_knots, loc = 0, scale = gamma) should look uniform
+    # levy.cdf(S_at_knots[i,:], loc = 0, scale = gamma_at_knots[i]) should look uniform
     for i in range(k):
         scipy.stats.probplot(scipy.stats.levy.cdf(S_at_knots[i,:], scale = gamma_at_knots[i]), dist='uniform', fit=False, plot=plt)
         plt.axline((0,0), slope = 1, color = 'black')
@@ -651,7 +677,7 @@ if __name__ == "__main__":
     plt.show()
     plt.close()
 
-    # 5. Plot gamma surface?
+    # 5. Plot gamma_bar surface?
 
     gamma_vec_for_plot = np.sum(np.multiply(wendland_weight_matrix_for_plot, gamma_at_knots)**(alpha), 
                        axis = 1)**(1/alpha)
