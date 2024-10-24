@@ -69,8 +69,8 @@ if __name__ == "__main__":
     # Numbers - Ns, Nt --------------------------------------------------------   
     
     np.random.seed(data_seed)
-    Nt       = 10 # number of time replicates
-    Ns       = 50 # number of sites/stations
+    Nt       = 100 # number of time replicates
+    Ns       = 10 # number of sites/stations
     scenario_phi = 'nonstatsc2'  # nonstatsc1, nonstatsc2, nonstatsc3, stat_AI, stat_AD
     scenario_rho = 'nonstat' # nonstat, stats
     Time     = np.linspace(-Nt/2, Nt/2-1, Nt)/np.std(np.linspace(-Nt/2, Nt/2-1, Nt), ddof=1)
@@ -253,10 +253,12 @@ if __name__ == "__main__":
 
     # Scale Mixture R^phi
 
-    gamma = 0.5 # this is the gamma that goes in rlevy, gamma_at_knots
     delta = 0.0 # this is the delta in levy, stays 0
     alpha = 0.5
+
+    gamma = 0.5 # this is the gamma that goes in rlevy, gamma_at_knots
     gamma_at_knots = np.repeat(gamma, k)
+    gamma_at_knots = np.linspace(0.5, 1.2, num = k)
     gamma_vec = np.sum(np.multiply(wendland_weight_matrix, gamma_at_knots)**(alpha), 
                        axis = 1)**(1/alpha) # bar{gamma}, axis = 1 to sum over K knots
 
@@ -312,7 +314,7 @@ if __name__ == "__main__":
     R_phi      = np.full(shape = (Ns, Nt), fill_value = np.nan)
     phi_vec    = gaussian_weight_matrix @ phi_at_knots
     for t in np.arange(Nt):
-        S_at_knots[:,t] = rlevy(n = k, m = delta, s = gamma) # generate R at time t, spatially varying k knots
+        S_at_knots[:,t] = rlevy(n = k, m = delta, s = gamma_at_knots) # generate R at time t, spatially varying k knots
     R_at_sites = wendland_weight_matrix @ S_at_knots
     for t in np.arange(Nt):
         R_phi[:,t] = np.power(R_at_sites[:,t], phi_vec)
@@ -431,7 +433,7 @@ if __name__ == "__main__":
 
     # levy.cdf(R_at_knots, loc = 0, scale = gamma) should look uniform
     for i in range(k):
-        scipy.stats.probplot(scipy.stats.levy.cdf(S_at_knots[i,:], scale = gamma), dist='uniform', fit=False, plot=plt)
+        scipy.stats.probplot(scipy.stats.levy.cdf(S_at_knots[i,:], scale = gamma_at_knots[i]), dist='uniform', fit=False, plot=plt)
         plt.axline((0,0), slope = 1, color = 'black')
         plt.title(f'QQPlot_Stable_knot_{i}')
         plt.savefig(savefolder + '/DataGeneration:QQPlot_Stable_knot_{}.pdf'.format(i))
@@ -542,7 +544,7 @@ if __name__ == "__main__":
     ax.set_aspect('equal', 'box')
     for i in range(k):
         circle_i = plt.Circle((knots_xy[i,0], knots_xy[i,1]), radius_from_knots[i],
-                                color='r', fill=True, fc='grey', ec='None', alpha = 0.2)
+                                color='r', fill=True, fc='lightgrey', ec='grey', alpha = 0.2)
         ax.add_patch(circle_i)
     ax.scatter(sites_x, sites_y, marker = '.', c = 'blue', label='sites')
     ax.scatter(knots_x, knots_y, marker = '+', c = 'red', label = 'knot', s = 300)
@@ -553,8 +555,8 @@ if __name__ == "__main__":
     ax.set_yticks(np.linspace(minY, maxY,num=5))
     plt.xticks(fontsize=20)
     plt.yticks(fontsize=20)
-    plt.xlabel('Longitude', fontsize=20)
-    plt.ylabel('Latitude', fontsize=20)    
+    plt.xlabel('x', fontsize=20)
+    plt.ylabel('y', fontsize=20)    
     box = ax.get_position()
     legend_elements = [matplotlib.lines.Line2D([0], [0], marker= '.', linestyle='None', color='b', label='Site'),
                     matplotlib.lines.Line2D([0], [0], marker='+', linestyle = "None", color='red', label='Knot Center',  markersize=20),
@@ -570,7 +572,7 @@ if __name__ == "__main__":
 
     fig, ax = plt.subplots()
     elev_scatter = ax.scatter(sites_x, sites_y, s=10, c = elevations,
-                                cmap = 'bwr')
+                                cmap = 'RdBu_r')
     ax.set_aspect('equal', 'box')
     plt.colorbar(elev_scatter)
     plt.savefig(savefolder+'/DataGeneration:station_elevation.pdf')
@@ -586,10 +588,11 @@ if __name__ == "__main__":
     ax.set_aspect('equal', 'box')
     heatmap = ax.imshow(phi_vec_for_plot.reshape(plotgrid_res_y,plotgrid_res_x), 
                         vmin = 0.0, vmax = 1.0,
-                        cmap ='seismic', interpolation='nearest', extent = [minX, maxX, maxY, minY])
+                        cmap ='seismic', interpolation='nearest', 
+                        origin = 'lower',extent = [minX, maxX, minY, maxY])
     ax.set_xticks(np.linspace(minX, maxX,num=3))
     ax.set_yticks(np.linspace(minY, maxY,num=5))
-    ax.invert_yaxis()
+    # ax.invert_yaxis()
     cbar = fig.colorbar(heatmap, ax=ax)
     cbar.ax.tick_params(labelsize=20)  # Set the fontsize here
     # Plot knots and circles
@@ -600,11 +603,11 @@ if __name__ == "__main__":
     # Scatter plot for sites and knots
     ax.scatter(knots_x, knots_y, marker='+', c='white', label='knot', s=300)
     for index, (x, y) in enumerate(knots_xy):
-        ax.text(x+0.05, y+0.1, f'{index}', fontsize=12, ha='left')
+        ax.text(x+0.05, y+0.1, f'{index+1}', fontsize=12, ha='left')
     plt.xticks(fontsize = 20)
     plt.yticks(fontsize = 20)
-    plt.xlabel('longitude', fontsize = 20)
-    plt.ylabel('latitude', fontsize = 20)
+    plt.xlabel('x', fontsize = 20)
+    plt.ylabel('y', fontsize = 20)
     plt.title(r'True $\phi$ surface', fontsize = 20)
     plt.savefig(savefolder + '/DataGeneration:true phi surface.pdf', bbox_inches='tight')
     plt.show()
@@ -623,10 +626,11 @@ if __name__ == "__main__":
     # state_map.boundary.plot(ax=ax, color = 'black')
     heatmap = ax.imshow(range_vec_for_plot.reshape(plotgrid_res_y,plotgrid_res_x),
                         vmin = vmin, vmax = vmax, 
-                        cmap ='Reds', interpolation='nearest', extent = [minX, maxX, maxY, minY])
+                        cmap ='Reds', interpolation='nearest', 
+                        origin = 'lower',extent = [minX, maxX, minY, maxY])
     ax.set_xticks(np.linspace(minX, maxX,num=3))
     ax.set_yticks(np.linspace(minY, maxY,num=5))
-    ax.invert_yaxis()
+    # ax.invert_yaxis()
     cbar = fig.colorbar(heatmap, ax=ax)
     cbar.ax.tick_params(labelsize=20)  # Set the fontsize here
     # Plot knots and circles
@@ -637,14 +641,50 @@ if __name__ == "__main__":
     # Scatter plot for sites and knots
     ax.scatter(knots_x_rho, knots_y_rho, marker='+', c='white', label='knot', s=300)
     for index, (x, y) in enumerate(knots_xy_rho):
-        ax.text(x+0.05, y+0.1, f'{index}', fontsize=12, ha='left')
+        ax.text(x+0.05, y+0.1, f'{index+1}', fontsize=12, ha='left')
     plt.xticks(fontsize = 20)
     plt.yticks(fontsize = 20)
-    plt.xlabel('longitude', fontsize = 20)
-    plt.ylabel('latitude', fontsize = 20)
+    plt.xlabel('x', fontsize = 20)
+    plt.ylabel('y', fontsize = 20)
     plt.title(r'True $\rho$ surface', fontsize = 20)
     plt.savefig(savefolder+'/DataGeneration:true rho surface.pdf', bbox_inches='tight')
     plt.show()
     plt.close()
 
+    # 5. Plot gamma surface?
+
+    gamma_vec_for_plot = np.sum(np.multiply(wendland_weight_matrix_for_plot, gamma_at_knots)**(alpha), 
+                       axis = 1)**(1/alpha)
+    vmin = 0.0
+    vmax = np.ceil(max(gamma_vec_for_plot))
+    fig, ax = plt.subplots()
+    fig.set_size_inches(8,6)
+    ax.set_aspect('equal', 'box')
+    # state_map.boundary.plot(ax=ax, color = 'black')
+    heatmap = ax.imshow(gamma_vec_for_plot.reshape(plotgrid_res_y,plotgrid_res_x),
+                        vmin = vmin, vmax = vmax, 
+                        cmap ='Reds', interpolation='nearest', 
+                        origin = 'lower', extent = [minX, maxX, minY, maxY])
+    ax.set_xticks(np.linspace(minX, maxX,num=3))
+    ax.set_yticks(np.linspace(minY, maxY,num=5))
+    # ax.invert_yaxis()
+    cbar = fig.colorbar(heatmap, ax=ax)
+    cbar.ax.tick_params(labelsize=20)  # Set the fontsize here
+    # Plot knots and circles
+    for i in range(k):
+        circle_i = plt.Circle((knots_xy[i, 0], knots_xy[i, 1]), radius_from_knots[i],
+                            color='r', fill=False, fc='None', ec='lightgrey', alpha=0.5)
+        ax.add_patch(circle_i)
+    # Scatter plot for sites and knots
+    ax.scatter(knots_x, knots_y, marker='+', c='white', label='knot', s=300)
+    for index, (x, y) in enumerate(knots_xy):
+        ax.text(x+0.05, y+0.1, f'{index+1}', fontsize=12, ha='left')
+    plt.xticks(fontsize = 20)
+    plt.yticks(fontsize = 20)
+    plt.xlabel('x', fontsize = 20)
+    plt.ylabel('y', fontsize = 20)
+    plt.title(r'True $\bar{\gamma}$ surface', fontsize = 20)
+    plt.savefig(savefolder+'/DataGeneration:true gamma_vec surface.pdf', bbox_inches='tight')
+    plt.show()
+    plt.close()
 # %%
