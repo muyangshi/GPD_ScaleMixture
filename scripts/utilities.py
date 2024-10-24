@@ -391,7 +391,7 @@ if norm_pareto == 'shifted':
 
 def ll_1t(Y, p, u_vec, scale_vec, shape_vec,        # marginal model parameters
           R_vec, Z_vec, K, phi_vec, gamma_vec, tau, # dependence model parameters
-          logS_vec, censored_idx, exceed_idx):         # auxilury information
+          logS_vec, gamma_at_knots, censored_idx, exceed_idx):         # auxilury information
     
     X_star = (R_vec ** phi_vec) * g(Z_vec)
     X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_vec, tau)
@@ -405,7 +405,7 @@ def ll_1t(Y, p, u_vec, scale_vec, shape_vec,        # marginal model parameters
                     - np.log(dX[exceed_idx])
 
     # log likelihood of S
-    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = 0.5) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
 
     # log likelihood of Z
     Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
@@ -414,7 +414,7 @@ def ll_1t(Y, p, u_vec, scale_vec, shape_vec,        # marginal model parameters
 
 def ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,
           R_vec, Z_vec, K, phi_vec, gamma_vec, tau,
-          logS_vec, censored_idx, exceed_idx):
+          logS_vec, gamma_at_knots, censored_idx, exceed_idx):
     
     X_star = (R_vec ** phi_vec) * g(Z_vec)
     X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_vec, tau)
@@ -428,7 +428,7 @@ def ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,
                     - np.log(dX[exceed_idx])
     
     # log likelihood of S
-    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = 0.5) + logS_vec
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec
 
     # log conditional likelihood of Z
     Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)

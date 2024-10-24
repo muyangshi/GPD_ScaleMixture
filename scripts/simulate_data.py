@@ -69,7 +69,7 @@ def my_floor(a, precision=0):
 
 np.random.seed(data_seed)
 
-Nt       = 100 # number of time replicates
+Nt       = 60 # number of time replicates
 Ns       = 50 # number of sites/stations
 Time     = np.linspace(-Nt/2, Nt/2-1, Nt)/np.std(np.linspace(-Nt/2, Nt/2-1, Nt), ddof=1)
 
@@ -719,3 +719,7 @@ plt.savefig(savefolder+'/DataGeneration:true gamma_vec surface.pdf', bbox_inches
 plt.show()
 plt.close()
 # %%
+
+import shutil
+current_file = __file__
+shutil.copy(current_file, savefolder)
