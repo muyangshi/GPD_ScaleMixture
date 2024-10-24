@@ -98,6 +98,10 @@ scenario_rho = 'nonstat' # nonstat, stats
 
 tau = 10.0
 
+# threshold u
+
+simulation_threshold = 60.0
+
 # sigma
 
 Beta_logsigma = np.array([3.0, 0.0])
@@ -256,7 +260,7 @@ estimated from the actual data.
 """
 
 # Threshold u(t,s) --------------------------------------------------------
-u_matrix = np.full(shape = (Ns, Nt), fill_value = 60.0)
+u_matrix = np.full(shape = (Ns, Nt), fill_value = simulation_threshold)
 
 # Scale logsigma(s) -------------------------------------------------------
 
