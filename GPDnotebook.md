@@ -16,17 +16,22 @@
   - For the realdata, however, 
     - censoring is performed in the sampler.py empirically.
     - Or it can happen in the data preprocessing (estimate $\sigma$ and $\xi$) to get spatially varying thresholds
-  - [ ] Do MCMC for separately for each parameter (see who works)
+  - Do MCMC for separately for each parameter (see who works)
     - [x] Update $S_t$
       - seems to work for $S_t$ when running only $S_t$ with $\gamma_k = 0.5$; using dataset `simulated_seed:2345_t:50_s:100_phi:nonstatsc2_rho:nonstat` radius = 4
-      - [ ] Try 50 sites, radius 3, will make it marginally faster for testing in progress
-    - [ ] Try update $\gamma_k$
+      - [x] Try 50 sites, radius 3, will make it marginally faster for testing in progress -- seems to work
+    - [x] Try update $\gamma_k$
     - [ ] Try update both $S_t$ and $\gamma_k$
     - [ ] Update $Z_t$
+    - [ ] Try update $S_t$, $Z_t$, $\gamma_k$
+    - [ ] Try update $S_t$, $Z_t$, $\gamma_k$, $\phi_k$
+    - [ ] Try update $S_t$, $Z_t$, $\gamma_k$, $\phi_k$, $\rho_k$
+      - This one is probably harder to do with the just 50 sites? some knot does not contain many sites
+      - potentially, increase the numebr of sites (if time permits)
 
-- [ ] "Unfix" $\gamma_k$
+- [x] "Unfix" $\gamma_k$
   - By changing the `gamma_at_knots`, `gamma_vec` ($\bar{\gamma}$) is calculated using Wendland basis matrix, and is used each time we call `qRW`
-  - [ ] Add the storage, update, and adaptive tuning for `gamma_at_knots`
+  - [x] Add the storage, update, and adaptive tuning for `gamma_at_knots`
     - [x] storage
     - [x] initialize
     - [x] update
