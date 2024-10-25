@@ -86,7 +86,7 @@ if norm_pareto == 'standard': n_iters = 5000
 # data
 
 if from_simulation == True: 
-    datafolder = '../data/simulated_seed-2345_t-60_s-50_phi-nonstatsc2_rho-nonstat_tau-10.0/'
+    datafolder = '../data/simulated_seed-2345_t-100_s-10_phi-nonstatsc2_rho-nonstat_tau-10.0/'
     datafile   = 'simulated_data.RData'
 if from_simulation == False: 
     datafolder = '../data/realdata/'
@@ -880,7 +880,7 @@ offset = 3 # the iteration offset: trick the updater thinking chain is longer
 # r_opt_2d = .35
 # r_opt = 0.234 # asymptotically
 r_opt = .35
-adapt_size = 10
+adapt_size = 25
 
 # Adaptive Update: Proposal Variance Scalar and Covariance Matrix -------------------------------------------------
 
@@ -1314,7 +1314,8 @@ for iter in range(start_iter, n_iters):
         if rank == 0:
             gamma_at_knots_proposal = gamma_at_knots_current.copy()
             gamma_at_knots_proposal[i] = gamma_at_knots_current[i] + \
-                                        np.sqrt(sigma_m_sq['gamma_at_knots'][i]) * random_generator.normal(0.0, 1.0, size = 1)
+                                        np.sqrt(sigma_m_sq['gamma_at_knots'][i]) * random_generator.normal(0.0, 1.0, size = None)
+            # Conversion of an array with ndim > 0 to a scalar is deprecated, and will error in future. Ensure you extract a single element from your array before performing this operation. (Deprecated NumPy 1.25.)
         else:
             gamma_at_knots_proposal = None
         gamma_at_knots_proposal = comm.bcast(gamma_at_knots_proposal, root = 0)
@@ -1641,7 +1642,6 @@ for iter in range(start_iter, n_iters):
                 num_accepted['gamma_at_knots'][i] = 0
                 log_sigma_m_sq_hat                = np.log(sigma_m_sq['gamma_at_knots'][i]) + gamma2 * (r_hat - r_opt)
                 sigma_m_sq['gamma_at_knots'][i]   = np.exp(log_sigma_m_sq_hat)
-            comm.Barrier()
 
         # phi
         if rank == 0:
@@ -1680,12 +1680,14 @@ for iter in range(start_iter, n_iters):
     ##############################################
     ###    Printing, Drawings, Savings       #####
     ##############################################
-    thin = 10
+
+    thin = 10 # print to console every `thin` iterations
+
     if rank == 0:
 
-        if iter % 10 == 0: print('iter', iter, 'elapsed: ', round(time.time() - start_time, 1), 'seconds')
+        if iter % thin == 0: print('iter', iter, 'elapsed: ', round(time.time() - start_time, 1), 'seconds')
 
-        if iter % 50 == 0 or iter == n_iters-1: # we are not saving the counters, so this must be a multiple of adapt_size!
+        if iter % (2*adapt_size) == 0 or iter == n_iters-1: # we are not saving the counters, so this must be a multiple of adapt_size!
 
             # Saving ----------------------------------------------------------------------------------------------
             np.save('loglik_trace',      loglik_trace)
