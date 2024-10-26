@@ -86,7 +86,7 @@ if norm_pareto == 'standard': n_iters = 5000
 # data
 
 if from_simulation == True: 
-    datafolder = '../data/simulated_seed-2345_t-100_s-10_phi-nonstatsc2_rho-nonstat_tau-10.0/'
+    datafolder = '../data/simulated_seed-2345_t-60_s-50_phi-nonstatsc2_rho-nonstat_tau-10.0/'
     datafile   = 'simulated_data.RData'
 if from_simulation == False: 
     datafolder = '../data/realdata/'
@@ -1270,12 +1270,6 @@ for iter in range(start_iter, n_iters):
 
         # Data Likelihood -----------------------------------------------------------------------------------------
 
-        # "Simplified" version, as X and dX are calulated outside
-        # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-        #                                     R_vec_proposal, Z_1t_current, phi_vec_current, gamma_vec_current, tau_current,
-        #                                     X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
-        #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
-
         # "Full" version, X and dX are calculated within the likelihood function
         llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                  R_vec_proposal, Z_1t_current, K_current, phi_vec_current, gamma_vec_current, tau_current,
@@ -1369,12 +1363,6 @@ for iter in range(start_iter, n_iters):
 
         # Data Likelihood -----------------------------------------------------------------------------------------
 
-        # # "Simplified" version, as X and dX are calulated outside
-        # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-        #                                     R_vec_current, Z_1t_proposal, phi_vec_current, gamma_vec_current, tau_current,
-        #                                     X_1t_current, X_star_1t_proposal, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
-        #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_proposal, mean = None, cov = K_current)
-
         # "Full" version, X and dX are calculated within the likelihood function
         llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                  R_vec_current, Z_1t_proposal, K_current, phi_vec_current, gamma_vec_current, tau_current,
@@ -1419,11 +1407,6 @@ for iter in range(start_iter, n_iters):
             # X_1t_proposal    = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
             #                        phi_vec_proposal, gamma_vec_current, tau_current)
             # dX_1t_proposal   = dRW(X_1t_proposal, phi_vec_proposal, gamma_vec_current, tau_current)
-
-            # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-            #                                     R_vec_current, Z_1t_current, phi_vec_proposal, gamma_vec_current, tau_current,
-            #                                     X_1t_proposal, X_star_1t_proposal, dX_1t_proposal, censored_idx_1t_current, exceed_idx_1t_current) \
-            #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
 
             # "full" version as X and dX are calculated within the likelihood function
             llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
@@ -1481,12 +1464,6 @@ for iter in range(start_iter, n_iters):
             K_proposal = ns_cov(range_vec = range_vec_proposal,
                                 sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = "matern")
             
-            # # "simplified" version as X and dX are calculated outside
-            # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-            #                                     R_vec_current, Z_1t_current, phi_vec_current, gamma_vec_current, tau_current,
-            #                                     X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current) \
-            #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_proposal)
-
             # "full" version as X and dX are calculated within the likelihood function
             llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                      R_vec_current, Z_1t_current, K_proposal, phi_vec_current, gamma_vec_current, tau_current,
@@ -1529,17 +1506,6 @@ for iter in range(start_iter, n_iters):
     if not tau_proposal > 0:
         llik_1t_proposal = np.NINF
     else:
-        # "simplified" version as X and dX are calculated outside
-        # X_1t_proposal = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
-        #                     phi_vec_current, gamma_vec_current, tau_proposal)
-        # dX_1t_proposal = dRW(X_1t_proposal, phi_vec_current, gamma_vec_current, tau_proposal)
-
-        # # Without Jacobian
-        # llik_1t_proposal = Y_censored_ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-        #                                     R_vec_current, Z_1t_current, phi_vec_current, gamma_vec_current, tau_proposal,
-        #                                     X_1t_proposal, X_star_1t_current, dX_1t_proposal, censored_idx_1t_current, exceed_idx_1t_current) \
-        #                     + scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov = K_current)
-
         # "full" version as X and dX are calculated within the likelihood function
         llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                  R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_vec_current, tau_proposal,
@@ -1573,10 +1539,61 @@ for iter in range(start_iter, n_iters):
     if rank == 0: tau_trace[iter,:] = tau_current
     comm.Barrier()
 
-    # %% Update GPD ------------------------------------------------------------------------------------------------
+    # %% Update GPD sigma ---------------------------------------------------------------------------------------------
     ############################################################
-    ####                 Update GPD                         ####
+    ####                 Update GPD sigma                   ####
     ############################################################
+    # Propose new Beta's for logsigma ---------------------------------------------------------------------------------
+    if rank == 0:
+        Beta_logsigma_proposal = Beta_logsigma_current + np.sqrt(sigma_m_sq['Beta_logsigma']) * \
+                                 random_generator.multivariate_normal(np.zeros(Beta_logsigma_m), Sigma_0['Beta_logsigma'])
+    else:
+        Beta_logsigma_proposal = None
+    Beta_logsigma_proposal = comm.bcast(Beta_logsigma_proposal, root = 0)
+    Scale_vec_proposal     = np.exp((C_logsigma.T @ Beta_logsigma_proposal).T)[:,rank]
+
+    # Data Likelihood ---------------------------------------------------------------------------------------------
+    if np.any(Scale_vec_proposal <= 0):
+        llik_1t_proposal = np.NINF
+    else:
+        # "full" version as X and dX are calculated within the likelihood function
+        llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_proposal, Shape_vec_current,
+                                 R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_vec_current, tau_current,
+                                 S_current_log, gamma_at_knots_current, censored_idx_1t_current, exceed_idx_1t_current)
+
+    # Update ------------------------------------------------------------------------------------------------------
+    Beta_logsigma_accepted = False
+    llik_1t_current_gathered  = comm.gather(llik_1t_current,  root = 0)
+    llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
+    
+    if rank == 0:
+        lprior_Beta_logsigma_current  = scipy.stats.norm.logpdf(Beta_logsigma_current,
+                                                                loc = 0, scale = sigma_Beta_logsigma_current)
+        lprior_Beta_logsigma_proposal = scipy.stats.norm.logpdf(Beta_logsigma_proposal,
+                                                                loc = 0, scale = sigma_Beta_logsigma_current)
+
+        llik_current  = np.sum(llik_1t_current_gathered)  + np.sum(lprior_Beta_logsigma_current)
+        llik_proposal = np.sum(llik_1t_proposal_gathered) + np.sum(lprior_Beta_logsigma_proposal)
+
+        r = np.exp(llik_proposal - llik_current)
+        if np.isfinite(r) and r >= random_generator.uniform():
+            num_accepted['Beta_logsigma'] += 1
+            Beta_logsigma_accepted = True
+    Beta_logsigma_accepted = comm.bcast(Beta_logsigma_accepted, root = 0)
+
+    if Beta_logsigma_accepted:
+        Beta_logsigma_current = Beta_logsigma_proposal.copy()
+        llik_1t_current       = llik_1t_proposal
+
+    # Save --------------------------------------------------------------------------------------------------------
+    if rank == 0: Beta_logsigma_trace[iter,:] = Beta_logsigma_current
+    comm.Barrier()
+
+    # %% Update GPD xi ------------------------------------------------------------------------------------------------
+    ############################################################
+    ####                 Update GPD xi                      ####
+    ############################################################
+
 
 
     # %% After iteration likelihood
@@ -1587,12 +1604,6 @@ for iter in range(start_iter, n_iters):
     llik_1t_current_gathered = comm.gather(llik_1t_current, root = 0)
     if rank == 0: loglik_trace[iter, 0] = np.sum(llik_1t_current_gathered)
 
-    # "simplified" version, as X and dX are calculated outside
-    # censored_ll_1t, exceed_ll_1t = Y_censored_ll_1t_detail(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-    #                                                         R_vec_current, Z_1t_current, phi_vec_current, gamma_vec_current, tau_current,
-    #                                                         X_1t_current, X_star_1t_current, dX_1t_current, censored_idx_1t_current, exceed_idx_1t_current)
-    # D_gauss_ll_1t = scipy.stats.multivariate_normal.logpdf(Z_1t_current, mean = None, cov=K_current)
-    
     # "full" version, as X and dX are calculated within the likelihood function
     censored_ll_1t, exceed_ll_1t, S_ll_1t, D_gauss_ll_1t = ll_1t_detail(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                                                R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_vec_current, tau_current,
@@ -1674,6 +1685,14 @@ for iter in range(start_iter, n_iters):
             log_sigma_m_sq_hat  = np.log(sigma_m_sq['tau']) + gamma2 * (r_hat - r_opt)
             sigma_m_sq['tau']   = np.exp(log_sigma_m_sq_hat)
 
+        # GPD log(sigma)
+        if rank == 0:
+            r_hat                         = num_accepted['Beta_logsigma']/adapt_size
+            num_accepted['Beta_logsigma'] = 0
+            log_sigma_m_sq_hat            = np.log(sigma_m_sq['Beta_logsigma']) + gamma2 * (r_hat - r_opt)
+            sigma_m_sq['Beta_logsigma']   = np.exp(log_sigma_m_sq_hat)
+            Sigma_0_hat                   = np.array(np.cov(Beta_logsigma_trace[iter-adapt_size:iter].T))
+            Sigma_0['Beta_logsigma']      = Sigma_0['Beta_logsigma'] + gamma1 * (Sigma_0_hat - Sigma_0['Beta_logsigma'])
     comm.Barrier()
 
     # %% Midway Printing, Drawings, and Savings
@@ -1697,6 +1716,7 @@ for iter in range(start_iter, n_iters):
             np.save('range_knots_trace', range_knots_trace)
             np.save('tau_trace',         tau_trace)
             np.save('gamma_at_knots_trace', gamma_at_knots_trace)
+            np.save('Beta_logsigma_trace', Beta_logsigma_trace)
 
             with open('iter.pkl', 'wb')               as file: pickle.dump(iter, file)
             with open('sigma_m_sq.pkl', 'wb')         as file: pickle.dump(sigma_m_sq, file)
@@ -1718,6 +1738,7 @@ for iter in range(start_iter, n_iters):
             range_knots_trace_thin         = range_knots_trace[0:iter:thin,:]
             tau_trace_thin                 = tau_trace[0:iter:thin,:]
             gamma_at_knots_trace_thin      = gamma_at_knots_trace[0:iter:thin,:]
+            Beta_logsigma_trace_thin       = Beta_logsigma_trace[0:iter:thin,:]
 
             # ---- log-likelihood ----
             plt.subplots()
@@ -1811,6 +1832,15 @@ for iter in range(start_iter, n_iters):
             plt.ylabel('tau')
             plt.legend(loc='upper left')
             plt.savefig('MCMC:trace_tau.pdf')
+            plt.close()
+
+            # ---- Beta_logsigma ----
+            plt.subplots()
+            plt.plot(xs_thin2, Beta_logsigma_trace_thin)
+            plt.title(r'traceplot for $\beta$ $\log (\sigma)$')
+            plt.xlabel('iter thinned by '+str(thin))
+            plt.ylabel('Beta_logsigma')
+            plt.savefig('MCMC:trace_Beta_logsigma.pdf')
             plt.close()
 
         if iter == n_iters - 1:
