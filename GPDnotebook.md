@@ -2,6 +2,14 @@
 
 # Meetings
 
+## Oct. 29 Tuesday Meeting with Likun/Mark/Ben
+
+## Oct. 25 Friday Meeting with Ben
+
+
+- HOT Paper by Huser, Opitz, Thibaud 2017 Bridging asymptotic independence and dependence inspatial extremes using Gaussian scale mixtures
+- Huser Wadsworth 2019 Modeling spatial extreme with unknow asymptotic class
+
 ## Oct. 22 Meeting with Likun/Mark/Ben
 
 - [x] Make the data $Y$ be from 10-day intervals.
@@ -21,7 +29,7 @@
       - seems to work for $S_t$ when running only $S_t$ with $\gamma_k = 0.5$; using dataset `simulated_seed:2345_t:50_s:100_phi:nonstatsc2_rho:nonstat` radius = 4
       - [x] Try 50 sites, radius 3, will make it marginally faster for testing in progress -- seems to work
     - [x] Try update $\gamma_k$
-    - [ ] Try update both $S_t$ and $\gamma_k$
+    - [x] Try update both $S_t$ and $\gamma_k$
     - [ ] Update $Z_t$
     - [ ] Try update $S_t$, $Z_t$, $\gamma_k$
     - [ ] Try update $S_t$, $Z_t$, $\gamma_k$, $\phi_k$
