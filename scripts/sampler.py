@@ -1110,9 +1110,9 @@ else: # start_iter != 1, load from last iter of saved traceplot
     phi_knots_init           = phi_knots_trace[last_iter,:]           if rank == 0 else None
     range_knots_init         = range_knots_trace[last_iter,:]         if rank == 0 else None
     Beta_logsigma_init       = Beta_logsigma_trace[last_iter,:]       if rank == 0 else None
-    Beta_xi_init            = Beta_xi_trace[last_iter,:]            if rank == 0 else None
+    Beta_xi_init             = Beta_xi_trace[last_iter,:]             if rank == 0 else None
     sigma_Beta_logsigma_init = sigma_Beta_logsigma_trace[last_iter,0] if rank == 0 else None # must be value, can't be array([value])
-    sigma_Beta_xi_init      = sigma_Beta_xi_trace[last_iter,0]      if rank == 0 else None # must be value, can't be array([value])
+    sigma_Beta_xi_init       = sigma_Beta_xi_trace[last_iter,0]       if rank == 0 else None # must be value, can't be array([value])
     Y_matrix_init            = Y_trace[last_iter,:,:]                 if rank == 0 else None
     tau_init                 = tau_trace[last_iter,:]                 if rank == 0 else None
     Z_init                   = Z_trace[last_iter,:,:]                 if rank == 0 else None
@@ -1644,7 +1644,54 @@ for iter in range(start_iter, n_iters):
     ####       Update Regularization (sigma_Beta_xx)        ####
     ############################################################
 
+    # sigma_Beta_logsigma ---------------------------------------------------------------------------------------------
+    if rank == 0:
+        # propose new sigma_Beta_logsigma -----------------------------------------------------------------------------
+        sigma_Beta_logsigma_proposal = sigma_Beta_logsigma_current + np.sqrt(sigma_m_sq['sigma_Beta_logsigma']) * random_generator.standard_normal()
+        
+        # likelihood --------------------------------------------------------------------------------------------------
+        lprior_sigma_Beta_logsigma_current  = np.log(dhalft(sigma_Beta_logsigma_current, nu = 2))
+        lprior_sigma_Beta_logsigma_proposal = np.log(dhalft(sigma_Beta_logsigma_proposal, nu = 2)) if sigma_Beta_logsigma_proposal > 0 else np.NINF
 
+        llik_current  = lprior_sigma_Beta_logsigma_current  + np.sum(scipy.stats.norm.logpdf(Beta_logsigma_current, loc = 0, scale = sigma_Beta_logsigma_current))
+        llik_proposal = lprior_sigma_Beta_logsigma_proposal + np.sum(scipy.stats.norm.logpdf(Beta_logsigma_current, loc = 0, scale = sigma_Beta_logsigma_proposal))
+
+        # Update ------------------------------------------------------------------------------------------------------
+        r = np.exp(llik_proposal - llik_current)
+        if np.isfinite(r) and r >= random_generator.uniform():
+            num_accepted['sigma_Beta_logsigma'] += 1
+            sigma_Beta_logsigma_current = sigma_Beta_logsigma_proposal
+        
+        # Save --------------------------------------------------------------------------------------------------------
+        sigma_Beta_logsigma_trace[iter,:] = sigma_Beta_logsigma_current
+    
+    # (unnecessary) Broadcast
+    sigma_Beta_logsigma_current = comm.bcast(sigma_Beta_logsigma_current, root = 0)
+
+
+    # sigma_Beta_xi ---------------------------------------------------------------------------------------------------
+    if rank == 0:
+        # propose new sigma_Beta_xi -----------------------------------------------------------------------------------
+        sigma_Beta_xi_proposal = sigma_Beta_xi_current + np.sqrt(sigma_m_sq['sigma_Beta_xi']) * random_generator.standard_normal()
+        
+        # likelihood --------------------------------------------------------------------------------------------------
+        lprior_sigma_Beta_xi_current  = np.log(dhalft(sigma_Beta_xi_current,  nu = 2))
+        lprior_sigma_Beta_xi_proposal = np.log(dhalft(sigma_Beta_xi_proposal, nu = 2)) if sigma_Beta_xi_proposal > 0 else np.NINF
+
+        llik_current  = lprior_sigma_Beta_xi_current  + np.sum(scipy.stats.norm.logpdf(Beta_xi_current, loc = 0, scale = sigma_Beta_xi_current))
+        llik_proposal = lprior_sigma_Beta_xi_proposal + np.sum(scipy.stats.norm.logpdf(Beta_xi_current, loc = 0, scale = sigma_Beta_xi_proposal))
+
+        # Update ------------------------------------------------------------------------------------------------------
+        r = np.exp(llik_proposal - llik_current)
+        if np.isfinite(r) and r >= random_generator.uniform():
+            num_accepted['sigma_Beta_xi'] += 1
+            sigma_Beta_xi_current = sigma_Beta_xi_proposal
+
+        # Save --------------------------------------------------------------------------------------------------------
+        sigma_Beta_xi_trace[iter,:] = sigma_Beta_xi_current
+    
+    # (unnecessary) Broadcast
+    sigma_Beta_xi_current = comm.bcast(sigma_Beta_xi_current, root = 0)
 
 
     # %% After iteration likelihood
@@ -1753,6 +1800,20 @@ for iter in range(start_iter, n_iters):
             sigma_m_sq['Beta_xi']   = np.exp(log_sigma_m_sq_hat)
             Sigma_0_hat             = np.array(np.cov(Beta_xi_trace[iter-adapt_size:iter].T))
             Sigma_0['Beta_xi']      = Sigma_0['Beta_xi'] + gamma1 * (Sigma_0_hat - Sigma_0['Beta_xi'])
+        
+        # Regularization on Beta_logsigma
+        if rank == 0:
+            r_hat                               = num_accepted['sigma_Beta_logsigma']/adapt_size
+            num_accepted['sigma_Beta_logsigma'] = 0
+            log_sigma_m_sq_hat                  = np.log(sigma_m_sq['sigma_Beta_logsigma']) + gamma2 * (r_hat - r_opt)
+            sigma_m_sq['sigma_Beta_logsigma']   = np.exp(log_sigma_m_sq_hat)
+        
+        # Regularization on Beta_xi
+        if rank == 0:
+            r_hat                         = num_accepted['sigma_Beta_xi']/adapt_size
+            num_accepted['sigma_Beta_xi'] = 0
+            log_sigma_m_sq_hat            = np.log(sigma_m_sq['sigma_Beta_xi']) + gamma2 * (r_hat - r_opt)
+            sigma_m_sq['sigma_Beta_xi']   = np.exp(log_sigma_m_sq_hat)
     
     comm.Barrier()
 
@@ -1770,15 +1831,17 @@ for iter in range(start_iter, n_iters):
         if iter % (2*adapt_size) == 0 or iter == n_iters-1: # we are not saving the counters, so this must be a multiple of adapt_size!
 
             # Saving ----------------------------------------------------------------------------------------------
-            np.save('loglik_trace',      loglik_trace)
-            np.save('S_trace_log',       S_trace_log)
-            np.save('Z_trace',           Z_trace)
-            np.save('phi_knots_trace',   phi_knots_trace)
-            np.save('range_knots_trace', range_knots_trace)
-            np.save('tau_trace',         tau_trace)
-            np.save('gamma_at_knots_trace', gamma_at_knots_trace)
-            np.save('Beta_logsigma_trace',  Beta_logsigma_trace)
-            np.save('Beta_xi_trace',       Beta_xi_trace)
+            np.save('loglik_trace',              loglik_trace)
+            np.save('S_trace_log',               S_trace_log)
+            np.save('Z_trace',                   Z_trace)
+            np.save('phi_knots_trace',           phi_knots_trace)
+            np.save('range_knots_trace',         range_knots_trace)
+            np.save('tau_trace',                 tau_trace)
+            np.save('gamma_at_knots_trace',      gamma_at_knots_trace)
+            np.save('Beta_logsigma_trace',       Beta_logsigma_trace)
+            np.save('Beta_xi_trace',             Beta_xi_trace)
+            np.save('sigma_Beta_logsigma_trace', sigma_Beta_logsigma_trace)
+            np.save('sigma_Beta_xi_trace',       sigma_Beta_xi_trace)
 
             with open('iter.pkl', 'wb')               as file: pickle.dump(iter, file)
             with open('sigma_m_sq.pkl', 'wb')         as file: pickle.dump(sigma_m_sq, file)
@@ -1802,6 +1865,8 @@ for iter in range(start_iter, n_iters):
             gamma_at_knots_trace_thin      = gamma_at_knots_trace[0:iter:thin,:]
             Beta_logsigma_trace_thin       = Beta_logsigma_trace[0:iter:thin,:]
             Beta_xi_trace_thin             = Beta_xi_trace[0:iter:thin,:]
+            sigma_Beta_logsigma_trace_thin = sigma_Beta_logsigma_trace[0:iter:thin,:]
+            sigma_Beta_xi_trace_thin       = sigma_Beta_xi_trace[0:iter:thin,:]
 
             # ---- log-likelihood ----
             plt.subplots()
@@ -1814,7 +1879,7 @@ for iter in range(start_iter, n_iters):
 
             # ---- log-likelihood in detail ----
             plt.subplots()
-            labels = ['censored_ll', 'exceed_ll', 'D_gauss_ll', 'log_J_1', 'log_J_2']
+            labels = ['censored_ll', 'exceed_ll', 'S_ll', 'Z_ll', 'nothing']
             for i in range(5):
                 plt.plot(xs_thin2, loglik_detail_trace_thin[:,i], label = labels[i])
                 plt.annotate(labels[i], xy=(xs_thin2[-1], loglik_detail_trace_thin[:,i][-1]))
@@ -1913,6 +1978,19 @@ for iter in range(start_iter, n_iters):
             plt.xlabel('iter thinned by '+str(thin))
             plt.ylabel('Beta_xi')
             plt.savefig('MCMC:trace_Beta_xi.pdf')
+            plt.close()
+
+            # ---- regularization ----
+            plt.subplots()
+            plt.plot(xs_thin2, sigma_Beta_logsigma_trace_thin, label = 'sigma_Beta_logsigma')
+            plt.plot(xs_thin2, sigma_Beta_xi_trace_thin, label = 'sigma_Beta_xi')
+            plt.annotate(r'$\sigma (\beta_{\log \sigma})$', xy=(xs_thin2[-1], sigma_Beta_logsigma_trace_thin[:,0][-1]))
+            plt.annotate(r'$\sigma (\beta_\xi)$', xy=(xs_thin2[-1], sigma_Beta_xi_trace_thin[:,0][-1]))
+            plt.title('traceplot for regularization')
+            plt.xlabel('iter thinned by '+str(thin))
+            plt.ylabel('regularization')
+            plt.legend(loc = 'upper left')
+            plt.savefig('MCMC:trace_regularization.pdf')
             plt.close()
 
         if iter == n_iters - 1:
