@@ -105,7 +105,7 @@ r(f'''
 Y = np.array(r('Y'))
 GP_estimates = np.array(r('GP_estimates')).T
 logsigma_estimates = GP_estimates[:,1]
-ksi_estimates      = GP_estimates[:,2]
+xi_estimates       = GP_estimates[:,2]
 elevations         = np.array(r('elev'))
 stations           = np.array(r('stations')).T
 
@@ -305,7 +305,7 @@ for site_id in np.arange(Ns):
     gaussian_weight_matrix_rho[site_id, :] = weight_from_knots
 
 
-# Marginal Model - GP(sigma, ksi) threshold u ---------------------------------
+# Marginal Model - GP(sigma, xi) threshold u ---------------------------------
 
 # Scale logsigma(s)
 Beta_logsigma_m   = 2 # just intercept and elevation
@@ -313,11 +313,11 @@ C_logsigma        = np.full(shape = (Beta_logsigma_m, Ns, Nt), fill_value = np.n
 C_logsigma[0,:,:] = 1.0
 C_logsigma[1,:,:] = np.tile(elevations, reps = (Nt, 1)).T
 
-# Shape ksi(s)
-Beta_ksi_m   = 2 # just intercept and elevation
-C_ksi        = np.full(shape = (Beta_ksi_m, Ns, Nt), fill_value = np.nan) # ksi design matrix
-C_ksi[0,:,:] = 1.0
-C_ksi[1,:,:] = np.tile(elevations, reps = (Nt, 1)).T
+# Shape xi(s)
+Beta_xi_m   = 2 # just intercept and elevation
+C_xi        = np.full(shape = (Beta_xi_m, Ns, Nt), fill_value = np.nan) # xi design matrix
+C_xi[0,:,:] = 1.0
+C_xi[1,:,:] = np.tile(elevations, reps = (Nt, 1)).T
 
 # Setup For the Copula/Data Model - X = e + X_star = e + R^phi * g(Z) ---------
 
@@ -336,19 +336,19 @@ alpha = 0.5 # alpha in the Stable, stays 0.5
 if start_iter == 1 and from_simulation == False:
     # We estimate parameter's initial values to start the chains
 
-    # Marginal Parameters - GP(sigma, ksi) ------------------------------------
+    # Marginal Parameters - GP(sigma, xi) ------------------------------------
 
     # scale
     Beta_logsigma = np.linalg.lstsq(a=C_logsigma[:,:,0].T, b=logsigma_estimates,rcond=None)[0]
     sigma_vec     = np.exp((C_logsigma.T @ Beta_logsigma).T)[:,rank]
 
     # shape
-    Beta_ksi = np.linalg.lstsq(a=C_ksi[:,:,0].T, b=ksi_estimates,rcond=None)[0]
-    ksi_vec  = ((C_ksi.T @ Beta_ksi).T)[:,rank]
+    Beta_xi = np.linalg.lstsq(a=C_xi[:,:,0].T, b=xi_estimates,rcond=None)[0]
+    xi_vec  = ((C_xi.T @ Beta_xi).T)[:,rank]
 
     # regularization
     sigma_Beta_logsigma = 1
-    sigma_Beta_ksi      = 1
+    sigma_Beta_xi      = 1
 
     # Dependence Model Parameters - X = e + R^phi * g(Z) ----------------------
 
@@ -424,7 +424,7 @@ if start_iter == 1 and from_simulation == False:
             obs_idx_1t  = np.where(miss_matrix[:,t] == False)[0]
 
             pY_1t = pCGP(Y[obs_idx_1t, t], p,
-                            u_vec[obs_idx_1t], sigma_vec[obs_idx_1t], ksi_vec[obs_idx_1t])
+                            u_vec[obs_idx_1t], sigma_vec[obs_idx_1t], xi_vec[obs_idx_1t])
 
             # S_at_knots[:,t] = np.median(qRW(pY_1t[obs_idx_1t], phi_vec[obs_idx_1t], gamma_vec[obs_idx_1t], tau
             #                                 ) / W[obs_idx_1t, t])**(1/phi_at_knots)
@@ -434,7 +434,7 @@ if start_iter == 1 and from_simulation == False:
         comm.Barrier()
         obs_idx_1t  = np.where(miss_matrix[:,rank] == False)[0]
         pY_1t = pCGP(Y[obs_idx_1t, rank], p,
-                        u_vec[obs_idx_1t], sigma_vec[obs_idx_1t], ksi_vec[obs_idx_1t])
+                        u_vec[obs_idx_1t], sigma_vec[obs_idx_1t], xi_vec[obs_idx_1t])
         X_1t  = qRW(pY_1t[obs_idx_1t], phi_vec[obs_idx_1t], gamma_vec[obs_idx_1t], tau)
         # S_1t  = np.median(X_1t / W[obs_idx_1t, rank]) ** (1/phi_at_knots)
         S_1t  = np.min(X_1t / W[obs_idx_1t, rank]) ** (1/phi_at_knots)
@@ -459,7 +459,7 @@ if from_simulation == True:
 
     simulation_threshold = 60.0
     Beta_logsigma        = np.array([3.0, 0.0])
-    Beta_ksi             = np.array([0.1, 0.0])
+    Beta_xi              = np.array([0.1, 0.0])
     range_at_knots       = np.sqrt(0.3*knots_x_rho + 0.4*knots_y_rho)/2
     phi_at_knots         = 0.65 - np.sqrt((knots_x_phi-5.1)**2/5 + (knots_y_phi-5.3)**2/4)/11.6
     gamma_at_knots       = np.repeat(0.5, k_S)
@@ -473,7 +473,7 @@ if from_simulation == True:
     u_vec    = u_matrix[:,rank]
 
     sigma_Beta_logsigma = 1
-    sigma_Beta_ksi      = 1
+    sigma_Beta_xi      = 1
 
     # g(Z) Transformed Gaussian Process
 
@@ -801,10 +801,10 @@ if rank == 0 and start_iter == 1:
     fig, ax = plt.subplots(1,2)
     fig.set_size_inches(10, 4.5)
 
-    # initial spline smoothed values for ksi
-    ksi_init_spline = ((C_ksi.T @ Beta_ksi).T)[:,rank]
-    vmin            = min(my_floor(min(ksi_estimates), 1), my_floor(min(ksi_init_spline), 1))
-    vmax            = max(my_ceil(max(ksi_estimates), 1), my_ceil(max(ksi_init_spline), 1))
+    # initial spline smoothed values for xi
+    xi_init_spline = ((C_xi.T @ Beta_xi).T)[:,rank]
+    vmin            = min(my_floor(min(xi_estimates), 1), my_floor(min(xi_init_spline), 1))
+    vmax            = max(my_ceil(max(xi_estimates), 1), my_ceil(max(xi_init_spline), 1))
     if vmin == vmax:
         vmin -= vmin*0.1
         vmax += vmax*0.1
@@ -812,8 +812,8 @@ if rank == 0 and start_iter == 1:
     
     # initial site values
 
-    ksi_MLE_scatter = ax[0].scatter(sites_x, sites_y, s = 10, 
-                                    cmap = 'OrRd', c = ksi_estimates, 
+    xi_MLE_scatter = ax[0].scatter(sites_x, sites_y, s = 10, 
+                                    cmap = 'OrRd', c = xi_estimates, 
                                     norm = divnorm)
     ax[0].set_aspect('equal', 'box')
     ax[0].set_xlabel('x', fontsize = 20)
@@ -822,8 +822,8 @@ if rank == 0 and start_iter == 1:
     
     # initial spline fitted values
     
-    ksi_spline_scatter = ax[1].scatter(sites_x, sites_y, s = 10, 
-                                       cmap = 'OrRd', c = ksi_init_spline,
+    xi_spline_scatter = ax[1].scatter(sites_x, sites_y, s = 10, 
+                                       cmap = 'OrRd', c = xi_init_spline,
                                        norm = divnorm)
     ax[1].set_aspect('equal','box')
     ax[1].set_xlabel('x', fontsize = 20)
@@ -832,7 +832,7 @@ if rank == 0 and start_iter == 1:
 
     fig.subplots_adjust(right=0.8)
     cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-    fig.colorbar(ksi_spline_scatter, cax = cbar_ax)
+    fig.colorbar(xi_spline_scatter, cax = cbar_ax)
 
     plt.savefig('Plot:initial_xi_estimates.pdf')
     plt.show()
@@ -895,7 +895,7 @@ if start_iter == 1: # initialize the proposal scalar variance and covariance
     gamma_cov               = pc.gamma_cov               if pc.gamma_cov               is not None else 0.1*np.eye(k_S)
     tau_var                 = pc.tau_var                 if pc.tau_var                 is not None else 1
     sigma_Beta_logsigma_var = pc.sigma_Beta_logsigma_var if pc.sigma_Beta_logsigma_var is not None else 1
-    sigma_Beta_ksi_var      = pc.sigma_Beta_ksi_var      if pc.sigma_Beta_ksi_var      is not None else 1
+    sigma_Beta_xi_var       = pc.sigma_Beta_xi_var       if pc.sigma_Beta_xi_var       is not None else 1
 
     # St
     sigma_m_sq_St_list = [(np.diag(S_log_cov[:,:,t])) for t in range(Nt)] if rank == 0 else None
@@ -922,18 +922,18 @@ if start_iter == 1: # initialize the proposal scalar variance and covariance
 
         # marginal Y
         sigma_m_sq['Beta_logsigma'] = (2.4**2)/Beta_logsigma_m
-        sigma_m_sq['Beta_ksi']      = (2.4**2)/Beta_ksi_m
+        sigma_m_sq['Beta_xi']       = (2.4**2)/Beta_xi_m
 
         # regularization
         sigma_m_sq['sigma_Beta_logsigma'] = sigma_Beta_logsigma_var
-        sigma_m_sq['sigma_Beta_ksi']      = sigma_Beta_ksi_var
+        sigma_m_sq['sigma_Beta_xi']       = sigma_Beta_xi_var
 
     # Sigma0: proposal covariance matrix for phi, range, and marginal Y -------------------------------------------
     
     phi_cov                 = pc.phi_cov           if pc.phi_cov           is not None else 1e-5 * np.identity(k_phi)
     range_cov               = pc.range_cov         if pc.range_cov         is not None else 0.5  * np.identity(k_rho)
     Beta_logsigma_cov       = pc.Beta_logsigma_cov if pc.Beta_logsigma_cov is not None else 1e-6 * np.identity(Beta_logsigma_m)
-    Beta_ksi_cov            = pc.Beta_ksi_cov      if pc.Beta_ksi_cov      is not None else 1e-7 * np.identity(Beta_ksi_m)
+    Beta_xi_cov            = pc.Beta_xi_cov      if pc.Beta_xi_cov      is not None else 1e-7 * np.identity(Beta_xi_m)
 
     if rank == 0:
         Sigma_0 = {}
@@ -956,7 +956,7 @@ if start_iter == 1: # initialize the proposal scalar variance and covariance
 
         # marginal Y
         Sigma_0['Beta_logsigma'] = Beta_logsigma_cov
-        Sigma_0['Beta_ksi']      = Beta_ksi_cov
+        Sigma_0['Beta_xi']      = Beta_xi_cov
 
     # Checking dimensions -----------------------------------------------------------------------------------------
     
@@ -966,7 +966,7 @@ if start_iter == 1: # initialize the proposal scalar variance and covariance
     assert Nt              == S_log_cov.shape[2]
     assert Ns              == Z_cov.shape[0]
     assert Beta_logsigma_m == Beta_logsigma_cov.shape[0]
-    assert Beta_ksi_m      == Beta_ksi_cov.shape[0]
+    assert Beta_xi_m       == Beta_xi_cov.shape[0]
 
 else: # start_iter != 1
     # pickle load the Proposal Variance Scalar, Covariance Matrix
@@ -1028,11 +1028,11 @@ if rank == 0:
 
     # marginal Y
     num_accepted['Beta_logsigma'] = 0
-    num_accepted['Beta_ksi']      = 0
+    num_accepted['Beta_xi']       = 0
 
     # regularization
     num_accepted['sigma_Beta_logsigma'] = 0
-    num_accepted['sigma_Beta_ksi']      = 0
+    num_accepted['sigma_Beta_xi']       = 0
 
 # %% 
 # Storage and Initialize ----------------------------------------------------------------------------------------------
@@ -1047,9 +1047,9 @@ if start_iter == 1:
     phi_knots_trace           = np.full(shape = (n_iters, k_phi), fill_value = np.nan)           if rank == 0 else None # phi_at_knots
     range_knots_trace         = np.full(shape = (n_iters, k_rho), fill_value = np.nan)           if rank == 0 else None # range_at_knots
     Beta_logsigma_trace       = np.full(shape = (n_iters, Beta_logsigma_m), fill_value = np.nan) if rank == 0 else None # logsigma Covariate Coefficients
-    Beta_ksi_trace            = np.full(shape = (n_iters, Beta_ksi_m), fill_value = np.nan)      if rank == 0 else None # ksi Covariate Coefficients
+    Beta_xi_trace            = np.full(shape = (n_iters, Beta_xi_m), fill_value = np.nan)      if rank == 0 else None # xi Covariate Coefficients
     sigma_Beta_logsigma_trace = np.full(shape = (n_iters, 1), fill_value = np.nan)               if rank == 0 else None # prior sd for beta_logsigma's
-    sigma_Beta_ksi_trace      = np.full(shape = (n_iters, 1), fill_value = np.nan)               if rank == 0 else None # prior sd for beta_ksi's
+    sigma_Beta_xi_trace      = np.full(shape = (n_iters, 1), fill_value = np.nan)               if rank == 0 else None # prior sd for beta_xi's
     Y_trace                   = np.full(shape = (n_iters, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
     tau_trace                 = np.full(shape = (n_iters, 1), fill_value = np.nan)               if rank == 0 else None
     Z_trace                   = np.full(shape = (n_iters, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
@@ -1063,9 +1063,9 @@ else: # start_iter != 1, load from environment
     phi_knots_trace           = np.load('phi_knots_trace.npy')           if rank == 0 else None
     range_knots_trace         = np.load('range_knots_trace.npy')         if rank == 0 else None
     Beta_logsigma_trace       = np.load('Beta_logsigma_trace.npy')       if rank == 0 else None
-    Beta_ksi_trace            = np.load('Beta_ksi_trace.npy')            if rank == 0 else None
+    Beta_xi_trace             = np.load('Beta_xi_trace.npy')            if rank == 0 else None
     sigma_Beta_logsigma_trace = np.load('sigma_Beta_logsigma_trace.npy') if rank == 0 else None
-    sigma_Beta_ksi_trace      = np.load('sigma_Beta_ksi_trace.npy')      if rank == 0 else None
+    sigma_Beta_xi_trace       = np.load('sigma_Beta_xi_trace.npy')      if rank == 0 else None
     Y_trace                   = np.load('Y_trace.npy')                   if rank == 0 else None
     tau_trace                 = np.load('tau_trace.npy')                 if rank == 0 else None
     Z_trace                   = np.load('Z_trace.npy')                   if rank == 0 else None
@@ -1081,9 +1081,9 @@ if start_iter == 1:
     phi_knots_init           = phi_at_knots        if rank == 0 else None
     range_knots_init         = range_at_knots      if rank == 0 else None
     Beta_logsigma_init       = Beta_logsigma       if rank == 0 else None
-    Beta_ksi_init            = Beta_ksi            if rank == 0 else None
+    Beta_xi_init             = Beta_xi            if rank == 0 else None
     sigma_Beta_logsigma_init = sigma_Beta_logsigma if rank == 0 else None
-    sigma_Beta_ksi_init      = sigma_Beta_ksi      if rank == 0 else None
+    sigma_Beta_xi_init       = sigma_Beta_xi      if rank == 0 else None
     Y_matrix_init            = Y                   if rank == 0 else None
     tau_init                 = tau                 if rank == 0 else None
     Z_init                   = Z                   if rank == 0 else None
@@ -1095,9 +1095,9 @@ if start_iter == 1:
         phi_knots_trace[0,:]           = phi_knots_init
         range_knots_trace[0,:]         = range_knots_init
         Beta_logsigma_trace[0,:]       = Beta_logsigma_init
-        Beta_ksi_trace[0,:]            = Beta_ksi_init
+        Beta_xi_trace[0,:]             = Beta_xi_init
         sigma_Beta_logsigma_trace[0,:] = sigma_Beta_logsigma_init
-        sigma_Beta_ksi_trace[0,:]      = sigma_Beta_ksi_init
+        sigma_Beta_xi_trace[0,:]       = sigma_Beta_xi_init
         Y_trace[0,:,:]                 = Y_matrix_init
         tau_trace[0,:]                 = tau_init
         Z_trace[0,:,:]                 = Z_init
@@ -1110,9 +1110,9 @@ else: # start_iter != 1, load from last iter of saved traceplot
     phi_knots_init           = phi_knots_trace[last_iter,:]           if rank == 0 else None
     range_knots_init         = range_knots_trace[last_iter,:]         if rank == 0 else None
     Beta_logsigma_init       = Beta_logsigma_trace[last_iter,:]       if rank == 0 else None
-    Beta_ksi_init            = Beta_ksi_trace[last_iter,:]            if rank == 0 else None
+    Beta_xi_init            = Beta_xi_trace[last_iter,:]            if rank == 0 else None
     sigma_Beta_logsigma_init = sigma_Beta_logsigma_trace[last_iter,0] if rank == 0 else None # must be value, can't be array([value])
-    sigma_Beta_ksi_init      = sigma_Beta_ksi_trace[last_iter,0]      if rank == 0 else None # must be value, can't be array([value])
+    sigma_Beta_xi_init      = sigma_Beta_xi_trace[last_iter,0]      if rank == 0 else None # must be value, can't be array([value])
     Y_matrix_init            = Y_trace[last_iter,:,:]                 if rank == 0 else None
     tau_init                 = tau_trace[last_iter,:]                 if rank == 0 else None
     Z_init                   = Z_trace[last_iter,:,:]                 if rank == 0 else None
@@ -1125,13 +1125,13 @@ else: # start_iter != 1, load from last iter of saved traceplot
 ## Marginal Model -------------------------------------------------------------------------------------------------
 ## ---- GPD covariate coefficients --> GPD surface ----
 Beta_logsigma_current = comm.bcast(Beta_logsigma_init, root = 0)
-Beta_ksi_current      = comm.bcast(Beta_ksi_init, root = 0)
+Beta_xi_current       = comm.bcast(Beta_xi_init, root = 0)
 Scale_vec_current     = np.exp((C_logsigma.T @ Beta_logsigma_current).T)[:,rank]
-Shape_vec_current     = ((C_ksi.T @ Beta_ksi_current).T)[:,rank]
+Shape_vec_current     = ((C_xi.T @ Beta_xi_current).T)[:,rank]
 
 ## ---- GPD covariate coefficients prior variance ----
 sigma_Beta_logsigma_current = comm.bcast(sigma_Beta_logsigma_init, root = 0)
-sigma_Beta_ksi_current      = comm.bcast(sigma_Beta_ksi_init, root = 0)
+sigma_Beta_xi_current      = comm.bcast(sigma_Beta_xi_init, root = 0)
 
 ## Dependence Model ---------------------------------------------------------------------------------------------------
 
@@ -1202,7 +1202,7 @@ exceed_idx_1t_current   = np.where(Y_1t_current  > u_vec)[0]
 # Note:
 #   The X_1t and dX_1t NEED TO CHANGE whenever 
 #       - we do imputation
-#       - the marginal parameters change (sigma, ksi), or
+#       - the marginal parameters change (sigma, xi), or
 #       - the dependence model parameters change (phi, tau)
 #
 # X_1t_current  = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
@@ -1593,6 +1593,57 @@ for iter in range(start_iter, n_iters):
     ############################################################
     ####                 Update GPD xi                      ####
     ############################################################
+    # propose new Beta's for xi ---------------------------------------------------------------------------------------
+    if rank == 0:
+        Beta_xi_proposal = Beta_xi_current + np.sqrt(sigma_m_sq['Beta_xi']) * \
+                            random_generator.multivariate_normal(np.zeros(Beta_xi_m), Sigma_0['Beta_xi'])
+    else:
+        Beta_xi_proposal = None
+    Beta_xi_proposal   = comm.bcast(Beta_xi_proposal, root = 0)
+    Shape_vec_proposal = ((C_xi.T @ Beta_xi_proposal).T)[:,rank]
+
+    # Data Likelihood ---------------------------------------------------------------------------------------------
+    
+    # shape parameter of GP is the R, right?
+    # if np.any(Shape_vec_proposal <= 0): llik_1t_proposal = np.NINF
+
+    llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_proposal,
+                             R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_vec_current, tau_current,
+                             S_current_log, gamma_at_knots_current, censored_idx_1t_current, exceed_idx_1t_current)
+
+    # Update ------------------------------------------------------------------------------------------------------
+    Beta_xi_accepted = False
+    llik_1t_current_gathered  = comm.gather(llik_1t_current,  root = 0)
+    llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
+    
+    if rank == 0:
+        lprior_Beta_xi_current  = scipy.stats.norm.logpdf(Beta_xi_current,
+                                                           loc = 0, scale = sigma_Beta_xi_current)
+        lprior_Beta_xi_proposal = scipy.stats.norm.logpdf(Beta_xi_proposal,
+                                                           loc = 0, scale = sigma_Beta_xi_current)
+
+        llik_current  = np.sum(llik_1t_current_gathered)  + np.sum(lprior_Beta_xi_current)
+        llik_proposal = np.sum(llik_1t_proposal_gathered) + np.sum(lprior_Beta_xi_proposal)
+
+        r = np.exp(llik_proposal - llik_current)
+        if np.isfinite(r) and r >= random_generator.uniform():
+            num_accepted['Beta_xi'] += 1
+            Beta_xi_accepted = True
+    Beta_xi_accepted = comm.bcast(Beta_xi_accepted, root = 0)
+
+    if Beta_xi_accepted:
+        Beta_xi_current = Beta_xi_proposal.copy()
+        llik_1t_current = llik_1t_proposal
+
+    # Save --------------------------------------------------------------------------------------------------------
+    if rank == 0: Beta_xi_trace[iter,:] = Beta_xi_current
+    comm.Barrier()
+
+    # %% Update Regularization ------------------------------------------------------------------------------------
+    ############################################################
+    ####       Update Regularization (sigma_Beta_xx)        ####
+    ############################################################
+
 
 
 
@@ -1693,6 +1744,16 @@ for iter in range(start_iter, n_iters):
             sigma_m_sq['Beta_logsigma']   = np.exp(log_sigma_m_sq_hat)
             Sigma_0_hat                   = np.array(np.cov(Beta_logsigma_trace[iter-adapt_size:iter].T))
             Sigma_0['Beta_logsigma']      = Sigma_0['Beta_logsigma'] + gamma1 * (Sigma_0_hat - Sigma_0['Beta_logsigma'])
+    
+        # GPD xi
+        if rank == 0:
+            r_hat                   = num_accepted['Beta_xi']/adapt_size
+            num_accepted['Beta_xi'] = 0
+            log_sigma_m_sq_hat      = np.log(sigma_m_sq['Beta_xi']) + gamma2 * (r_hat - r_opt)
+            sigma_m_sq['Beta_xi']   = np.exp(log_sigma_m_sq_hat)
+            Sigma_0_hat             = np.array(np.cov(Beta_xi_trace[iter-adapt_size:iter].T))
+            Sigma_0['Beta_xi']      = Sigma_0['Beta_xi'] + gamma1 * (Sigma_0_hat - Sigma_0['Beta_xi'])
+    
     comm.Barrier()
 
     # %% Midway Printing, Drawings, and Savings
@@ -1716,7 +1777,8 @@ for iter in range(start_iter, n_iters):
             np.save('range_knots_trace', range_knots_trace)
             np.save('tau_trace',         tau_trace)
             np.save('gamma_at_knots_trace', gamma_at_knots_trace)
-            np.save('Beta_logsigma_trace', Beta_logsigma_trace)
+            np.save('Beta_logsigma_trace',  Beta_logsigma_trace)
+            np.save('Beta_xi_trace',       Beta_xi_trace)
 
             with open('iter.pkl', 'wb')               as file: pickle.dump(iter, file)
             with open('sigma_m_sq.pkl', 'wb')         as file: pickle.dump(sigma_m_sq, file)
@@ -1739,6 +1801,7 @@ for iter in range(start_iter, n_iters):
             tau_trace_thin                 = tau_trace[0:iter:thin,:]
             gamma_at_knots_trace_thin      = gamma_at_knots_trace[0:iter:thin,:]
             Beta_logsigma_trace_thin       = Beta_logsigma_trace[0:iter:thin,:]
+            Beta_xi_trace_thin             = Beta_xi_trace[0:iter:thin,:]
 
             # ---- log-likelihood ----
             plt.subplots()
@@ -1841,6 +1904,15 @@ for iter in range(start_iter, n_iters):
             plt.xlabel('iter thinned by '+str(thin))
             plt.ylabel('Beta_logsigma')
             plt.savefig('MCMC:trace_Beta_logsigma.pdf')
+            plt.close()
+
+            # ---- Beta_xi ----
+            plt.subplots()
+            plt.plot(xs_thin2, Beta_xi_trace_thin)
+            plt.title(r'traceplot for $\beta$ $\xi$')
+            plt.xlabel('iter thinned by '+str(thin))
+            plt.ylabel('Beta_xi')
+            plt.savefig('MCMC:trace_Beta_xi.pdf')
             plt.close()
 
         if iter == n_iters - 1:
