@@ -62,6 +62,8 @@
     - [x] Modify how $S_t$ is generated as now $\gamma$ is changed
     - [x] Modify the corresponding "hard coding truth for simulation" section in the `sampler.py`
 
+- [x] Marginal model in the sampler
+
 ## Oct. 15 Meeting with Likun/Ben
 
 - Summarize (shrink) the data
@@ -140,8 +142,6 @@
 
 ### TODOs
 
-- [x] Marginal model in the sampler
-
 - [ ] Coverage Analysis
 
 - [ ] Imputation, i.e. update $X_t$ (or equivalently, $Y_t$)
@@ -202,7 +202,9 @@ marginal model:
 $$
 \begin{align*}
 \log\sigma_t(\bm{s}_j) &\equiv \log\sigma(\bm{s}_j) = \beta_0^{(\sigma)} + \beta_1^{(\sigma)} \cdot \text{elev}(\bm{s}_j) \\
-\xi_t(\bm{s}_j) &\equiv \xi(\bm{s}_j) = \beta_0^{(\xi)} + \beta_1^{(\xi)} \cdot \text{elev}(\bm{s}_j)
+\xi_t(\bm{s}_j) &\equiv \xi(\bm{s}_j) = \beta_0^{(\xi)} + \beta_1^{(\xi)} \cdot \text{elev}(\bm{s}_j) \\
+\beta_i^{(\theta)} &\sim \text{N}(0, \text{Var} = \sigma_{(\theta)}^2), \quad (\theta) \in \{(\sigma), (\xi)\} \\
+\sigma_{(\theta)} &\sim \text{halfT}_{\nu = 2}(0, 1)
 \end{align*}
 $$
 
