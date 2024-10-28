@@ -30,8 +30,9 @@
       - [x] Try 50 sites, radius 3, will make it marginally faster for testing in progress -- seems to work
     - [x] Try update $\gamma_k$
     - [x] Try update both $S_t$ and $\gamma_k$
-    - [ ] Update $Z_t$
-    - [ ] Try update $S_t$, $Z_t$, $\gamma_k$
+      - seems to be working 10/27
+    - [x] Try update $S_t$, $Z_t$, $\gamma_k$
+      - seems to be working 10/28
     - [ ] Try update $S_t$, $Z_t$, $\gamma_k$, $\phi_k$
     - [ ] Try update $S_t$, $Z_t$, $\gamma_k$, $\phi_k$, $\rho_k$
       - This one is probably harder to do with the just 50 sites? some knot does not contain many sites
@@ -139,7 +140,7 @@
 
 ### TODOs
 
-- [ ] Marginal model in the sampler
+- [x] Marginal model in the sampler
 
 - [ ] Coverage Analysis
 
