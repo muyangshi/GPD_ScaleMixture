@@ -64,6 +64,8 @@
 
 - [x] Marginal model in the sampler
 
+- [x] facilitate with posterior covariance matrix
+
 ## Oct. 15 Meeting with Likun/Ben
 
 - Summarize (shrink) the data
