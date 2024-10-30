@@ -390,11 +390,11 @@ if norm_pareto == 'shifted':
 # %% Likelihood Not Simplified
 
 def ll_1t(Y, p, u_vec, scale_vec, shape_vec,        # marginal model parameters
-          R_vec, Z_vec, K, phi_vec, gamma_vec, tau, # dependence model parameters
+          R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, # dependence model parameters
           logS_vec, gamma_at_knots, censored_idx, exceed_idx):         # auxilury information
     
     X_star = (R_vec ** phi_vec) * g(Z_vec)
-    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_vec, tau)
+    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
     dX     = dRW(X, u_vec, scale_vec, shape_vec)
     
     # log censored likelihood of y on censored sites
@@ -413,11 +413,11 @@ def ll_1t(Y, p, u_vec, scale_vec, shape_vec,        # marginal model parameters
     return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(S_ll) + np.sum(Z_ll)
 
 def ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,
-          R_vec, Z_vec, K, phi_vec, gamma_vec, tau,
+          R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau,
           logS_vec, gamma_at_knots, censored_idx, exceed_idx):
     
     X_star = (R_vec ** phi_vec) * g(Z_vec)
-    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_vec, tau)
+    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
     dX     = dRW(X, u_vec, scale_vec, shape_vec)
     
     # log censored likelihood of y on censored sites
@@ -435,6 +435,36 @@ def ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,
 
     return (np.sum(censored_ll),np.sum(exceed_ll), np.sum(S_ll), np.sum(Z_ll))
 
+# %%
+# imputation of missing values
+#   returns (Z_miss,X_star_miss, X_miss, Y_miss)
+#   needs to modify the censored and exceedance sites after imputation in the sampler
+def impute_1t(p, u_vec, scale_vec, shape_vec,
+              R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau,
+              obs_idx, miss_idx):
+    
+    # conditional gaussian draw
+    K11       = K[miss_idx,:][:,miss_idx]
+    K12       = K[miss_idx,:][:,obs_idx]
+    K21       = K[obs_idx,:][:,miss_idx]
+    K22       = K[obs_idx,:][:,obs_idx]
+    K22_inv   = np.linalg.inv(K22)
+    cond_mean = K12 @ K22_inv @ Z_vec[obs_idx]
+    cond_cov  = K11 - K12 @ K22_inv @ K21
+    Z_miss    = scipy.stats.multivariate_normal.rvs(mean = cond_mean, cov = cond_cov)
+
+    # the smooth process X_star
+    X_star_miss = (R_vec[miss_idx] ** phi_vec[miss_idx]) * g(Z_miss)
+    
+    # the nuggeted process X
+    X_miss      = X_star_miss + scipy.stats.norm.rvs(loc = 0, scale = tau, size = len(miss_idx))
+
+    # marginal transform to Y
+    Y_miss = qCGP(pRW(X_miss, phi_vec[miss_idx], gamma_bar_vec[miss_idx], tau), 
+                  p,
+                  u_vec[miss_idx], scale_vec[miss_idx], shape_vec[miss_idx])
+    
+    return(Z_miss, X_star_miss, X_miss, Y_miss)
 
 # %% Likelihood
 # Likelihood

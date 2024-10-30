@@ -1,14 +1,43 @@
 # Notebook on GPD Project
 
+## TODOs
+
+- [ ] (By December) Coverage Analysis
+  - without imputation
+  - [ ] Figure out folder structures (write scripts to generate data and run jobs)
+    - change the `savefolder` and `loadfolder` in the `simulate_data.py` and the `sampler.py` script respectively
+  - [ ] [Alpine allocation](https://colostate.sharepoint.com/sites/Division_Research_Computing_and_Cyberinfrastructure/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT%2FAlpine%20Project%20Allocation%20Request%20Process%2Epdf&parent=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT&p=true&ga=1)
+
+- [ ] (By January) Imputation, i.e. update $X_t$ (or equivalently, $Y_t$)
+  - [ ] We need to keep track of (traceplot, varaibles) `X_star_1t_current` and `X_1t_current`, which are ommited/commented out for now
+  - [ ] We will need to build these into the `ll_1t` likelihood function
+  - [ ] Posterior Predicative Check
+
+- will it be faster if the entire likelihood function is implemented in `Cpp`?
+
+- emulation
+
 # Meetings
 
 ## Oct. 29 Tuesday Meeting with Likun/Mark/Ben
 
-## Oct. 25 Friday Meeting with Ben
+- Training grid for the emulator
+  - This is also computationally intensive, needs to be put on hold.
 
 
-- HOT Paper by Huser, Opitz, Thibaud 2017 Bridging asymptotic independence and dependence inspatial extremes using Gaussian scale mixtures
-- Huser Wadsworth 2019 Modeling spatial extreme with unknow asymptotic class
+- Keep runing the sampler 
+  - `recv(20) failed: Connection reset by peer (104)`
+    - $S_t$, $Z_t$, $\gamma_k$, $\phi_k$ seems to be updating, so stopped it
+  - [x] Try updating: $S_t$, $Z_t$, $\gamma_k$, $\phi_k$, $\rho_k$, $\tau$
+    - 20241030
+  - [ ] Try updating: $S_t$, $Z_t$, $\gamma_k$, $\phi_k$, $\rho_k$, $\tau$, $\theta_{GP}$
+
+- imputation
+  - ![alt text](notes/IMG_6060.jpeg)
+  - We might actually also need to <mark>impute $Z_t$</mark> !?
+    - because we need the smooth process $X_t^*$
+      - then, when updating $Z_t$ in its own section, do we update both the missing and observed? Previously in GEV we didn't have this problem because we do not update $Z_t$.
+      - current code is that we are updating all $s$ in $Z_t(s)$ when updating $Z_t$
 
 ## Oct. 22 Meeting with Likun/Mark/Ben
 
@@ -33,8 +62,8 @@
       - seems to be working 10/27
     - [x] Try update $S_t$, $Z_t$, $\gamma_k$
       - seems to be working 10/28
-    - [ ] Try update $S_t$, $Z_t$, $\gamma_k$, $\phi_k$
-    - [ ] Try update $S_t$, $Z_t$, $\gamma_k$, $\phi_k$, $\rho_k$
+    - [x] Try update $S_t$, $Z_t$, $\gamma_k$, $\phi_k$
+    - [-] Try update $S_t$, $Z_t$, $\gamma_k$, $\phi_k$, $\rho_k$
       - This one is probably harder to do with the just 50 sites? some knot does not contain many sites
       - potentially, increase the numebr of sites (if time permits)
 
@@ -141,18 +170,6 @@
 # Notes
 
 ## Thoughts
-
-### TODOs
-
-- [ ] Coverage Analysis
-
-- [ ] Imputation, i.e. update $X_t$ (or equivalently, $Y_t$)
-  - [ ] We need to keep track of (traceplot, varaibles) `X_star_1t_current` and `X_1t_current`, which are ommited/commented out for now
-  - [ ] We will need to build these into the `ll_1t` likelihood function
-  - [ ] Posterior Predicative Check
-
-- will it be faster if the entire likelihood function is implemented in `Cpp`?
-
 
 ### Emulating the quantile funtion `qRW`
 
