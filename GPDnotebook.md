@@ -2,16 +2,18 @@
 
 ## TODOs
 
-- [ ] (By December) Coverage Analysis
+- (By December) Start Coverage Analysis
   - without imputation
-  - [ ] Figure out folder structures (write scripts to generate data and run jobs)
+  - Figure out folder structures (write scripts to generate data and run jobs)
     - change the `savefolder` and `loadfolder` in the `simulate_data.py` and the `sampler.py` script respectively
-  - [ ] [Alpine allocation](https://colostate.sharepoint.com/sites/Division_Research_Computing_and_Cyberinfrastructure/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT%2FAlpine%20Project%20Allocation%20Request%20Process%2Epdf&parent=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT&p=true&ga=1)
+  - [Alpine allocation](https://colostate.sharepoint.com/sites/Division_Research_Computing_and_Cyberinfrastructure/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT%2FAlpine%20Project%20Allocation%20Request%20Process%2Epdf&parent=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT&p=true&ga=1)
 
-- [ ] (By January) Imputation, i.e. update $X_t$ (or equivalently, $Y_t$)
-  - [ ] We need to keep track of (traceplot, varaibles) `X_star_1t_current` and `X_1t_current`, which are ommited/commented out for now
-  - [ ] We will need to build these into the `ll_1t` likelihood function
-  - [ ] Posterior Predicative Check
+- (By December) Speed up
+  - Keep track of `X_star` and, at least, `X` separately (outside) as this will save the number of times we do `qRW`
+  - pull the calculation of `X_star` and `X` outside of `ll_1t` function (use as argument)
+  - make dedicated section to calculate `X_star` and `X` after each update
+
+
 
 - will it be faster if the entire likelihood function is implemented in `Cpp`?
 
@@ -35,9 +37,15 @@
 - imputation
   - ![alt text](notes/IMG_6060.jpeg)
   - We might actually also need to <mark>impute $Z_t$</mark> !?
-    - because we need the smooth process $X_t^*$
-      - then, when updating $Z_t$ in its own section, do we update both the missing and observed? Previously in GEV we didn't have this problem because we do not update $Z_t$.
+    - <mark>check:</mark> the imputation should change both $Z_t$ and $Y_t$? because we need the smooth process $X_t^*$
+      - then, when updating $Z_t$ in its own section, do we update both the missing and observed, or only the observed? (Previously in GEV we didn't have this problem because we do not update $Z_t$.) -- will this break MCMC?
       - current code is that we are updating all $s$ in $Z_t(s)$ when updating $Z_t$
+  - Return imputed $(Z_t, Y_t)$ is enough
+    - As long as we have $Y_t$ and we updated the $Z_t$, everything else can be calculated
+  - <mark>check:</mark> because there is censoring, how should we perform predictive check on $Y_t(s)$ (predictive check won't show anything for the censored site)? 
+    - Do we just do it on exceedance sites (from simulation)?
+    - Do we do it on $X_t(s)$?
+
 
 ## Oct. 22 Meeting with Likun/Mark/Ben
 

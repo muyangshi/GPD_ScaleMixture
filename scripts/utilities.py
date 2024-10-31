@@ -437,9 +437,9 @@ def ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,
 
 # %%
 # imputation of missing values
-#   returns (Z_miss,X_star_miss, X_miss, Y_miss)
+#   returns (Z_miss, Y_miss)
 #   needs to modify the censored and exceedance sites after imputation in the sampler
-def impute_1t(p, u_vec, scale_vec, shape_vec,
+def impute_ZY_1t(p, u_vec, scale_vec, shape_vec,
               R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau,
               obs_idx, miss_idx):
     
@@ -464,7 +464,7 @@ def impute_1t(p, u_vec, scale_vec, shape_vec,
                   p,
                   u_vec[miss_idx], scale_vec[miss_idx], shape_vec[miss_idx])
     
-    return(Z_miss, X_star_miss, X_miss, Y_miss)
+    return(Z_miss, Y_miss)
 
 # %% Likelihood
 # Likelihood

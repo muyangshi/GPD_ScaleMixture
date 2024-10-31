@@ -1040,20 +1040,19 @@ if rank == 0:
 # Storage
 
 if start_iter == 1:
-
     loglik_trace              = np.full(shape = (n_iters, 1), fill_value = np.nan)               if rank == 0 else None # overall likelihood
     loglik_detail_trace       = np.full(shape = (n_iters, 5), fill_value = np.nan)               if rank == 0 else None # detail likelihood
     S_trace_log               = np.full(shape = (n_iters, k_S, Nt), fill_value = np.nan)         if rank == 0 else None # log(S)
     phi_knots_trace           = np.full(shape = (n_iters, k_phi), fill_value = np.nan)           if rank == 0 else None # phi_at_knots
     range_knots_trace         = np.full(shape = (n_iters, k_rho), fill_value = np.nan)           if rank == 0 else None # range_at_knots
     Beta_logsigma_trace       = np.full(shape = (n_iters, Beta_logsigma_m), fill_value = np.nan) if rank == 0 else None # logsigma Covariate Coefficients
-    Beta_xi_trace            = np.full(shape = (n_iters, Beta_xi_m), fill_value = np.nan)      if rank == 0 else None # xi Covariate Coefficients
+    Beta_xi_trace             = np.full(shape = (n_iters, Beta_xi_m), fill_value = np.nan)       if rank == 0 else None # xi Covariate Coefficients
     sigma_Beta_logsigma_trace = np.full(shape = (n_iters, 1), fill_value = np.nan)               if rank == 0 else None # prior sd for beta_logsigma's
-    sigma_Beta_xi_trace      = np.full(shape = (n_iters, 1), fill_value = np.nan)               if rank == 0 else None # prior sd for beta_xi's
+    sigma_Beta_xi_trace       = np.full(shape = (n_iters, 1), fill_value = np.nan)               if rank == 0 else None # prior sd for beta_xi's
     Y_trace                   = np.full(shape = (n_iters, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
     tau_trace                 = np.full(shape = (n_iters, 1), fill_value = np.nan)               if rank == 0 else None
     Z_trace                   = np.full(shape = (n_iters, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
-    gamma_k_vec_trace      = np.full(shape = (n_iters, k_S), fill_value = np.nan)             if rank == 0 else None
+    gamma_k_vec_trace         = np.full(shape = (n_iters, k_S), fill_value = np.nan)             if rank == 0 else None
     # X_star_trace              = np.full(shape = (n_iters, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
     # X_trace                   = np.full(shape = (n_iters, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
 else: # start_iter != 1, load from environment
@@ -1063,15 +1062,15 @@ else: # start_iter != 1, load from environment
     phi_knots_trace           = np.load('phi_knots_trace.npy')           if rank == 0 else None
     range_knots_trace         = np.load('range_knots_trace.npy')         if rank == 0 else None
     Beta_logsigma_trace       = np.load('Beta_logsigma_trace.npy')       if rank == 0 else None
-    Beta_xi_trace             = np.load('Beta_xi_trace.npy')            if rank == 0 else None
+    Beta_xi_trace             = np.load('Beta_xi_trace.npy')             if rank == 0 else None
     sigma_Beta_logsigma_trace = np.load('sigma_Beta_logsigma_trace.npy') if rank == 0 else None
-    sigma_Beta_xi_trace       = np.load('sigma_Beta_xi_trace.npy')      if rank == 0 else None
+    sigma_Beta_xi_trace       = np.load('sigma_Beta_xi_trace.npy')       if rank == 0 else None
     Y_trace                   = np.load('Y_trace.npy')                   if rank == 0 else None
     tau_trace                 = np.load('tau_trace.npy')                 if rank == 0 else None
     Z_trace                   = np.load('Z_trace.npy')                   if rank == 0 else None
-    gamma_k_vec_trace      = np.load('gamma_k_vec_trace.npy')      if rank == 0 else None
-    # X_star_trace              = np.load('X_star_trace.npy')
-    # X_trace                   = np.load('X_trace.npy')
+    gamma_k_vec_trace         = np.load('gamma_k_vec_trace.npy')         if rank == 0 else None
+    # X_star_trace              = np.load('X_star_trace.npy')              if rank == 0 else None
+    # X_trace                   = np.load('X_trace.npy')                   if rank == 0 else None
 
 # Initialize Parameters for rank 0 worker only, other workers None
 
@@ -1081,13 +1080,13 @@ if start_iter == 1:
     phi_knots_init           = phi_at_knots        if rank == 0 else None
     range_knots_init         = range_at_knots      if rank == 0 else None
     Beta_logsigma_init       = Beta_logsigma       if rank == 0 else None
-    Beta_xi_init             = Beta_xi            if rank == 0 else None
+    Beta_xi_init             = Beta_xi             if rank == 0 else None
     sigma_Beta_logsigma_init = sigma_Beta_logsigma if rank == 0 else None
-    sigma_Beta_xi_init       = sigma_Beta_xi      if rank == 0 else None
+    sigma_Beta_xi_init       = sigma_Beta_xi       if rank == 0 else None
     Y_matrix_init            = Y                   if rank == 0 else None
     tau_init                 = tau                 if rank == 0 else None
     Z_init                   = Z                   if rank == 0 else None
-    gamma_k_vec_init      = gamma_k_vec      if rank == 0 else None
+    gamma_k_vec_init         = gamma_k_vec         if rank == 0 else None
     # X_star_init              = X_star              if rank == 0 else None
     # X_init                   = X                   if rank == 0 else None
     if rank == 0: # store initial value into first row of traceplot
@@ -1101,7 +1100,7 @@ if start_iter == 1:
         Y_trace[0,:,:]                 = Y_matrix_init
         tau_trace[0,:]                 = tau_init
         Z_trace[0,:,:]                 = Z_init
-        gamma_k_vec_trace[0,:]      = gamma_k_vec_init
+        gamma_k_vec_trace[0,:]         = gamma_k_vec_init
         # X_star_trace[0,:,:]            = X_star_init
         # X_trace[0,:,:]                 = X_init
 else: # start_iter != 1, load from last iter of saved traceplot
@@ -1116,7 +1115,7 @@ else: # start_iter != 1, load from last iter of saved traceplot
     Y_matrix_init            = Y_trace[last_iter,:,:]                 if rank == 0 else None
     tau_init                 = tau_trace[last_iter,:]                 if rank == 0 else None
     Z_init                   = Z_trace[last_iter,:,:]                 if rank == 0 else None
-    gamma_k_vec_init      = gamma_k_vec_trace[last_iter,:]      if rank == 0 else None
+    gamma_k_vec_init         = gamma_k_vec_trace[last_iter,:]      if rank == 0 else None
     # X_star_init              = X_star_trace[last_iter,:,:]            if rank == 0 else None
     # X_init                   = X_trace[last_iter,:,:]                 if rank == 0 else None
 
@@ -1197,17 +1196,6 @@ if start_iter == 1:
 censored_idx_1t_current = np.where(Y_1t_current <= u_vec)[0]
 exceed_idx_1t_current   = np.where(Y_1t_current  > u_vec)[0]
 
-## ---- X_1t (Ns,) ----
-
-# Note:
-#   The X_1t and dX_1t NEED TO CHANGE whenever 
-#       - we do imputation
-#       - the marginal parameters change (sigma, xi), or
-#       - the dependence model parameters change (phi, tau)
-#
-# X_1t_current  = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
-#                     phi_vec_current, gamma_bar_vec_current, tau_current)
-# dX_1t_current = dRW(X_1t_current, phi_vec_current, gamma_bar_vec_current, tau_current)
 
 
 
@@ -1693,6 +1681,34 @@ for iter in range(start_iter, n_iters):
     # (unnecessary) Broadcast
     sigma_Beta_xi_current = comm.bcast(sigma_Beta_xi_current, root = 0)
 
+    # %% Imputation ---------------------------------------------------------------------------------------------------
+    ######################################################################
+    #### ----- Imputation of (Z_miss, Y_miss)  -----                  ####
+    ######################################################################
+    # Impute Z and Y --------------------------------------------------------------------------------------------------
+    Z_1t_miss, Y_1t_miss = impute_ZY_1t(p, u_vec, Scale_vec_current, Shape_vec_current,
+                                        R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
+                                        obs_idx_1t, miss_idx_1t)
+    
+    # Update ----------------------------------------------------------------------------------------------------------
+    Z_1t_current[miss_idx_1t] = Z_1t_miss
+    Y_1t_current[miss_idx_1t] = Y_1t_miss
+    llik_1t_current = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current, 
+                            R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current, 
+                            S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current)
+
+    # update censoring
+    censored_idx_1t_current = np.where(Y_1t_current <= u_vec)[0]
+    exceed_idx_1t_current   = np.where(Y_1t_current >  u_vec)[0]
+
+    # Save ------------------------------------------------------------------------------------------------------------
+    Z_1t_current_gathered = comm.gather(Z_1t_current, root = 0)
+    Y_1t_current_gathered = comm.gather(Y_1t_current, root = 0)
+    if rank == 0: 
+        Z_trace[iter,:,:] = np.vstack(Z_1t_current_gathered).T
+        Y_trace[iter,:,:] = np.vstack(Y_1t_current_gathered).T
+
+    comm.Barrier()
 
     # %% After iteration likelihood
     ######################################################################
@@ -1837,11 +1853,13 @@ for iter in range(start_iter, n_iters):
             np.save('phi_knots_trace',           phi_knots_trace)
             np.save('range_knots_trace',         range_knots_trace)
             np.save('tau_trace',                 tau_trace)
-            np.save('gamma_k_vec_trace',      gamma_k_vec_trace)
+            np.save('gamma_k_vec_trace',         gamma_k_vec_trace)
             np.save('Beta_logsigma_trace',       Beta_logsigma_trace)
             np.save('Beta_xi_trace',             Beta_xi_trace)
             np.save('sigma_Beta_logsigma_trace', sigma_Beta_logsigma_trace)
             np.save('sigma_Beta_xi_trace',       sigma_Beta_xi_trace)
+            # np.save('X_star_trace',              X_star_trace)
+            # np.save('X_trace',                   X_trace)
 
             with open('iter.pkl', 'wb')               as file: pickle.dump(iter, file)
             with open('sigma_m_sq.pkl', 'wb')         as file: pickle.dump(sigma_m_sq, file)
@@ -1862,7 +1880,7 @@ for iter in range(start_iter, n_iters):
             phi_knots_trace_thin           = phi_knots_trace[0:iter:thin,:]
             range_knots_trace_thin         = range_knots_trace[0:iter:thin,:]
             tau_trace_thin                 = tau_trace[0:iter:thin,:]
-            gamma_k_vec_trace_thin      = gamma_k_vec_trace[0:iter:thin,:]
+            gamma_k_vec_trace_thin         = gamma_k_vec_trace[0:iter:thin,:]
             Beta_logsigma_trace_thin       = Beta_logsigma_trace[0:iter:thin,:]
             Beta_xi_trace_thin             = Beta_xi_trace[0:iter:thin,:]
             sigma_Beta_logsigma_trace_thin = sigma_Beta_logsigma_trace[0:iter:thin,:]
