@@ -7,6 +7,20 @@
   - Figure out folder structures (write scripts to generate data and run jobs)
     - change the `savefolder` and `loadfolder` in the `simulate_data.py` and the `sampler.py` script respectively
   - [Alpine allocation](https://colostate.sharepoint.com/sites/Division_Research_Computing_and_Cyberinfrastructure/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT%2FAlpine%20Project%20Allocation%20Request%20Process%2Epdf&parent=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT&p=true&ga=1)
+  - Alpine conda environment
+    - conda-forge
+      - python=3.11
+      - numpy=1.26
+      - scipy=1.11
+      - gstools=1.5
+      - rpy2=3.5
+      - matplotlib
+      - geopandas
+    - pip
+      - `pip install tensorflow`
+      - `pip install mpi4py==3.1.5`
+    - R
+      - `mgcv` for the thin-plate splines of $\mu_0$ and $\mu_1$ -- no longer needed here
 
 - (By December) Speed up
   - Keep track of `X_star` and, at least, `X` separately (outside) as this will save the number of times we do `qRW`
@@ -32,7 +46,8 @@
     - $S_t$, $Z_t$, $\gamma_k$, $\phi_k$ seems to be updating, so stopped it
   - [x] Try updating: $S_t$, $Z_t$, $\gamma_k$, $\phi_k$, $\rho_k$, $\tau$
     - 20241030
-  - [ ] Try updating: $S_t$, $Z_t$, $\gamma_k$, $\phi_k$, $\rho_k$, $\tau$, $\theta_{GP}$
+  - [ ] Try updating: $S_t$, $Z_t$, $\gamma_k$, $\phi_k$, $\rho_k$, $\tau$, $\theta_{GP}$ (all parameters)
+  - [ ] Try updating: all parameters + imputation
 
 - imputation
   - ![alt text](notes/IMG_6060.jpeg)
@@ -46,6 +61,9 @@
     - Do we just do it on exceedance sites (from simulation)?
     - Do we do it on $X_t(s)$?
 
+- Coverage analysis
+  - a python script that creates the folder structures, copy files, and write bash files
+  - install/update `conda` environment on Alpine
 
 ## Oct. 22 Meeting with Likun/Mark/Ben
 
