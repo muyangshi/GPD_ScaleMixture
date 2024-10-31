@@ -7,6 +7,9 @@ redirect output to ../data/<savefolder>
 
 20240909
 Decouple phi and rho knots
+
+20241031
+output placed in the current folder, easier to use for coverage analysis
 """
 
 # %%
@@ -116,13 +119,20 @@ p = 0.9
 
 # save
 
-savefolder = '../data/simulated' + \
-                        '_seed-'  + str(data_seed) + \
-                        '_t-'     + str(Nt) + \
-                        '_s-'     + str(Ns) + \
-                        '_phi-'   + scenario_phi + \
-                        '_rho-'   + scenario_rho + \
-                        '_tau-'   + str(tau)
+# savefolder = '../data/simulated' + \
+#                         '_seed-'  + str(data_seed) + \
+#                         '_t-'     + str(Nt) + \
+#                         '_s-'     + str(Ns) + \
+#                         '_phi-'   + scenario_phi + \
+#                         '_rho-'   + scenario_rho + \
+#                         '_tau-'   + str(tau)
+savefolder = './simulated' + \
+                '_seed-'  + str(data_seed) + \
+                '_t-'     + str(Nt) + \
+                '_s-'     + str(Ns) + \
+                '_phi-'   + scenario_phi + \
+                '_rho-'   + scenario_rho + \
+                '_tau-'   + str(tau)
 Path(savefolder).mkdir(parents=True, exist_ok=True)
 
 # missing indicator matrix ------------------------------------------------

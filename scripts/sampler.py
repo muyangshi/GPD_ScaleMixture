@@ -7,6 +7,9 @@ mpirun -n 24 python3 sampler.py > OUTPUT.txt 2>&1 &
 
 geopandas map should be placed in ./data
 datafiles (Y, sites) should be placed in ./data/datafolder/
+
+20241031
+load data from the current directory, easier to use for coverage analysis
 """
 
 # %%
@@ -85,11 +88,17 @@ if norm_pareto == 'standard': n_iters = 5000
 
 # data
 
+# if from_simulation == True: 
+#     datafolder = '../data/simulated_seed-2345_t-60_s-50_phi-nonstatsc2_rho-nonstat_tau-10.0/'
+#     datafile   = 'simulated_data.RData'
+# if from_simulation == False: 
+#     datafolder = '../data/realdata/'
+#     datafile   = 'JJA_precip_nonimputed.RData'
 if from_simulation == True: 
-    datafolder = '../data/simulated_seed-2345_t-60_s-50_phi-nonstatsc2_rho-nonstat_tau-10.0/'
+    datafolder = './simulated_seed-2345_t-60_s-50_phi-nonstatsc2_rho-nonstat_tau-10.0/'
     datafile   = 'simulated_data.RData'
 if from_simulation == False: 
-    datafolder = '../data/realdata/'
+    datafolder = './realdata/'
     datafile   = 'JJA_precip_nonimputed.RData'
 
 # Load from .RData file the following
