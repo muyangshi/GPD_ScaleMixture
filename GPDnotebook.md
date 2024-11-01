@@ -4,23 +4,9 @@
 
 - (By December) Start Coverage Analysis
   - without imputation
-  - Figure out folder structures (write scripts to generate data and run jobs)
-    - change the `savefolder` and `loadfolder` in the `simulate_data.py` and the `sampler.py` script respectively
+    - might want to try WITH imputation?
   - [Alpine allocation](https://colostate.sharepoint.com/sites/Division_Research_Computing_and_Cyberinfrastructure/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT%2FAlpine%20Project%20Allocation%20Request%20Process%2Epdf&parent=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT&p=true&ga=1)
-  - Alpine conda environment
-    - conda-forge
-      - python=3.11
-      - numpy=1.26
-      - scipy=1.11
-      - gstools=1.5
-      - rpy2=3.5
-      - matplotlib
-      - geopandas
-    - pip
-      - `pip install tensorflow`
-      - `pip install mpi4py==3.1.5`
-    - R
-      - `mgcv` for the thin-plate splines of $\mu_0$ and $\mu_1$ -- no longer needed here
+
 
 - (By December) Speed up
   - Keep track of `X_star` and, at least, `X` separately (outside) as this will save the number of times we do `qRW`
@@ -63,8 +49,25 @@
 
 - Coverage analysis
   - a python script that creates the folder structures, copy files, and write bash files
-  - install/update `conda` environment on Alpine
-
+  - install/update Alpine `conda` environment
+    - conda-forge
+      - python=3.11
+      - numpy=1.26
+      - scipy=1.11
+      - gstools=1.5
+      - rpy2=3.5
+      - matplotlib
+      - geopandas
+    - pip
+      - `pip3 install tensorflow`
+      - `pip3 install mpi4py==3.1.5`
+        - to use other versions remember to remove the cache -- see website
+    - R
+      - `mgcv` for the thin-plate splines of $\mu_0$ and $\mu_1$ -- no longer needed here
+        - `Matrix` unavailable for R <= 4.4, if install directly within R
+        - install using `r-mgcv` from conda
+    - Figure out folder structures (write scripts to generate data and run jobs)
+      - change the `savefolder` and `loadfolder` in the `simulate_data.py` and the `sampler.py` script respectively
 ## Oct. 22 Meeting with Likun/Mark/Ben
 
 - [x] Make the data $Y$ be from 10-day intervals.
