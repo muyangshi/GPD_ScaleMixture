@@ -12,6 +12,7 @@ data/*
 cb_2018_us_state_20m/*
 proposal_cov.py
 *.pdf
+run/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
