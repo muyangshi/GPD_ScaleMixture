@@ -53,7 +53,7 @@ from   rpy2.robjects.packages import importr
 from utilities import *
 
 if rank == 0: print('link function:', norm_pareto, 'Pareto')
-if rank == 0: state_map = gpd.read_file('./data/cb_2018_us_state_20m/cb_2018_us_state_20m.shp')
+if rank == 0: state_map = gpd.read_file('./cb_2018_us_state_20m/cb_2018_us_state_20m.shp')
 
 # MCMC chain setup --------------------------------------------------------
 
