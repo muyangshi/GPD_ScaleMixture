@@ -32,7 +32,8 @@
     - $S_t$, $Z_t$, $\gamma_k$, $\phi_k$ seems to be updating, so stopped it
   - [x] Try updating: $S_t$, $Z_t$, $\gamma_k$, $\phi_k$, $\rho_k$, $\tau$
     - 20241030
-  - [ ] Try updating: $S_t$, $Z_t$, $\gamma_k$, $\phi_k$, $\rho_k$, $\tau$, $\theta_{GP}$ (all parameters)
+  - [x] Try updating: $S_t$, $Z_t$, $\gamma_k$, $\phi_k$, $\rho_k$, $\tau$, $\theta_{GP}$ (all parameters)
+    - started 20241101 on fozzy
   - [ ] Try updating: all parameters + imputation
 
 - imputation
