@@ -32,8 +32,11 @@
     - $S_t$, $Z_t$, $\gamma_k$, $\phi_k$ seems to be updating, so stopped it
   - [x] Try updating: $S_t$, $Z_t$, $\gamma_k$, $\phi_k$, $\rho_k$, $\tau$
     - 20241030
+    - Chain does seem to be mixing. $\tau$ is drastically overestimated. $\phi$ seems(?) to be underestimated at some knots, undercoverage?. $\rho_k$ seems to have large variance, overcoverage? $\gamma_k$ seems hard. Some very large variance, some shrink to 0.
+    - No more connection recet by peers.
   - [x] Try updating: $S_t$, $Z_t$, $\gamma_k$, $\phi_k$, $\rho_k$, $\tau$, $\theta_{GP}$ (all parameters)
     - started 20241101 on fozzy
+    - Also seems to be mixing. $\tau$ is also overestimated. Others are early to tell. $\gamma_k$ seems hard. Some very large variance, some shrink to 0.
   - [ ] Try updating: all parameters + imputation
 
 - imputation
