@@ -21,6 +21,15 @@
 
 # Meetings
 
+## Nov. 5 Tuesday Meeting with Ben
+
+- Sampler
+  - When updating $Z_t$, just update $Z_{obs}$ with random walk
+    - should it be random walk or a conditional draw?? Or maybe it doesn't matter?
+  - When doing the imputation, draw $Z_{miss} | Z_{obs}$
+
+- Make a double spaced version of the paper, and see how long it is
+
 ## Oct. 29 Tuesday Meeting with Likun/Mark/Ben
 
 - Training grid for the emulator
