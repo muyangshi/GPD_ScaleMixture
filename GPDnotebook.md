@@ -18,6 +18,7 @@
 - will it be faster if the entire likelihood function is implemented in `Cpp`?
 
 - emulation
+  - Can we use Emily's work on Variational Bayes Nerual Framework?
 
 # Meetings
 
@@ -31,6 +32,8 @@
 - Make a double spaced version of the paper, and see how long it is
 
 - fix $\gamma_k$ at 1 for the simulation. Does $\phi$ still under-estimate?
+
+- Quesiton: we can't make spatial prediction below the threshold?
 
 ## Oct. 29 Tuesday Meeting with Likun/Mark/Ben
 
