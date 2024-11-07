@@ -30,6 +30,8 @@
 
 - Make a double spaced version of the paper, and see how long it is
 
+- fix $\gamma_k$ at 1 for the simulation. Does $\phi$ still under-estimate?
+
 ## Oct. 29 Tuesday Meeting with Likun/Mark/Ben
 
 - Training grid for the emulator
