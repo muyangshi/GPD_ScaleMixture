@@ -20,6 +20,8 @@
 - emulation
   - Can we use Emily's work on Variational Bayes Nerual Framework?
 
+- Profile likelihood (even with nonstationary case, change one of the knot)
+
 # Meetings
 
 ## Nov. 5 Tuesday Meeting with Ben
@@ -29,11 +31,10 @@
     - should it be random walk or a conditional draw?? Or maybe it doesn't matter?
   - When doing the imputation, draw $Z_{miss} | Z_{obs}$
 
-- Make a double spaced version of the paper, and see how long it is
-
 - fix $\gamma_k$ at 1 for the simulation. Does $\phi$ still under-estimate?
 
 - Quesiton: we can't make spatial prediction below the threshold?
+  - Likun: Yes, the prediction will just be the threshold.
 
 ## Oct. 29 Tuesday Meeting with Likun/Mark/Ben
 
