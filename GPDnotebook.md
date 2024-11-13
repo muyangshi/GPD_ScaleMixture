@@ -24,9 +24,24 @@
 
 # Meetings
 
-## Nov. 5 Tuesday Meeting with Ben
+## Nov. 19 Tuesday Meeting with
 
-- Sampler
+## Nov. 11 Tuesday Meeting with Ben/Likun/Mark
+
+Notes:
+
+- Fix $\gamma_k$ at truth and re-run the chain, see if $\phi_k$ still under estimates
+- Profile (marginal) likelihood for each $\phi_k$ to see if the likelihood is uni-modal
+
+To Talk: 
+
+- Verify sampler implementation on imputation
+
+- Show underestimation of $\phi_k$
+
+### Nov. 5 Tuesday Meeting with Ben
+
+- Verify sampler implementation on imputation
   - When updating $Z_t$, just update $Z_{obs}$ with random walk
     - should it be random walk or a conditional draw?? Or maybe it doesn't matter?
   - When doing the imputation, draw $Z_{miss} | Z_{obs}$
