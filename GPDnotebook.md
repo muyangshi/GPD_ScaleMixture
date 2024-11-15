@@ -14,13 +14,11 @@
   - make dedicated section to calculate `X_star` and `X` after each update
 
 
-
-- will it be faster if the entire likelihood function is implemented in `Cpp`?
-
 - emulation
+  - Directly emulate the likelihood
+    - Ben and Likun think this will work better
   - Can we use Emily's work on Variational Bayes Nerual Framework?
-
-- Profile likelihood (even with nonstationary case, change one of the knot)
+    - Likun & Ben: No, because the dimensionality of our parameter space is too large
 
 # Meetings
 
@@ -29,9 +27,10 @@
 ## Nov. 11 Tuesday Meeting with Ben/Likun/Mark
 
 Notes:
-
+- Finish coding up (separate) draw observe and miss for $Z_t$
 - Fix $\gamma_k$ at truth and re-run the chain, see if $\phi_k$ still under estimates
 - Profile (marginal) likelihood for each $\phi_k$ to see if the likelihood is uni-modal
+- Likun: shifted Pareto with Laplace nugget term is also 1D integral
 
 To Talk: 
 
