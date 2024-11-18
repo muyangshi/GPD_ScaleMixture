@@ -456,7 +456,7 @@ def impute_ZY_1t(p, u_vec, scale_vec, shape_vec,
     # the smooth process X_star
     X_star_miss = (R_vec[miss_idx] ** phi_vec[miss_idx]) * g(Z_miss)
     
-    # the nuggeted process X
+    # random draw nugget for the nuggeted process X
     X_miss      = X_star_miss + scipy.stats.norm.rvs(loc = 0, scale = tau, size = len(miss_idx))
 
     # marginal transform to Y

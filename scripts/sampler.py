@@ -1351,7 +1351,8 @@ for iter in range(start_iter, n_iters):
     ###########################################################
     ####                 Update Zt                         ####
     ###########################################################
-    for i in range(Ns):
+    # for i in range(Ns):
+    for i in obs_idx_1t: # only update the observed sites
         # propose new Zt at site i  -------------------------------------------------------------------------------
         idx                = np.array([i])
         Z_1t_proposal      = Z_1t_current.copy()
