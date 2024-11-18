@@ -32,7 +32,7 @@ To Talk:
 
 Notes:
 - [x] Finish coding up (separate) draw observe and miss for $Z_t$
-- [ ] Fix $\gamma_k$ at truth and re-run the chain, see if $\phi_k$ still under estimates
+- [x] Fix $\gamma_k$ at truth and re-run the chain, see if $\phi_k$ still under estimates
 - [ ] Profile (marginal) likelihood for each $\phi_k$ to see if the likelihood is uni-modal
 - Likun: shifted Pareto with Laplace nugget term is also 1D integral
 
