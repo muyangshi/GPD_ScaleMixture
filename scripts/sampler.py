@@ -1695,28 +1695,31 @@ for iter in range(start_iter, n_iters):
     ######################################################################
     #### ----- Imputation of (Z_miss, Y_miss)  -----                  ####
     ######################################################################
-    # Impute Z and Y --------------------------------------------------------------------------------------------------
-    Z_1t_miss, Y_1t_miss = impute_ZY_1t(p, u_vec, Scale_vec_current, Shape_vec_current,
-                                        R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
-                                        obs_idx_1t, miss_idx_1t)
     
-    # Update ----------------------------------------------------------------------------------------------------------
-    Z_1t_current[miss_idx_1t] = Z_1t_miss
-    Y_1t_current[miss_idx_1t] = Y_1t_miss
-    llik_1t_current = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current, 
-                            R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current, 
-                            S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current)
+    if len(miss_idx_1t) > 0:
+        
+        # Impute Z and Y --------------------------------------------------------------------------------------------------
+        Z_1t_miss, Y_1t_miss = impute_ZY_1t(p, u_vec, Scale_vec_current, Shape_vec_current,
+                                            R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
+                                            obs_idx_1t, miss_idx_1t)
+        
+        # Update ----------------------------------------------------------------------------------------------------------
+        Z_1t_current[miss_idx_1t] = Z_1t_miss
+        Y_1t_current[miss_idx_1t] = Y_1t_miss
+        llik_1t_current = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current, 
+                                R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current, 
+                                S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current)
 
-    # update censoring
-    censored_idx_1t_current = np.where(Y_1t_current <= u_vec)[0]
-    exceed_idx_1t_current   = np.where(Y_1t_current >  u_vec)[0]
+        # update censoring
+        censored_idx_1t_current = np.where(Y_1t_current <= u_vec)[0]
+        exceed_idx_1t_current   = np.where(Y_1t_current >  u_vec)[0]
 
-    # Save ------------------------------------------------------------------------------------------------------------
-    Z_1t_current_gathered = comm.gather(Z_1t_current, root = 0)
-    Y_1t_current_gathered = comm.gather(Y_1t_current, root = 0)
-    if rank == 0: 
-        Z_trace[iter,:,:] = np.vstack(Z_1t_current_gathered).T
-        Y_trace[iter,:,:] = np.vstack(Y_1t_current_gathered).T
+        # Save ------------------------------------------------------------------------------------------------------------
+        Z_1t_current_gathered = comm.gather(Z_1t_current, root = 0)
+        Y_1t_current_gathered = comm.gather(Y_1t_current, root = 0)
+        if rank == 0: 
+            Z_trace[iter,:,:] = np.vstack(Z_1t_current_gathered).T
+            Y_trace[iter,:,:] = np.vstack(Y_1t_current_gathered).T
 
     comm.Barrier()
 
