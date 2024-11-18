@@ -80,8 +80,8 @@ except Exception as e:
         print('Setting start_iter to 1')
     start_iter = 1
 
-if norm_pareto == 'shifted': n_iters = 5000
-if norm_pareto == 'standard': n_iters = 5000
+if norm_pareto == 'shifted': n_iters = 10000
+if norm_pareto == 'standard': n_iters = 10000
 
 # %%
 # Load Dataset --------------------------------------------------------------------------------------------------------
@@ -1697,7 +1697,7 @@ for iter in range(start_iter, n_iters):
     ######################################################################
     
     if len(miss_idx_1t) > 0:
-        
+
         # Impute Z and Y --------------------------------------------------------------------------------------------------
         Z_1t_miss, Y_1t_miss = impute_ZY_1t(p, u_vec, Scale_vec_current, Shape_vec_current,
                                             R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
