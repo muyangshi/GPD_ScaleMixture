@@ -28,12 +28,15 @@ Notes:
 
 To Talk:
 
-## Nov. 11 Tuesday Meeting with Ben/Likun/Mark
+## Nov. 12 Tuesday Meeting with Ben/Likun/Mark
 
 Notes:
 - [x] Finish coding up (separate) draw observe and miss for $Z_t$
 - [x] Fix $\gamma_k$ at truth and re-run the chain, see if $\phi_k$ still under estimates
-- [ ] Profile (marginal) likelihood for each $\phi_k$ to see if the likelihood is uni-modal
+  - 20241118 started chain in `./run`
+- [x] Profile (marginal) likelihood for each $\phi_k$ to see if the likelihood is uni-modal
+  - Yes it is uni-modal
+  - Bad inference on $\phi_k$ comes from bad inference on $\rho_k$, then? Not sure.
 - Likun: shifted Pareto with Laplace nugget term is also 1D integral
 
 To Talk: 
