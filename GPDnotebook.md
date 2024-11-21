@@ -22,11 +22,7 @@
 
 # Meetings
 
-## Nov. 21 Tuesday Meeting with Ben/Likun
-
-Notes:
-
-To Talk:
+## Nov. 21 Thursday Meeting with Ben/Likun
 
 ## Nov. 12 Tuesday Meeting with Ben/Likun/Mark
 
