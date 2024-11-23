@@ -24,6 +24,12 @@
 
 ## Nov. 21 Thursday Meeting with Ben/Likun
 
+- which GPU
+- fix everything but $\phi$ can it still do good?
+  - trade off between $\tau$ and $X^*$
+- shifted pareto with laplace nugget
+- neural network for likelihood directly
+
 ## Nov. 12 Tuesday Meeting with Ben/Likun/Mark
 
 Notes:
