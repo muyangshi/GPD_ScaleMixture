@@ -2,7 +2,15 @@
 
 ## TODOs
 
-- (By December) Start Coverage Analysis
+- (December and January) emulation
+  - Directly emulate the likelihood
+    - Ben and Likun think this will work better
+  - Can we use Emily's work on Variational Bayes Nerual Framework?
+    - Likun & Ben: No, because the dimensionality of our parameter space is too large
+
+
+- (On Hold until emulator) Start Coverage Analysis
+  - estimated to take 10 months for a chain of 500 sites, cores oversubscribed by 10
   - without imputation
     - might want to try WITH imputation?
   - [Alpine allocation](https://colostate.sharepoint.com/sites/Division_Research_Computing_and_Cyberinfrastructure/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT%2FAlpine%20Project%20Allocation%20Request%20Process%2Epdf&parent=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT&p=true&ga=1)
@@ -13,25 +21,23 @@
   - pull the calculation of `X_star` and `X` outside of `ll_1t` function (use as argument)
   - make dedicated section to calculate `X_star` and `X` after each update
 
-
-- emulation
-  - Directly emulate the likelihood
-    - Ben and Likun think this will work better
-  - Can we use Emily's work on Variational Bayes Nerual Framework?
-    - Likun & Ben: No, because the dimensionality of our parameter space is too large
-
 # Meetings
 
-## Nov. 21 Thursday Meeting with Ben/Likun
+## Nov. 21 Thursday Meeting with Ben
 
-- which GPU
-  - already a GPU
-- fix everything but $\phi$ can it still do good?
-  - trade off between $\tau$ and $X^*$
-- shifted pareto with laplace nugget
 - neural network for likelihood directly
+  - already a GPU
+
+- under-estimation of $\phi$:
+  - trade off between $\tau$ and $X^*$?
+    - on `misspiggy` a chain without $\tau$ is running, `20241128`
+  - fix everything but $\phi$ can it still do good?
+    - on `fozzy` a chain with ONLY $\phi$ is running, `20241202`
+  - Will **shifted** Pareto with **Laplace** nugget resolve the underestimation?
 
 - chain_wihtout_$\gamma_k$ stops updating after ~5300 iterations. Issue with the MPI bug?
+  - added `os.environ["KMP_AFFINITY"] = "disabled" # export KMP_AFFINITY=disabled`, trying again on `misspiggy`
+
 
 ## Nov. 12 Tuesday Meeting with Ben/Likun/Mark
 
