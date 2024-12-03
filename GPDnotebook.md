@@ -23,15 +23,27 @@
 
 # Meetings
 
+## Dec. 3 Tuesday Meeting with Likun/Mark/Ben
+
 ## Nov. 21 Thursday Meeting with Ben
 
-- neural network for likelihood directly
-  - already a GPU
+- Speed up
+  - Estimated runtime: increasing the number of loops roughly increases the run time by a factor of 5. <mark>Without</mark> oversubscribing, on 500 sites, chain would take ~ 1 year to reach 10,000 iterations.
+  - will **standard** Pareto with **Laplace** nugget yield no numerical integration?
+    $$
+    \begin{align*}
+    1-F_{X_j}(x) &= \int_{-\infty}^xq(\epsilon) \cdot P(X_j^* > x-\epsilon)d\epsilon \\
+    &= \int_{-\infty}^xq(\epsilon) \cdot \left(\sqrt{\dfrac{1}{\pi}} \gamma(0.5, \dfrac{\bar{\gamma_j}}{2(x-\epsilon)^{1/\phi_j}}) + \dfrac{1}{x-\epsilon}\sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma_j}}{2}\right)^{\phi_j} \Gamma(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma_j}}{2(x-\epsilon)^{1/\phi_j}}) \right) d\epsilon
+    \end{align*}
+    $$
+  - make the chains marginally faster by separating $X$, $d(X)$, and $X^*$?
+  - neural network for likelihood directly
+    - already a GPU on misspiggy; train NN with GPU
 
 - under-estimation of $\phi$:
   - trade off between $\tau$ and $X^*$?
     - on `misspiggy` a chain without $\tau$ is running, `20241128`
-  - fix everything but $\phi$ can it still do good?
+  - fix everything but $\phi$, can it do good?
     - on `fozzy` a chain with ONLY $\phi$ is running, `20241202`
   - Will **shifted** Pareto with **Laplace** nugget resolve the underestimation?
 
