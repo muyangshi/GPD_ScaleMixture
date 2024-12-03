@@ -610,7 +610,7 @@ if rank == 0 and start_iter == 1:
     cbar_ax = fig.add_axes([0.85, 0.2, 0.05, 0.6])
     fig.colorbar(heatmap, cax = cbar_ax, ticks = ticks)
     plt.savefig('Plot:knot_weights.pdf')
-    plt.show()
+    # plt.show()
     plt.close()
 
     # 1. Station and Knot-Radius Setup
@@ -642,7 +642,7 @@ if rank == 0 and start_iter == 1:
         plt.ylabel('latitude', fontsize = 20)
         plt.subplots_adjust(right=0.6)
         plt.savefig('Plot:Knot_Radius_Setup.pdf',bbox_inches="tight")
-        plt.show()
+        # plt.show()
         plt.close()
 
     if not from_simulation:
@@ -703,7 +703,7 @@ if rank == 0 and start_iter == 1:
         plt.legend(handles = legend_elements, bbox_to_anchor=(1.01,1.01), fontsize = 20)
 
         plt.savefig('Plot:USMap_Knot_Radius_Setup.pdf',bbox_inches='tight')
-        plt.show()
+        # plt.show()
         plt.close()
 
     # 2. Elevation
@@ -719,7 +719,7 @@ if rank == 0 and start_iter == 1:
     plt.ylabel('y', fontsize = 20)
     plt.title('Station elevations', fontsize = 20)
     plt.savefig('Plot:station_elevation.pdf', bbox_inches="tight")
-    plt.show()
+    # plt.show()
     plt.close()
 
     # 3. phi - initial surface
@@ -738,7 +738,7 @@ if rank == 0 and start_iter == 1:
     plt.ylabel('y', fontsize = 20)
     plt.title(r'initial $\phi(s)$ surface', fontsize = 20)
     plt.savefig('Plot:initial_phi_surface.pdf')
-    plt.show()
+    # plt.show()
     plt.close()
 
 
@@ -755,7 +755,7 @@ if rank == 0 and start_iter == 1:
     plt.ylabel('y', fontsize = 20)
     plt.title(r'initial $\rho(s)$ surface', fontsize = 20)
     plt.savefig('Plot:initial_rho_surface.pdf')
-    plt.show()
+    # plt.show()
     plt.close()
 
 
@@ -802,7 +802,7 @@ if rank == 0 and start_iter == 1:
     cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
     fig.colorbar(logsigma_spline_scatter, cax = cbar_ax)
     plt.savefig('Plot:initial_logsigma_estimates.pdf')
-    plt.show()
+    # plt.show()
     plt.close()
 
     # Shape #
@@ -844,7 +844,7 @@ if rank == 0 and start_iter == 1:
     fig.colorbar(xi_spline_scatter, cax = cbar_ax)
 
     plt.savefig('Plot:initial_xi_estimates.pdf')
-    plt.show()
+    # plt.show()
     plt.close()
 
 # %%
