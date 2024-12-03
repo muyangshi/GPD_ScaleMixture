@@ -1861,6 +1861,7 @@ for iter in range(start_iter, n_iters):
 
             # Saving ----------------------------------------------------------------------------------------------
             np.save('loglik_trace',              loglik_trace)
+            np.save('loglik_detail_trace',       loglik_detail_trace)
             np.save('S_trace_log',               S_trace_log)
             np.save('Z_trace',                   Z_trace)
             np.save('phi_knots_trace',           phi_knots_trace)
