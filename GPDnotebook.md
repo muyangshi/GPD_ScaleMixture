@@ -25,6 +25,16 @@
 
 ## Dec. 3 Tuesday Meeting with Likun/Mark/Ben
 
+- Bypass numerical integration
+  - Ben: maybe using Characteristic Functions and Fourier (and inverse Fourier) transform can by-pass the numerical integration
+    - inversion theorem that goes directly from characteristic functions to CDF
+  - $F_X^*(x) \approx F_X(x)$ what happen if we just use $F_X^*$? if we are in the asymptotic with large threshold $u$
+- Emulator
+  - `tensorflow-gpu`
+
+
+
+
 ## Nov. 21 Thursday Meeting with Ben
 
 - Speed up
@@ -32,8 +42,8 @@
   - will **standard** Pareto with **Laplace** nugget yield no numerical integration?
     $$
     \begin{align*}
-    1-F_{X_j}(x) &= \int_{-\infty}^xq(\epsilon) \cdot P(X_j^* > x-\epsilon)d\epsilon \\
-    &= \int_{-\infty}^xq(\epsilon) \cdot \left(\sqrt{\dfrac{1}{\pi}} \gamma(0.5, \dfrac{\bar{\gamma_j}}{2(x-\epsilon)^{1/\phi_j}}) + \dfrac{1}{x-\epsilon}\sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma_j}}{2}\right)^{\phi_j} \Gamma(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma_j}}{2(x-\epsilon)^{1/\phi_j}}) \right) d\epsilon
+    1-F_{X_j}(x) &= \int_x^\infty q(\epsilon) \cdot P(X_j^* > x-\epsilon) d\epsilon + \int_{-\infty}^xq(\epsilon) \cdot P(X_j^* > x-\epsilon)d\epsilon \\
+    &= \int_x^\infty q(\epsilon) d\epsilon + \int_{-\infty}^xq(\epsilon) \cdot \left(\sqrt{\dfrac{1}{\pi}} \gamma(0.5, \dfrac{\bar{\gamma_j}}{2(x-\epsilon)^{1/\phi_j}}) + \dfrac{1}{x-\epsilon}\sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma_j}}{2}\right)^{\phi_j} \Gamma(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma_j}}{2(x-\epsilon)^{1/\phi_j}}) \right) d\epsilon
     \end{align*}
     $$
   - make the chains marginally faster by separating $X$, $d(X)$, and $X^*$?
