@@ -28,12 +28,15 @@
 - Bypass numerical integration
   - Ben: maybe using Characteristic Functions and Fourier (and inverse Fourier) transform can by-pass the numerical integration
     - inversion theorem that goes directly from characteristic functions to CDF
-  - $F_X^*(x) \approx F_X(x)$ what happen if we just use $F_X^*$? if we are in the asymptotic with large threshold $u$
+    - an attempt at `FFT` is implemented, but there seems to be an offset.
+
 - Emulator
   - `tensorflow-gpu`
 
 
-
+- Underestimation of $\phi$
+  - in the chain that **only** update $\phi$, $\phi$ is correctly updated.
+  - currently running a chain that update both $\phi$ and $\rho$.
 
 ## Nov. 21 Thursday Meeting with Ben
 
