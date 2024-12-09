@@ -127,12 +127,15 @@ def pRW_standard_Pareto_nugget_FFT(x_val, phi, gamma, tau, n = 2**10):
 # def qX(u):
 #     return np.interp(u, F_X, x)
 
-# x_plot = np.linspace(qRW_standard_Pareto_nugget_vec(0.8, 0.5, 1, 10), qRW_standard_Pareto_nugget_vec(0.999, 0.5, 1, 10), 100)
-# f_20 = pRW_standard_Pareto_nugget_FFT(0, 0.5, 1, 10, 2**20)
-# f_21 = pRW_standard_Pareto_nugget_FFT(0, 0.5, 1, 10, 2**21)
-# plt.plot(pRW_standard_Pareto_nugget_vec(x_plot, 0.5, 1, 10), label = 'exact')
-# plt.plot(f_20(x_plot), label = 'FFT 2**20')
-# plt.plot(f_21(x_plot), label = 'FFT 2**21')
+x_plot = np.linspace(qRW_standard_Pareto_nugget_vec(0.8, 0.5, 1, 10), qRW_standard_Pareto_nugget_vec(0.999, 0.5, 1, 10), 100)
+f_20 = pRW_standard_Pareto_nugget_FFT(0, 0.5, 1, 10, 2**20)
+f_21 = pRW_standard_Pareto_nugget_FFT(0, 0.5, 1, 10, 2**21)
+f_22 = pRW_standard_Pareto_nugget_FFT(0, 0.5, 1, 10, 2**22)
+plt.plot(x_plot, pRW_standard_Pareto_nugget_vec(x_plot, 0.5, 1, 10), label = 'exact')
+plt.plot(x_plot, f_20(x_plot), label = 'FFT 2**20')
+plt.plot(x_plot, f_21(x_plot), label = 'FFT 2**21')
+plt.plot(x_plot, f_22(x_plot), label = 'FFT 2**22')
+plt.legend(loc='lower right')
 
 
 
