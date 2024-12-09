@@ -84,12 +84,13 @@ def pRW_standard_Pareto_nugget_FFT(x_val, phi, gamma, tau, n = 2**10):
 
     # 1. Determine the domain via quantile function:
     x_min = qRW_standard_Pareto_vec(0.1, phi, gamma)
+    # x_min = -8000
     x_max = qRW_standard_Pareto_vec(0.99999, phi, gamma)
     x = np.linspace(x_min, x_max, n)
     dx = x[1] - x[0]
 
     # 2. Use middle padding
-    n_pad        = 2 * n
+    n_pad     = 2 * n
     # start_idx = (n_pad - n)//2
     # end_idx   = start_idx + n
     mid       = n_pad // 2
@@ -98,7 +99,8 @@ def pRW_standard_Pareto_nugget_FFT(x_val, phi, gamma, tau, n = 2**10):
 
     # 3. Evaluate F_{X^*}(x)
     F_X_star_padded = np.zeros(n_pad)
-    F_X_star        = pRW_standard_Pareto_vec(x, phi, gamma)
+    # F_X_star        = pRW_standard_Pareto_vec(x, phi, gamma)
+    F_X_star        = np.where(x <= 0, 0, pRW_standard_Pareto_vec(x, phi, gamma))
     F_X_star_padded[start_idx:end_idx] = F_X_star
 
     # 4. Fourier transform of f_ε(x) and F_{X^*}(x)
@@ -114,7 +116,7 @@ def pRW_standard_Pareto_nugget_FFT(x_val, phi, gamma, tau, n = 2**10):
     F_X_star_fft = fft(F_X_star_padded)
     
     # 5. Convolution
-    conv_padded = ifft(F_X_star_fft * f_epsilon_fft)*dx
+    conv_padded = ifft(F_X_star_fft * f_epsilon_fft)
     F_X_padded  = np.real(conv_padded)
     F_X         = F_X_padded[start_idx:end_idx]
 
@@ -128,16 +130,66 @@ def pRW_standard_Pareto_nugget_FFT(x_val, phi, gamma, tau, n = 2**10):
 #     return np.interp(u, F_X, x)
 
 x_plot = np.linspace(qRW_standard_Pareto_nugget_vec(0.8, 0.5, 1, 10), qRW_standard_Pareto_nugget_vec(0.999, 0.5, 1, 10), 100)
+f_10 = pRW_standard_Pareto_nugget_FFT(0, 0.5, 1, 10, 2**10)
 f_20 = pRW_standard_Pareto_nugget_FFT(0, 0.5, 1, 10, 2**20)
 f_21 = pRW_standard_Pareto_nugget_FFT(0, 0.5, 1, 10, 2**21)
 f_22 = pRW_standard_Pareto_nugget_FFT(0, 0.5, 1, 10, 2**22)
-plt.plot(x_plot, pRW_standard_Pareto_nugget_vec(x_plot, 0.5, 1, 10), label = 'exact')
-plt.plot(x_plot, f_20(x_plot), label = 'FFT 2**20')
-plt.plot(x_plot, f_21(x_plot), label = 'FFT 2**21')
-plt.plot(x_plot, f_22(x_plot), label = 'FFT 2**22')
+plt.plot(x_plot, pRW_standard_Pareto_nugget_vec(x_plot, 0.5, 1, 10), label = 'exact', linewidth = 5)
+plt.plot(x_plot, f_20(x_plot), label = 'FFT 2**20', linewidth = 4)
+plt.plot(x_plot, f_21(x_plot), label = 'FFT 2**21', linewidth = 3)
+plt.plot(x_plot, f_22(x_plot), label = 'FFT 2**22', linewidth = 2)
+plt.plot(x_plot, f_10(x_plot), label = 'FFT 2**10', linewidth = 1)
 plt.legend(loc='lower right')
 
+# %% STANDARD PARETO WITH NUGGET using FFT from pyfftw
+import pyfftw
+import numpy as np
 
+def pRW_standard_Pareto_nugget_pyFFTW(x_val, phi, gamma, tau, n = 2**10):
+
+    # 1. Determine the domain via quantile function:
+    x_min = qRW_standard_Pareto_vec(0.1, phi, gamma)
+    # x_min = -8000
+    x_max = qRW_standard_Pareto_vec(0.99999, phi, gamma)
+    x = np.linspace(x_min, x_max, n)
+    dx = x[1] - x[0]
+
+    # 2. Use middle padding
+    n_pad     = 2 * n
+    # start_idx = (n_pad - n)//2
+    # end_idx   = start_idx + n
+    mid       = n_pad // 2
+    start_idx = mid - n//2
+    end_idx   = mid + n//2
+
+    # 3. Evaluate F_{X^*}(x)
+    F_X_star_padded = np.zeros(n_pad)
+    # F_X_star        = pRW_standard_Pareto_vec(x, phi, gamma)
+    F_X_star        = np.where(x <= 0, 0, pRW_standard_Pareto_vec(x, phi, gamma))
+    F_X_star_padded[start_idx:end_idx] = F_X_star
+
+    # 4. Fourier transform of f_ε(x) and F_{X^*}(x)
+    
+    # Analytical Fourier transform of Gaussian f_epsilon
+    # f_epsilon(x) = (1/(tau*sqrt(2*pi))) * exp(-x^2/(2*tau^2))
+    # FT of f_epsilon(x) w.r.t x:
+    # F{f_epsilon}(f) = exp(-2 * (pi^2) * (tau^2) * (f^2))
+    freqs         = pyfftw.interfaces.numpy_fft.fftfreq(n_pad, dx)
+    f_epsilon_fft = np.exp(-2*(pi**2)*(tau**2)*(freqs**2))
+
+    # Numerical Fourier transform of F_{X^*}(x)
+    F_X_star_fft = pyfftw.interfaces.numpy_fft.fft(F_X_star_padded)
+    
+    # 5. Convolution
+    conv_padded = pyfftw.interfaces.numpy_fft.ifft(F_X_star_fft * f_epsilon_fft)
+    F_X_padded  = np.real(conv_padded)
+    F_X         = F_X_padded[start_idx:end_idx]
+
+    # Ensure monotonicity and bounds [0,1], just in case of minor numerical issues:
+    # F_X = np.clip(F_X, 0.0, 1.0)
+
+    return scipy.interpolate.interp1d(x, F_X)
+    # return np.interp(x_val, x, F_X)
 
 # SHIFTED PARETO --------------------------------------------------------------
 
