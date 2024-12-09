@@ -23,20 +23,23 @@
 
 # Meetings
 
-## Dec. 3 Tuesday Meeting with Likun/Mark/Ben
+## Dec. 3 & 9 Tuesday Meeting with Likun/Ben
 
 - Bypass numerical integration
   - Ben: maybe using Characteristic Functions and Fourier (and inverse Fourier) transform can by-pass the numerical integration
     - inversion theorem that goes directly from characteristic functions to CDF
-    - an attempt at `FFT` is implemented, but there seems to be an offset.
+    - an attempt at `FFT` is implemented.
+      - not fast enough
 
 - Emulator
   - `tensorflow-gpu`
 
 
 - Underestimation of $\phi$
-  - in the chain that **only** update $\phi$, $\phi$ is correctly updated.
-  - currently running a chain that update both $\phi$ and $\rho$.
+  - in the chain that **only** update $\phi$, 
+    - $\phi$ is correctly updated.
+  - currently running a chain that update both $\phi$ and $S$.
+    - seems not too bad
 
 ## Nov. 21 Thursday Meeting with Ben
 
