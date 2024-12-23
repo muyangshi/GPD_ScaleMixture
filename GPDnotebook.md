@@ -20,8 +20,23 @@
   - Keep track of `X_star` and, at least, `X` separately (outside) as this will save the number of times we do `qRW`
   - pull the calculation of `X_star` and `X` outside of `ll_1t` function (use as argument)
   - make dedicated section to calculate `X_star` and `X` after each update
+  - Ben: using block update on the $Z_t$ could reduce nontrivial runtime
 
 # Meetings
+
+## Winter break
+
+- Emulation:
+  - the CDF $F_X(x)$ or the quantile $F_X^{-1}(x)$:
+    - grid out the $\phi$ (at 0.001 intervals) and pre-specify some levels of $\tau$ (e.g. 1, 5, 10?) and store the calculated $F_X(x)$?
+  - the likelihood
+    - spline emulator
+    - neural network emulator, train with GPU
+      - 12/23 installed `tensorflow` with GPU in a new environment conda env `(gpd)`
+
+- Underestimation of $\phi$:
+  - fix $\gamma$ and $\tau$ still leads to underestimation on some:
+  - ![alt text](image.png)
 
 ## Dec. 3 & 9 Tuesday Meeting with Likun/Ben
 
@@ -38,7 +53,7 @@
 - Underestimation of $\phi$
   - in the chain that **only** update $\phi$, 
     - $\phi$ is correctly updated.
-  - currently running a chain that update both $\phi$ and $S$.
+  - currently running a chain that update both $\phi$ and $S$ on `fozzy`.
     - seems not too bad
 
 ## Nov. 21 Thursday Meeting with Ben
