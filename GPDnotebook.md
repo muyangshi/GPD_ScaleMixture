@@ -29,6 +29,7 @@
 - Emulation:
   - the CDF $F_X(x)$ or the quantile $F_X^{-1}(x)$:
     - grid out the $\phi$ (at 0.001 intervals) and pre-specify some levels of $\tau$ (e.g. 1, 5, 10?) and store the calculated $F_X(x)$?
+      - $\tau$ is heavily over-estimated, so we might want to just fix it? (In which case, pre-computation is managable for `pRW/qRW`?)
   - the likelihood
     - spline emulator
     - neural network emulator, train with GPU
