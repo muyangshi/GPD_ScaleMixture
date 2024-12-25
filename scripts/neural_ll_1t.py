@@ -43,34 +43,82 @@ import matplotlib.pyplot as plt
 from scipy.stats import qmc
 from rpy2.robjects import r
 from multiprocessing import Pool, cpu_count
+import multiprocessing
+
+from utilities import *
 
 # r('load("../data/realdata/JJA_precip_nonimputed.RData")')
 # Y                  = np.array(r('Y'))
 # GP_estimates       = np.array(r('GP_estimates')).T
+# u_vec              = GP_estimates[:,0]
 # logsigma_estimates = GP_estimates[:,1]
 # xi_estimates       = GP_estimates[:,2]
 # Notes on range of LHS:
 #   looked at data Y to get its range
 #   looked at previous run and initial site-level estimates to get scale and shape
-#   used reverse CDF to span the R
+#   used reverse CDF to span the R <- R is NOT levy(0, 0.5)!
 
 
 # %% step 1: generate design points with LHS
 
-# (Y, scale, shape, R, Z, phi, gamma_bar, tau)
+# LHS for the design point X
 
-N = 1000
-d = 8
+N = 500
+d = 9
 
-sampler = qmc.LatinHypercube(d, scramble=False, seed=2345)
-lhs_samples = sampler.random(N) # Generate samples in [0,1]^d
+sampler     = qmc.LatinHypercube(d, scramble=False, seed=2345)
+lhs_samples = sampler.random(N) # Generate LHS samples in [0,1]^d
 
-l_bounds = [40,   5, -1, 0.01, -5.0, 0.05, 0.05, 0.1]
-u_bounds = [800, 60,  1, 0.99,  5.0, 0.95,  5.0, 10.0]
+#           Y,     u, scale, shape,    R,    Z,  phi, gamma_bar,  tau
+l_bounds = [0.0,   30,    5,  -1.0, 0.01, -5.0, 0.05,       1.0,  0.1]
+u_bounds = [800.0, 80,   60,   1.0, 0.99,  5.0, 0.95,       8.0, 10.0]
+X_lhs    = qmc.scale(lhs_samples, l_bounds, u_bounds)        # scale LHS to specified bounds
 
-X_lhs = qmc.scale(lhs_samples, l_bounds, u_bounds)
-X_lhs[:,3] = scipy.stats.levy(loc=0,scale=0.5).ppf(X_lhs[:,3])
-Y_samples, scale_samples, shape_samples, R_samples, Z_samples, phi_samples, gamma_bar_samples, tau_samples = X_lhs.T
+# Note that R is not levy(0, 0.5)
+#   Check the values of gamma_bar, pick the largest, use that to span the sample space
+#   Maybe (0, 8)?
+X_lhs[:,4] = scipy.stats.levy(loc=0,scale=8.0).ppf(X_lhs[:,4]) # scale the Stables
+
+Y_samples, u_samples, scale_samples, shape_samples, \
+    R_samples, Z_samples, \
+    phi_samples, gamma_bar_samples, tau_samples = X_lhs.T
+
+print('X_lhs.shape:',X_lhs.shape)
+
+# %% Calculate the log likelihoods at the design points
+
+def Y_ll_1t(params): # dependence model parameters)
+    """
+    calculate the censoring likelihood of Y, at p = 0.9
+    """
+    
+    p = 0.9
+
+    Y, u_vec, scale_vec, shape_vec, \
+    R_vec, Z_vec, phi_vec, gamma_bar_vec, tau = params
+
+    X_star = (R_vec ** phi_vec) * g(Z_vec)
+    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
+    dX     = dRW(X, u_vec, scale_vec, shape_vec)
+
+    if Y <= u_vec:
+        # log censored likelihood of y on censored sites
+        censored_ll = scipy.stats.norm.logcdf((X - X_star)/tau)
+        return censored_ll
+    else: # if Y > u_vec
+        # log censored likelihood of y on exceedance sites
+        exceed_ll   = scipy.stats.norm.logpdf(X, loc = X_star, scale = tau) \
+                        + np.log(dCGP(Y, p, u_vec, scale_vec, shape_vec)) \
+                        - np.log(dX)
+        if np.isnan(exceed_ll):
+            print(params)
+        return exceed_ll
+    # return np.sum(censored_ll) + np.sum(exceed_ll)
+
+data = [tuple(row) for row in X_lhs]
+
+with multiprocessing.get_context('fork').Pool(processes=cpu_count()-1) as pool:
+    results = pool.map(Y_ll_1t, data)
 
 
 
