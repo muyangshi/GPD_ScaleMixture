@@ -63,21 +63,25 @@ from utilities import *
 
 # LHS for the design point X
 
-N = 500
+N = 10000 # 16 secs on 7 cores
 d = 9
 
 sampler     = qmc.LatinHypercube(d, scramble=False, seed=2345)
 lhs_samples = sampler.random(N) # Generate LHS samples in [0,1]^d
 
-#           Y,     u, scale, shape,    R,    Z,  phi, gamma_bar,  tau
-l_bounds = [0.0,   30,    5,  -1.0, 0.01, -5.0, 0.05,       1.0,  0.1]
-u_bounds = [800.0, 80,   60,   1.0, 0.99,  5.0, 0.95,       8.0, 10.0]
+#             pY,    u, scale, shape,   pR,    Z,  phi, gamma_bar,  tau
+l_bounds = [0.001,   30,     5,  -1.0, 0.01, -5.0, 0.05,       1.0,  0.1]
+u_bounds = [0.999,   80,    60,   1.0, 0.95,  5.0, 0.95,       8.0, 10.0]
 X_lhs    = qmc.scale(lhs_samples, l_bounds, u_bounds)        # scale LHS to specified bounds
 
 # Note that R is not levy(0, 0.5)
 #   Check the values of gamma_bar, pick the largest, use that to span the sample space
 #   Maybe (0, 8)?
 X_lhs[:,4] = scipy.stats.levy(loc=0,scale=8.0).ppf(X_lhs[:,4]) # scale the Stables
+
+# Y assumed to be Generalized Pareto, if pY > 0.9;
+#   otherwise, just return the corresponding threshold u
+X_lhs[:,0] = qCGP(X_lhs[:,0], 0.9, X_lhs[:,1], X_lhs[:,2], X_lhs[:,3])
 
 Y_samples, u_samples, scale_samples, shape_samples, \
     R_samples, Z_samples, \
@@ -101,6 +105,8 @@ def Y_ll_1t(params): # dependence model parameters)
     X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
     dX     = dRW(X, u_vec, scale_vec, shape_vec)
 
+    # if dX < 0: return np.nan
+
     if Y <= u_vec:
         # log censored likelihood of y on censored sites
         censored_ll = scipy.stats.norm.logcdf((X - X_star)/tau)
@@ -110,8 +116,8 @@ def Y_ll_1t(params): # dependence model parameters)
         exceed_ll   = scipy.stats.norm.logpdf(X, loc = X_star, scale = tau) \
                         + np.log(dCGP(Y, p, u_vec, scale_vec, shape_vec)) \
                         - np.log(dX)
-        if np.isnan(exceed_ll):
-            print(params)
+        # if np.isnan(exceed_ll):
+        #     print(params)
         return exceed_ll
     # return np.sum(censored_ll) + np.sum(exceed_ll)
 
@@ -121,6 +127,14 @@ with multiprocessing.get_context('fork').Pool(processes=cpu_count()-1) as pool:
     results = pool.map(Y_ll_1t, data)
 
 
+# %% remove the NAs
+
+noNA = np.where(~np.isnan(results))
+Y_lhs = np.array(results)[noNA]
+X_lhs = X_lhs[noNA]
+
+len(Y_lhs)   # number of design points retained
+len(Y_lhs)/N # proportion of design points retained
 
 # %% step 2a: emulate with scipy rbf smoothing splines
 

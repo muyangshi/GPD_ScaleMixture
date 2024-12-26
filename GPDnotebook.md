@@ -34,7 +34,11 @@
     - spline emulator
     - neural network emulator, train with GPU
       - 12/23 installed `tensorflow` with GPU in a new environment conda env `(gpd)`
-      - 12/24-12/25, generate design points. On generating `Y`, if `Y` is too large and shape is negative (bounded tail), will run into `nan` `np.log(dCGP)`. How to generate the `Y`? We can generate `pY`, and if `pY` is $< 0.9$ just give it the corresponding threshold.
+      - 12/24-12/26, generate design points. 
+        - On generating `Y`, if `Y` is too large and shape is negative (bounded tail), will run into `nan` `np.log(dCGP)`. How to generate the `Y`? We can generate `pY`, and if `pY` is $< 0.9$ just give it the corresponding threshold.
+        - Modifying `Y` as above fix the issue with `dCGP`, but `dX` can still struggle sometimes, giving negative values. Try dropping these values/design points.
+        - Looking at the histogram of the likelihoods, spline might be a better option because  
+      - 
 - Underestimation of $\phi$:
   - fix $\gamma$ and $\tau$ still leads to underestimation on some:
   - ![alt text](image.png)
