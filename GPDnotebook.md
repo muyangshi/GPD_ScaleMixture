@@ -32,6 +32,8 @@
       - $\tau$ is heavily over-estimated, so we might want to just fix it? (In which case, pre-computation is managable for `pRW/qRW`?)
   - the likelihood
     - spline emulator
+      - [ ] Do cross-validation (?) to select `degree` and `smoothing`
+      - seemingly large training LMSE
     - neural network emulator, train with GPU
     - Notes:
       - 12/23 installed `tensorflow` with GPU in a new environment conda env `(gpd)`
@@ -40,6 +42,7 @@
         - Modifying `Y` as above fix the issue with `dCGP`, but `dX` can still struggle sometimes, giving negative values. Try dropping these values/design points.
         - Looking at the histogram of the likelihoods, spline might be a better option because there are some very negative `Y` likelihoods
       - 12/27 an `RBFInterpolator`
+      - 12/30 a likelihood function that takes an emulator for censoring likelihood on Y
 - Underestimation of $\phi$:
   - fix $\gamma$ and $\tau$ still leads to underestimation on some:
   - ![alt text](image.png)

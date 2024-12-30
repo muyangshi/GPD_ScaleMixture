@@ -10,7 +10,20 @@ import scipy
 import scipy.special as sc
 from scipy.spatial import distance
 import RW_inte
+import pickle
+
 norm_pareto = 'standard'
+
+def save_pickle_data(dataname,data_to_save):
+    with open(dataname + '.pickle', 'wb') as f:
+        pickle.dump(data_to_save, f, protocol=pickle.HIGHEST_PROTOCOL)
+    f.close()
+
+def read_pickle_data(dataname):
+    with open(dataname + '.pickle', 'rb') as f:
+        read_data = pickle.load(f)
+    f.close()
+    return read_data
 
 # %% spatial covariance functions copied from ns_cov
 # spatial covariance functions copied from ns_cov
