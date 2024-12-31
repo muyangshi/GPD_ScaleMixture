@@ -15,6 +15,7 @@ proposal_cov.py
 *.npy
 run/*
 scripts/*.pickle
+*.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
