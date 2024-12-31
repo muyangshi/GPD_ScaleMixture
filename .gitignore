@@ -14,6 +14,7 @@ proposal_cov.py
 *.pdf
 *.npy
 run/*
+scripts/*.pickle
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

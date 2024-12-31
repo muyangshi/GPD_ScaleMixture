@@ -43,6 +43,7 @@
         - Looking at the histogram of the likelihoods, spline might be a better option because there are some very negative `Y` likelihoods
       - 12/27 an `RBFInterpolator`
       - 12/30 a likelihood function that takes an emulator for censoring likelihood on Y
+      - 12/31 plot emulated "marginal/profile" likelihood. spline emulator does not do well.
 - Underestimation of $\phi$:
   - fix $\gamma$ and $\tau$ still leads to underestimation on some:
   - ![alt text](image.png)

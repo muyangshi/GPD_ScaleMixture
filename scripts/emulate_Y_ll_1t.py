@@ -37,17 +37,44 @@ def ll_1t(Y, p, u_vec, scale_vec, shape_vec,        # marginal model parameters
 """
 
 # %% step 0: imports
-import numpy as np
-import scipy.stats
-import matplotlib.pyplot as plt
-from scipy.stats import qmc
-from rpy2.robjects import r
-from multiprocessing import Pool, cpu_count
-import multiprocessing
-from scipy.interpolate import RBFInterpolator
 
+# base python
+
+import sys
+import os
+import time
+import multiprocessing
+from multiprocessing import Pool, cpu_count
+from time import strftime, localtime
+from pathlib import Path
+
+os.environ["OMP_NUM_THREADS"]        = "1" # export OMP_NUM_THREADS=1
+os.environ["OPENBLAS_NUM_THREADS"]   = "1" # export OPENBLAS_NUM_THREADS=1
+os.environ["MKL_NUM_THREADS"]        = "1" # export MKL_NUM_THREADS=1
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
+os.environ["NUMEXPR_NUM_THREADS"]    = "1" # export NUMEXPR_NUM_THREADS=1
+
+# packages
+import scipy
+import scipy.stats
+import numpy             as np
+import matplotlib        as mpl
+import matplotlib.pyplot as plt
+import gstools           as gs
+import geopandas         as gpd
+import rpy2.robjects     as robjects
+
+from scipy.stats       import qmc
+from rpy2.robjects     import r
+from scipy.interpolate import RBFInterpolator
+from rpy2.robjects.numpy2ri import numpy2rpy
+from rpy2.robjects.packages import importr
 
 from utilities import *
+
+print('link function:', norm_pareto, 'Pareto')
+
+random_generator = np.random.RandomState(7)
 
 # r('load("../data/realdata/JJA_precip_nonimputed.RData")')
 # Y                  = np.array(r('Y'))
@@ -178,7 +205,7 @@ def ll_1t_spline(Y, p, u_vec, scale_vec, shape_vec,            # marginal model 
                  logS_vec, gamma_at_knots, censored_idx, exceed_idx,  # auxilury information
                  emulator):
     
-    Y_ll = emulator(np.array([Y, u_vec, scale_vec, shape_vec, R_vec, Z_vec, phi_vec, gamma_bar_vec, tau]))
+    Y_ll = emulator(np.array([Y, u_vec, scale_vec, shape_vec, R_vec, Z_vec, phi_vec, gamma_bar_vec, np.full_like(Y, tau)]).T)
 
     # log likelihood of S
     S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
@@ -188,108 +215,56 @@ def ll_1t_spline(Y, p, u_vec, scale_vec, shape_vec,            # marginal model 
 
     return np.sum(Y_ll) + np.sum(S_ll) + np.sum(Z_ll)
 
+def ll_1t_spline_par(args):
+    Y, p, u_vec, scale_vec, shape_vec, \
+    R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, \
+    logS_vec, gamma_at_knots, censored_idx, exceed_idx, emulator = args
+
+    Y_ll = emulator(np.array([Y, u_vec, scale_vec, shape_vec, R_vec, Z_vec, phi_vec, gamma_bar_vec, np.full_like(Y, tau)]).T)
+
+    # log likelihood of S
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+
+    # log likelihood of Z
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+
+    return np.sum(Y_ll) + np.sum(S_ll) + np.sum(Z_ll)
+
+# likelihood function to use for parallelization
+def ll_1t_par(args):
+    Y, p, u_vec, scale_vec, shape_vec, \
+    R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, \
+    logS_vec, gamma_at_knots, censored_idx, exceed_idx = args
+
+    X_star = (R_vec ** phi_vec) * g(Z_vec)
+    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
+    dX     = dRW(X, u_vec, scale_vec, shape_vec)
+    
+    # log censored likelihood of y on censored sites
+    censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
+    # log censored likelihood of y on exceedance sites
+    exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
+                    + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
+                    - np.log(dX[exceed_idx])
+
+    # log likelihood of S
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+
+    # log likelihood of Z
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+
+    return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(S_ll) + np.sum(Z_ll)
 
 
-
-
-
-
-
-
-
-
-
-"""
-Plot the likelihood surface for [a parameter]
-"""
 # %%
 # imports -------------------------------------------------------------------------------------------------------------
 
-# base python -------------------------------------------------------------
 
-import sys
-import os
-import multiprocessing
-import pickle
-import time
-from time import strftime, localtime
-from pathlib import Path
-os.environ["OMP_NUM_THREADS"] = "1" # export OMP_NUM_THREADS=1
-os.environ["OPENBLAS_NUM_THREADS"] = "1" # export OPENBLAS_NUM_THREADS=1
-os.environ["MKL_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
-os.environ["NUMEXPR_NUM_THREADS"] = "1" # export NUMEXPR_NUM_THREADS=1
-
-# packages ----------------------------------------------------------------
-
-from mpi4py import MPI
-comm             = MPI.COMM_WORLD
-rank             = comm.Get_rank()
-size             = comm.Get_size()
-
-import numpy             as np
-import matplotlib        as mpl
-import matplotlib.pyplot as plt
-import scipy
-import gstools           as gs
-import geopandas         as gpd
-import rpy2.robjects     as robjects
-from   rpy2.robjects import r
-from   rpy2.robjects.numpy2ri import numpy2rpy
-from   rpy2.robjects.packages import importr
-
-# custom module -----------------------------------------------------------
-
-from utilities import *
-
-if rank == 0: print('link function:', norm_pareto, 'Pareto')
-if rank == 0: state_map = gpd.read_file('./cb_2018_us_state_20m/cb_2018_us_state_20m.shp')
-
-# MCMC chain setup --------------------------------------------------------
-
-random_generator = np.random.RandomState((rank+1)*7)
-
-from_simulation = True
-
-try:
-    data_seed = int(sys.argv[1])
-    data_seed
-except:
-    data_seed = 2345
-finally:
-    if rank == 0: print('data_seed:', data_seed)
-    np.random.seed(data_seed)
-
-try:
-    with open('iter.pkl','rb') as file:
-        start_iter = pickle.load(file) + 1
-        if rank == 0: print('start_iter loaded from pickle, set to be:', start_iter)
-except Exception as e:
-    if rank == 0:
-        print('Exception loading iter.pkl:', e)
-        print('Setting start_iter to 1')
-    start_iter = 1
-
-if norm_pareto == 'shifted': n_iters = 10000
-if norm_pareto == 'standard': n_iters = 10000
-
-# %%
-# Load Dataset --------------------------------------------------------------------------------------------------------
-
-# data
-
-# if from_simulation == True: 
-#     datafolder = '../data/simulated_seed-2345_t-60_s-50_phi-nonstatsc2_rho-nonstat_tau-10.0/'
-#     datafile   = 'simulated_data.RData'
-# if from_simulation == False: 
-#     datafolder = '../data/realdata/'
-#     datafile   = 'JJA_precip_nonimputed.RData'
-if from_simulation == True: 
-    datafolder = './simulated_seed-2345_t-60_s-50_phi-nonstatsc2_rho-nonstat_tau-10.0/'
-    datafile   = 'simulated_data.RData'
-if from_simulation == False: 
-    datafolder = './realdata/'
-    datafile   = 'JJA_precip_nonimputed.RData'
+datafolder = './simulated_seed-2345_t-60_s-50_phi-nonstatsc2_rho-nonstat_tau-10.0/'
+datafile   = 'simulated_data.RData'
+r(f'''
+    load("{datafolder}/{datafile}")
+''')
 
 # Load from .RData file the following
 #   Y, 
@@ -297,12 +272,8 @@ if from_simulation == False:
 #   elev, 
 #   stations
 
-r(f'''
-    load("{datafolder}/{datafile}")
-''')
-
-Y = np.array(r('Y'))
-GP_estimates = np.array(r('GP_estimates')).T
+Y                  = np.array(r('Y'))
+GP_estimates       = np.array(r('GP_estimates')).T
 logsigma_estimates = GP_estimates[:,1]
 xi_estimates       = GP_estimates[:,2]
 elevations         = np.array(r('elev'))
@@ -311,21 +282,7 @@ stations           = np.array(r('stations')).T
 # this `u_vec` is the threshold, 
 # spatially varying but temporally constant
 # ie, each site has its own threshold
-u_vec              = GP_estimates[:,0] 
-
-
-# truncate if only running a random subset
-
-
-# missing indicator matrix
-
-miss_matrix = np.isnan(Y)
-miss_idx_1t = np.where(np.isnan(Y[:,rank]) == True)[0]
-obs_idx_1t  = np.where(np.isnan(Y[:,rank]) == False)[0]
-# Note:
-#   miss_idx_1t and obs_idx_1t stays the same throughout the entire MCMC
-#   they are part of the "dataset's attribute"
-
+u_vec              = GP_estimates[:,0]
 
 # %%
 # Setup (Covariates and Constants) ------------------------------------------------------------------------------------
@@ -353,7 +310,7 @@ eff_range_rho    = 3 # effective range for rho
 
 p        = 0.9
 u_matrix = np.full(shape = (Ns, Nt), fill_value = np.nanquantile(Y, p)) # threshold u on Y, i.e. p = Pr(Y <= u)
-u_vec    = u_matrix[:,rank]
+# u_vec    = u_matrix[:,rank]
 
 # Sites
 
@@ -362,12 +319,8 @@ sites_x = sites_xy[:,0]
 sites_y = sites_xy[:,1]
 
 # define the lower and upper limits for x and y
-if from_simulation:
-    minX, maxX = 0.0, 10.0
-    minY, maxY = 0.0, 10.0
-else:
-    minX, maxX = np.floor(np.min(sites_x)), np.ceil(np.max(sites_x))
-    minY, maxY = np.floor(np.min(sites_y)), np.ceil(np.max(sites_y))
+minX, maxX = 0.0, 10.0
+minY, maxY = 0.0, 10.0
 
 # Knots - isometric grid of 9 + 4 = 13 knots ----------------------------------
 
@@ -505,105 +458,77 @@ sigsq_vec = np.repeat(1.0, Ns) # sill for Z, hold at 1
 delta = 0.0 # this is the delta in levy, stays 0
 alpha = 0.5 # alpha in the Stable, stays 0.5
 
-
-# %%
 # Load/Hardcode parameters --------------------------------------------------------------------------------------------
 
 # True values as intials with the simulation
-if from_simulation == True:
 
-    simulation_threshold = 60.0
-    Beta_logsigma        = np.array([3.0, 0.0])
-    Beta_xi              = np.array([0.1, 0.0])
-    range_at_knots       = np.sqrt(0.3*knots_x_rho + 0.4*knots_y_rho)/2
-    phi_at_knots         = 0.65 - np.sqrt((knots_x_phi-5.1)**2/5 + (knots_y_phi-5.3)**2/4)/11.6
-    gamma_k_vec          = np.repeat(0.5, k_S)
-    tau                  = 10
+data_seed = 2345
 
-    np.random.seed(data_seed)
+simulation_threshold = 60.0
+Beta_logsigma        = np.array([3.0, 0.0])
+Beta_xi              = np.array([0.1, 0.0])
+range_at_knots       = np.sqrt(0.3*knots_x_rho + 0.4*knots_y_rho)/2
+phi_at_knots         = 0.65 - np.sqrt((knots_x_phi-5.1)**2/5 + (knots_y_phi-5.3)**2/4)/11.6
+gamma_k_vec          = np.repeat(0.5, k_S)
+tau                  = 10
 
-    # Marginal Model
+np.random.seed(data_seed)
 
-    u_matrix = np.full(shape = (Ns, Nt), fill_value = simulation_threshold)
-    u_vec    = u_matrix[:,rank]
+# Marginal Model
 
-    sigma_Beta_logsigma = 1
-    sigma_Beta_xi      = 1
+u_matrix = np.full(shape = (Ns, Nt), fill_value = simulation_threshold)
 
-    # g(Z) Transformed Gaussian Process
+sigma_Beta_logsigma = 1
+sigma_Beta_xi      = 1
 
-    range_vec      = gaussian_weight_matrix_rho @ range_at_knots
-    K              = ns_cov(range_vec = range_vec, sigsq_vec = sigsq_vec,
-                            coords = sites_xy, kappa = nu, cov_model = "matern")
-    Z              = scipy.stats.multivariate_normal.rvs(mean=np.zeros(shape=(Ns,)),cov=K,size=Nt).T
-    W              = g(Z)
+# g(Z) Transformed Gaussian Process
 
-    # phi Dependence parameter
+range_vec      = gaussian_weight_matrix_rho @ range_at_knots
+K              = ns_cov(range_vec = range_vec, sigsq_vec = sigsq_vec,
+                        coords = sites_xy, kappa = nu, cov_model = "matern")
+Z              = scipy.stats.multivariate_normal.rvs(mean=np.zeros(shape=(Ns,)),cov=K,size=Nt).T
+W              = g(Z)
 
-    phi_vec        = gaussian_weight_matrix_phi @ phi_at_knots
-    
-    # R^phi Random Scaling
+# phi Dependence parameter
 
-    gamma_bar_vec = np.sum(np.multiply(wendland_weight_matrix_S, gamma_k_vec)**(alpha),
-                        axis = 1)**(1/alpha) # gamma_bar, axis = 1 to sum over K knots
-    
-    S_at_knots     = np.full(shape = (k_S, Nt), fill_value = np.nan)
-    for t in np.arange(Nt):
-        S_at_knots[:,t] = rlevy(n = k_S, m = delta, s = gamma_k_vec) # generate R at time t, spatially varying k knots
-    R_at_sites = wendland_weight_matrix_S @ S_at_knots
-    R_phi      = np.full(shape = (Ns, Nt), fill_value = np.nan)
-    for t in np.arange(Nt):
-        R_phi[:,t] = np.power(R_at_sites[:,t], phi_vec)
+phi_vec        = gaussian_weight_matrix_phi @ phi_at_knots
 
-    # Nuggets
+# R^phi Random Scaling
 
-    nuggets = scipy.stats.multivariate_normal.rvs(mean = np.zeros(shape = (Ns,)),
-                                                cov  = tau**2,
-                                                size = Nt).T
-    X_star       = R_phi * W
-    X_truth      = X_star + nuggets
+gamma_bar_vec = np.sum(np.multiply(wendland_weight_matrix_S, gamma_k_vec)**(alpha),
+                    axis = 1)**(1/alpha) # gamma_bar, axis = 1 to sum over K knots
 
-    Scale_matrix = np.exp((C_logsigma.T @ Beta_logsigma).T)
-    Shape_matrix = (C_xi.T @ Beta_xi).T
-# %%
-# marginal likelihood surface for phi_k
+S_at_knots     = np.full(shape = (k_S, Nt), fill_value = np.nan)
+for t in np.arange(Nt):
+    S_at_knots[:,t] = rlevy(n = k_S, m = delta, s = gamma_k_vec) # generate R at time t, spatially varying k knots
+R_at_sites = wendland_weight_matrix_S @ S_at_knots
+R_phi      = np.full(shape = (Ns, Nt), fill_value = np.nan)
+for t in np.arange(Nt):
+    R_phi[:,t] = np.power(R_at_sites[:,t], phi_vec)
 
-# likelihood function to use for parallelization
-def ll_1t_par(args):
-    Y, p, u_vec, scale_vec, shape_vec, \
-    R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, \
-    logS_vec, gamma_at_knots, censored_idx, exceed_idx = args
+# Nuggets
 
-    X_star = (R_vec ** phi_vec) * g(Z_vec)
-    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
-    dX     = dRW(X, u_vec, scale_vec, shape_vec)
-    
-    # log censored likelihood of y on censored sites
-    censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
-    # log censored likelihood of y on exceedance sites
-    exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
-                    + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
-                    - np.log(dX[exceed_idx])
+nuggets = scipy.stats.multivariate_normal.rvs(mean = np.zeros(shape = (Ns,)),
+                                            cov  = tau**2,
+                                            size = Nt).T
+X_star       = R_phi * W
+X_truth      = X_star + nuggets
 
-    # log likelihood of S
-    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
-
-    # log likelihood of Z
-    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
-
-    return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(S_ll) + np.sum(Z_ll)
+Scale_matrix = np.exp((C_logsigma.T @ Beta_logsigma).T)
+Shape_matrix = (C_xi.T @ Beta_xi).T
 
 # %%
 # phi -------------------------------------------------------------------------------------------------------------
 
-for i in range(k_phi):
+# for i in range(k_phi):
+for i in range(1):
 
     print(phi_at_knots[i]) # which phi_k value to plot a "profile" for
 
     lb = 0.2
     ub = 0.8
-    # grids = 5 # fast
-    grids = 13
+    grids = 5 # fast
+    # grids = 13
     phi_grid = np.linspace(lb, ub, grids)
     phi_grid = np.sort(np.insert(phi_grid, 0, phi_at_knots[i]))
 
@@ -616,6 +541,8 @@ for i in range(k_phi):
     #   - u_matrix
     #   - Scale_matrix
     #   - Shape_matrix
+
+    # actual calculation
 
     ll_phi     = []
     start_time = time.time()
@@ -648,16 +575,56 @@ for i in range(k_phi):
                             R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
                             logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t))
 
-        with multiprocessing.Pool(processes = Nt) as pool:
+        with multiprocessing.get_context('fork').Pool(processes = cpu_count()-1) as pool:
             results = pool.map(ll_1t_par, args_list)
         ll_phi.append(np.array(results))
 
     ll_phi = np.array(ll_phi, dtype = object)
     np.save(rf'll_phi_k{i}', ll_phi)
 
-    plt.plot(phi_grid, np.sum(ll_phi, axis = 1), 'b.-')
+    # Using emulator
+
+    ll_phi_emulator_spline = []
+    start_time = time.time()
+    for phi_x in phi_grid:
+        args_list = []
+        print('elapsed:', round(time.time() - start_time, 3), phi_x)
+
+        phi_k        = phi_at_knots.copy()
+        phi_k[i]     = phi_x
+        phi_vec_test = gaussian_weight_matrix_phi @ phi_k
+
+        for t in range(Nt):
+            Y_1t      = Y[:,t]
+            u_vec     = u_matrix[:,t]
+            Scale_vec = Scale_matrix[:,t]
+            Shape_vec = Shape_matrix[:,t]
+
+            R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+            Z_1t      = Z[:,t]
+
+            logS_vec  = np.log(S_at_knots[:,t])
+
+            censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+            exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+
+            args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
+                              R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
+                              logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t, emulator_spline))
+            
+        with multiprocessing.get_context('fork').Pool(processes = cpu_count()-1) as pool:
+            results = pool.map(ll_1t_spline_par, args_list)
+        ll_phi_emulator_spline.append(np.array(results))
+
+    ll_phi_emulator_spline = np.array(ll_phi_emulator_spline, dtype = object)
+    np.save(rf'll_phi_emulator_spline_k{i}', ll_phi_emulator_spline)
+    
+
+    plt.plot(phi_grid, np.sum(ll_phi, axis = 1), 'b.-', label = 'actual')
+    plt.plot(phi_grid, np.sum(ll_phi_emulator_spline, axis = 1), 'r.-', label = 'spline emulator')
     plt.yscale('symlog')
     plt.axvline(x=phi_at_knots[i], color='r', linestyle='--')
+    plt.legend(loc = 'upper left')
     plt.title(rf'marginal loglike against $\phi_{i}$')
     plt.xlabel(r'$\phi$')
     plt.ylabel('log likelihood')
