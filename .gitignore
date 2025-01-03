@@ -16,6 +16,7 @@ proposal_cov.py
 run/*
 scripts/*.pickle
 *.png
+scripts/*.keras
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
