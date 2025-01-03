@@ -36,17 +36,26 @@
       - seemingly large training LMSE
     - neural network emulator, train with GPU
     - Notes:
-      - 12/23 installed `tensorflow` with GPU in a new environment conda env `(gpd)`
+      - 1/3 
+        - maybe spline emulator on log (of log likelihood) is better?
+        - create neural network emulator (there are "0"s in the training likelihoods, and we are training on log scales of the log-likelihoods. Hard code those as 0. When making prediction, do not `np.exp(0) = 1`, just return 0)
+          - using log MSE, is training on log scales necessary?
+      - 12/31 plot emulated "marginal/profile" likelihood. spline emulator does not do well.
+        - ![alt text](image-1.png)
+        - ![alt text](image-2.png)
+      - 12/30 a likelihood function that takes an emulator for censoring likelihood on Y
+      - 12/27 an `RBFInterpolator`
       - 12/24-12/26, generate design points. 
         - On generating `Y`, if `Y` is too large and shape is negative (bounded tail), will run into `nan` `np.log(dCGP)`. How to generate the `Y`? We can generate `pY`, and if `pY` is $< 0.9$ just give it the corresponding threshold.
         - Modifying `Y` as above fix the issue with `dCGP`, but `dX` can still struggle sometimes, giving negative values. Try dropping these values/design points.
         - Looking at the histogram of the likelihoods, spline might be a better option because there are some very negative `Y` likelihoods
-      - 12/27 an `RBFInterpolator`
-      - 12/30 a likelihood function that takes an emulator for censoring likelihood on Y
-      - 12/31 plot emulated "marginal/profile" likelihood. spline emulator does not do well.
+      - 12/23 installed `tensorflow` with GPU in a new environment conda env `(gpd)`
+      
+      
 - Underestimation of $\phi$:
   - fix $\gamma$ and $\tau$ still leads to underestimation on some:
   - ![alt text](image.png)
+  - 1/3 run a chain that fix just $\rho$?
 
 ## Dec. 3 & 9 Tuesday Meeting with Likun/Ben
 

@@ -44,9 +44,11 @@ import sys
 import os
 import time
 import multiprocessing
+import datetime
+
 from multiprocessing import Pool, cpu_count
-from time import strftime, localtime
-from pathlib import Path
+from time            import strftime, localtime
+from pathlib         import Path
 
 os.environ["OMP_NUM_THREADS"]        = "1" # export OMP_NUM_THREADS=1
 os.environ["OPENBLAS_NUM_THREADS"]   = "1" # export OPENBLAS_NUM_THREADS=1
@@ -63,18 +65,25 @@ import matplotlib.pyplot as plt
 import gstools           as gs
 import geopandas         as gpd
 import rpy2.robjects     as robjects
+import keras
 
-from scipy.stats       import qmc
-from rpy2.robjects     import r
-from scipy.interpolate import RBFInterpolator
+from keras                  import layers
+from keras                  import ops
+from scipy.stats            import qmc
+from rpy2.robjects          import r
+from scipy.interpolate      import RBFInterpolator
 from rpy2.robjects.numpy2ri import numpy2rpy
 from rpy2.robjects.packages import importr
 
-from utilities import *
+from utilities              import *
+
+keras.backend.set_floatx('float64')
 
 print('link function:', norm_pareto, 'Pareto')
 
 random_generator = np.random.RandomState(7)
+
+n_processes = 7 if cpu_count() < 64 else 64
 
 # r('load("../data/realdata/JJA_precip_nonimputed.RData")')
 # Y                  = np.array(r('Y'))
@@ -118,7 +127,7 @@ Y_samples, u_samples, scale_samples, shape_samples, \
 
 print('X_lhs.shape:',X_lhs.shape)
 
-np.save(rf'X_lhs_{N}.npy', X_lhs)
+# np.save(rf'X_lhs_{N}.npy', X_lhs)
 
 # %% Calculate the log likelihoods at the design points
 
@@ -154,7 +163,7 @@ def Y_ll_1t(params): # dependence model parameters)
 
 data = [tuple(row) for row in X_lhs]
 
-with multiprocessing.get_context('fork').Pool(processes=cpu_count()-1) as pool:
+with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
     results = pool.map(Y_ll_1t, data)
 
 
@@ -167,7 +176,15 @@ X_lhs = X_lhs[noNA]
 len(Y_lhs)   # number of design points retained
 len(Y_lhs)/N # proportion of design points retained
 
+np.save(rf'X_lhs_{N}.npy', X_lhs)
 np.save(rf'Y_lhs_{N}.npy', Y_lhs)
+
+# %% step 2: load design points and train
+
+N     = 10000 # 16 secs on 7 cores
+d     = 9
+X_lhs = np.load(rf'X_lhs_{N}.npy')
+Y_lhs = np.load(rf'Y_lhs_{N}.npy')
 
 # %% step 2a: emulate with scipy rbf smoothing/interpolating splines
 
@@ -186,9 +203,117 @@ np.log(1/N * np.sum(spline_Y_ll_1t(X_lhs) - Y_lhs)**2)
 
 # %% step 2b: emulate with keras+tensorflow
 
-# import keras
-# from keras import layers
-# keras.backend.set_floatx('float64')
+# Manually perform matrix multiplication, bypass the keras parallelization issue
+def relu_np(x): # changes x IN PLACE! faster than return x * (x > 0)
+    np.maximum(x, 0, x)
+
+def identity(x):
+    pass
+
+def log_with_sign(arr):
+    # to account for the "0" in training likelihoods
+    # remember to return 0 if np.exp(predict) = 1
+    return np.where(arr == 0,
+                    0,
+                    np.sign(arr) * np.log(np.absolute(arr)))
+
+# the output is 1D if X is 1D
+#               2D if X is 2D
+# def NN_predict(Ws, bs, activations, X):
+#     Z = X
+#     for W, b, activation in zip(Ws, bs, activations):
+#         Z = Z @ W + b
+#         activation(Z)
+#     # because we previously hard coded np.log(0) to be 0
+#     return np.exp(Z)
+
+def NN_predict(Ws, bs, activations, X):
+    Z = X.copy()
+    for W, b, activation in zip(Ws, bs, activations):
+        Z = Z @ W + b
+        activation(Z)
+    # because we previously hard coded np.log(0) to be 0
+    return np.where(Z == 0,
+                    0,
+                    np.sign(Z) * np.exp(np.absolute(Z)))
+    # return np.exp(Z)
+
+"""
+Split train and validation set
+"""
+
+train_size    = 0.9
+indices       = np.arange(X_lhs.shape[0])
+np.random.shuffle(indices)
+
+split_idx     = int(X_lhs.shape[0] * train_size)
+train_indices = indices[:split_idx]
+test_indices  = indices[split_idx:]
+
+X_train      = X_lhs[train_indices]
+X_val        = X_lhs[test_indices]
+y_train      = log_with_sign(Y_lhs[train_indices])
+y_val        = log_with_sign(Y_lhs[test_indices])
+
+"""
+Define and fit Keras model
+"""
+
+model = keras.Sequential(
+    [   
+        keras.Input(shape=(d,)),
+        layers.Dense(256, activation='relu'),
+        layers.Dense(64, activation='relu'),
+        layers.Dense(1)
+    ]
+)
+
+initial_learning_rate = 0.001
+lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+    initial_learning_rate, decay_steps=100000, decay_rate=0.96, staircase=True
+)
+
+model.compile(
+    # optimizer='adam',
+    optimizer=keras.optimizers.RMSprop(learning_rate=lr_schedule), 
+    loss=keras.losses.mean_squared_error)
+
+# Fitting Model
+
+start_time = time.time()
+print('started fitting NN:', datetime.datetime.now())
+
+checkpoint_filepath = './checkpoint.model.keras' # only saves the best performer seen so far after each epoch 
+model_checkpoint_callback = keras.callbacks.ModelCheckpoint(filepath=checkpoint_filepath,
+                                                            monitor='val_loss',
+                                                            mode='max',
+                                                            save_best_only=True)
+history = model.fit(
+    X_train, 
+    y_train, 
+    epochs = 100, 
+    verbose = 2,
+    validation_data=(X_val, y_val),
+    callbacks=[model_checkpoint_callback])
+plt.plot(history.history['val_loss'])
+plt.xlabel('epoch')
+plt.ylabel('MSE loss')
+plt.savefig('./Plot:val_loss.pdf')
+plt.show()
+plt.close()
+
+bestmodel = keras.models.load_model(checkpoint_filepath)
+bestmodel.save('./ll_1t_NN.keras')
+
+
+Ws, bs, acts = [], [], []
+for layer in model.layers:
+    W, b = layer.get_weights()
+    act  = relu_np if layer.get_config()['activation'] == 'relu' else identity
+    Ws.append(W)
+    bs.append(b)
+    acts.append(act)
+
 
 
 
@@ -216,6 +341,36 @@ def ll_1t_spline(Y, p, u_vec, scale_vec, shape_vec,            # marginal model 
     return np.sum(Y_ll) + np.sum(S_ll) + np.sum(Z_ll)
 
 def ll_1t_spline_par(args):
+    Y, p, u_vec, scale_vec, shape_vec, \
+    R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, \
+    logS_vec, gamma_at_knots, censored_idx, exceed_idx, emulator = args
+
+    Y_ll = emulator(np.array([Y, u_vec, scale_vec, shape_vec, R_vec, Z_vec, phi_vec, gamma_bar_vec, np.full_like(Y, tau)]).T)
+
+    # log likelihood of S
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+
+    # log likelihood of Z
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+
+    return np.sum(Y_ll) + np.sum(S_ll) + np.sum(Z_ll)
+
+def ll_1t_neural(Y, p, u_vec, scale_vec, shape_vec,            # marginal model parameters
+                 R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau,        # dependence model parameters
+                 logS_vec, gamma_at_knots, censored_idx, exceed_idx,  # auxilury information
+                 emulator):
+    
+    Y_ll = emulator(np.array([Y, u_vec, scale_vec, shape_vec, R_vec, Z_vec, phi_vec, gamma_bar_vec, np.full_like(Y, tau)]).T)
+
+    # log likelihood of S
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+
+    # log likelihood of Z
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+
+    return np.sum(Y_ll) + np.sum(S_ll) + np.sum(Z_ll)
+
+def ll_1t_neural_par(args):
     Y, p, u_vec, scale_vec, shape_vec, \
     R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, \
     logS_vec, gamma_at_knots, censored_idx, exceed_idx, emulator = args
@@ -575,7 +730,7 @@ for i in range(1):
                             R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
                             logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t))
 
-        with multiprocessing.get_context('fork').Pool(processes = cpu_count()-1) as pool:
+        with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
             results = pool.map(ll_1t_par, args_list)
         ll_phi.append(np.array(results))
 
@@ -612,7 +767,7 @@ for i in range(1):
                               R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
                               logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t, emulator_spline))
             
-        with multiprocessing.get_context('fork').Pool(processes = cpu_count()-1) as pool:
+        with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
             results = pool.map(ll_1t_spline_par, args_list)
         ll_phi_emulator_spline.append(np.array(results))
 
