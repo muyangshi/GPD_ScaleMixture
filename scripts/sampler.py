@@ -1490,52 +1490,52 @@ for iter in range(start_iter, n_iters):
     comm.Barrier()
 
     # %% Update tau ------------------------------------------------------------------------------------------------
-    # ############################################################
-    # ####                 Update tau                         ####
-    # ############################################################
-    # # Propose new tau ---------------------------------------------------------------------------------------------
-    # if rank == 0:
-    #     tau_proposal = tau_current + np.sqrt(sigma_m_sq['tau']) * random_generator.normal(0.0, 1.0)
-    # else:
-    #     tau_proposal = None
-    # tau_proposal = comm.bcast(tau_proposal, root = 0)
+    ############################################################
+    ####                 Update tau                         ####
+    ############################################################
+    # Propose new tau ---------------------------------------------------------------------------------------------
+    if rank == 0:
+        tau_proposal = tau_current + np.sqrt(sigma_m_sq['tau']) * random_generator.normal(0.0, 1.0)
+    else:
+        tau_proposal = None
+    tau_proposal = comm.bcast(tau_proposal, root = 0)
 
-    # # Data Likelihood ---------------------------------------------------------------------------------------------
-    # if not tau_proposal > 0:
-    #     llik_1t_proposal = np.NINF
-    # else:
-    #     # "full" version as X and dX are calculated within the likelihood function
-    #     llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-    #                              R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_proposal,
-    #                              S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current)
+    # Data Likelihood ---------------------------------------------------------------------------------------------
+    if not tau_proposal > 0:
+        llik_1t_proposal = np.NINF
+    else:
+        # "full" version as X and dX are calculated within the likelihood function
+        llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+                                 R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_proposal,
+                                 S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current)
 
-    # # Update ------------------------------------------------------------------------------------------------------
-    # tau_accepted = False
-    # llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
-    # llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
-    # if rank == 0:
-    #     llik_current  = np.sum(llik_1t_current_gathered)
-    #     llik_proposal = np.sum(llik_1t_proposal_gathered)
-    #     lprior_tau_current  = np.log(dhalft(tau_current, nu = 1, mu = 0, sigma = 5))
-    #     lprior_tau_proposal = np.log(dhalft(tau_proposal, nu = 1, mu = 0, sigma = 5)) if tau_proposal > 0 else np.NINF
-    #     r = np.exp(llik_proposal + lprior_tau_proposal - llik_current - lprior_tau_current)
-    #     if np.isfinite(r) and r >= random_generator.uniform():
-    #         num_accepted['tau'] += 1
-    #         tau_accepted         = True
-    # tau_accepted = comm.bcast(tau_accepted, root = 0)
+    # Update ------------------------------------------------------------------------------------------------------
+    tau_accepted = False
+    llik_1t_current_gathered  = comm.gather(llik_1t_current, root = 0)
+    llik_1t_proposal_gathered = comm.gather(llik_1t_proposal, root = 0)
+    if rank == 0:
+        llik_current  = np.sum(llik_1t_current_gathered)
+        llik_proposal = np.sum(llik_1t_proposal_gathered)
+        lprior_tau_current  = np.log(dhalft(tau_current, nu = 1, mu = 0, sigma = 5))
+        lprior_tau_proposal = np.log(dhalft(tau_proposal, nu = 1, mu = 0, sigma = 5)) if tau_proposal > 0 else np.NINF
+        r = np.exp(llik_proposal + lprior_tau_proposal - llik_current - lprior_tau_current)
+        if np.isfinite(r) and r >= random_generator.uniform():
+            num_accepted['tau'] += 1
+            tau_accepted         = True
+    tau_accepted = comm.bcast(tau_accepted, root = 0)
 
-    # if tau_accepted:
-    #     tau_current     = tau_proposal
-    #     # X_1t_current    = X_1t_proposal.copy()
-    #     # dX_1t_current   = dX_1t_proposal.copy()
-    #     # X_1t_current    = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
-    #     #                       phi_vec_current, gamma_bar_vec_current, tau_current)
-    #     # dX_1t_current   = dRW(X_1t_current, phi_vec_current, gamma_bar_vec_current, tau_current)
-    #     llik_1t_current = llik_1t_proposal
+    if tau_accepted:
+        tau_current     = tau_proposal
+        # X_1t_current    = X_1t_proposal.copy()
+        # dX_1t_current   = dX_1t_proposal.copy()
+        # X_1t_current    = qRW(pCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current),
+        #                       phi_vec_current, gamma_bar_vec_current, tau_current)
+        # dX_1t_current   = dRW(X_1t_current, phi_vec_current, gamma_bar_vec_current, tau_current)
+        llik_1t_current = llik_1t_proposal
 
-    # # Save --------------------------------------------------------------------------------------------------------
-    # if rank == 0: tau_trace[iter,:] = tau_current
-    # comm.Barrier()
+    # Save --------------------------------------------------------------------------------------------------------
+    if rank == 0: tau_trace[iter,:] = tau_current
+    comm.Barrier()
 
     # %% Update GPD sigma ---------------------------------------------------------------------------------------------
     ############################################################
