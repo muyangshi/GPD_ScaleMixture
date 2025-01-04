@@ -30,12 +30,18 @@
   - the CDF $F_X(x)$ or the quantile $F_X^{-1}(x)$:
     - grid out the $\phi$ (at 0.001 intervals) and pre-specify some levels of $\tau$ (e.g. 1, 5, 10?) and store the calculated $F_X(x)$?
       - $\tau$ is heavily over-estimated, so we might want to just fix it? (In which case, pre-computation is managable for `pRW/qRW`?)
+      - $\gamma$ will also need a wide range, specifying any possible $\bar{\gamma}_j$ in the spatial domain, for spatial prediction. Hence, there will be a lot of design points
+    - Use neural network to train just (0.9, 0.9999), and use numerical integration for [0.9999,1)
+      - Speed up the sampler (take `qRW` outside, block update for the $Z_t$)
+      - implement the 2-piece `qRW`
   - the likelihood
     - spline emulator
       - [ ] Do cross-validation (?) to select `degree` and `smoothing`
       - seemingly large training LMSE
     - neural network emulator, train with GPU
     - Notes:
+      - 1/4
+        - start calculating `1,000,000` design points on misspiggy
       - 1/3 
         - maybe spline emulator on log (of log likelihood) is better?
         - create neural network emulator (there are "0"s in the training likelihoods, and we are training on log scales of the log-likelihoods. Hard code those as 0. When making prediction, do not `np.exp(0) = 1`, just return 0)
