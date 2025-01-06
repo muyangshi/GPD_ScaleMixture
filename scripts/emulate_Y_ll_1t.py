@@ -50,11 +50,11 @@ from multiprocessing import Pool, cpu_count
 from time            import strftime, localtime
 from pathlib         import Path
 
-os.environ["OMP_NUM_THREADS"]        = "1" # export OMP_NUM_THREADS=1
-os.environ["OPENBLAS_NUM_THREADS"]   = "1" # export OPENBLAS_NUM_THREADS=1
-os.environ["MKL_NUM_THREADS"]        = "1" # export MKL_NUM_THREADS=1
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
-os.environ["NUMEXPR_NUM_THREADS"]    = "1" # export NUMEXPR_NUM_THREADS=1
+# os.environ["OMP_NUM_THREADS"]        = "1" # export OMP_NUM_THREADS=1
+# os.environ["OPENBLAS_NUM_THREADS"]   = "1" # export OPENBLAS_NUM_THREADS=1
+# os.environ["MKL_NUM_THREADS"]        = "1" # export MKL_NUM_THREADS=1
+# os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
+# os.environ["NUMEXPR_NUM_THREADS"]    = "1" # export NUMEXPR_NUM_THREADS=1
 
 # packages
 import scipy
@@ -75,6 +75,7 @@ from scipy.interpolate      import RBFInterpolator
 from rpy2.robjects.numpy2ri import numpy2rpy
 from rpy2.robjects.packages import importr
 
+# custom modules
 from utilities              import *
 
 keras.backend.set_floatx('float64')
@@ -101,7 +102,7 @@ n_processes = 7 if cpu_count() < 64 else 64
 
 # LHS for the design point X
 
-N = 10000 # 16 secs on 7 cores
+N = int(1e6) # 16 secs on 7 cores
 d = 9
 
 sampler     = qmc.LatinHypercube(d, scramble=False, seed=2345)
@@ -181,7 +182,7 @@ np.save(rf'Y_lhs_{N}.npy', Y_lhs)
 
 # %% step 2: load design points and train
 
-N     = 10000 # 16 secs on 7 cores
+N = int(1e6) # 16 secs on 7 cores
 d     = 9
 X_lhs = np.load(rf'X_lhs_{N}.npy')
 Y_lhs = np.load(rf'Y_lhs_{N}.npy')
@@ -303,7 +304,7 @@ plt.show()
 plt.close()
 
 bestmodel = keras.models.load_model(checkpoint_filepath)
-bestmodel.save('./ll_1t_NN.keras')
+bestmodel.save('./Y_ll_1t_NN.keras')
 
 
 Ws, bs, acts = [], [], []

@@ -40,17 +40,21 @@
       - seemingly large training LMSE
     - neural network emulator, train with GPU
     - Notes:
-      - 1/4
+      - 1/5 (Monday)
+        - Use the `1,000,000` design points to train NN emulator on likelihood. Then try marginal likelihood.
+        - ![alt text](image-3.png)
+        - Need to write a function to use the `NN emulator` to predict
+      - 1/4 (Saturday)
         - start calculating `1,000,000` design points on misspiggy
-      - 1/3 
+      - 1/3 (Friday)
         - maybe spline emulator on log (of log likelihood) is better?
         - create neural network emulator (there are "0"s in the training likelihoods, and we are training on log scales of the log-likelihoods. Hard code those as 0. When making prediction, do not `np.exp(0) = 1`, just return 0)
           - using log MSE, is training on log scales necessary?
-      - 12/31 plot emulated "marginal/profile" likelihood. spline emulator does not do well.
+      - 12/31 (Tuesday) plot emulated "marginal/profile" likelihood. spline emulator does not do well.
         - ![alt text](image-1.png)
         - ![alt text](image-2.png)
-      - 12/30 a likelihood function that takes an emulator for censoring likelihood on Y
-      - 12/27 an `RBFInterpolator`
+      - 12/30 (Monday) a likelihood function that takes an emulator for censoring likelihood on Y
+      - 12/27 (Friday) an `RBFInterpolator`
       - 12/24-12/26, generate design points. 
         - On generating `Y`, if `Y` is too large and shape is negative (bounded tail), will run into `nan` `np.log(dCGP)`. How to generate the `Y`? We can generate `pY`, and if `pY` is $< 0.9$ just give it the corresponding threshold.
         - Modifying `Y` as above fix the issue with `dCGP`, but `dX` can still struggle sometimes, giving negative values. Try dropping these values/design points.
