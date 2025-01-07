@@ -852,3 +852,29 @@ for i in range(1):
     plt.show()
     plt.close()
 # %%
+ll = []
+X_inputs = []
+
+for t in range(Nt):
+    Y_1t      = Y[:,t]
+    u_vec     = u_matrix[:,t]
+    Scale_vec = Scale_matrix[:,t]
+    Shape_vec = Shape_matrix[:,t]
+    R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+    Z_1t      = Z[:,t]
+    logS_vec  = np.log(S_at_knots[:,t])
+    censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+    exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+
+    X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec_test, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
+    X_inputs.append(X_input)
+
+    # Y_ll = NN_predict(Ws, bs, acts, X_input)
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+
+    ll.append(np.sum(S_ll) + np.sum(Z_ll))
+Y_ll_all = NN_predict(Ws,bs,acts,X_inputs)
+Y_ll_split = np.split(Y_ll_all, Nt)
+for t in range(Nt):
+    ll[t] += np.sum(Y_ll_split[t])
