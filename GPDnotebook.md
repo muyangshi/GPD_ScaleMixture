@@ -26,6 +26,36 @@
 
 ## Winter break
 
+This code takes only 0.3 seconds, as oppose to 18 seconds when doing `Nt` times of `NN_predict`.
+```
+ll = []
+X_inputs = []
+
+for t in range(Nt):
+    Y_1t      = Y[:,t]
+    u_vec     = u_matrix[:,t]
+    Scale_vec = Scale_matrix[:,t]
+    Shape_vec = Shape_matrix[:,t]
+    R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+    Z_1t      = Z[:,t]
+    logS_vec  = np.log(S_at_knots[:,t])
+    censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+    exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+
+    X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec_test, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
+    X_inputs.append(X_input)
+
+    # Y_ll = NN_predict(Ws, bs, acts, X_input)
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+
+    ll.append(np.sum(S_ll) + np.sum(Z_ll))
+Y_ll_all = NN_predict(Ws,bs,acts,X_inputs)
+Y_ll_split = np.split(Y_ll_all, Nt)
+for t in range(Nt):
+    ll[t] += np.sum(Y_ll_split[t])
+```
+
 - Emulation:
   - the CDF $F_X(x)$ or the quantile $F_X^{-1}(x)$:
     - grid out the $\phi$ (at 0.001 intervals) and pre-specify some levels of $\tau$ (e.g. 1, 5, 10?) and store the calculated $F_X(x)$?
@@ -40,14 +70,28 @@
       - seemingly large training LMSE
     - neural network emulator, train with GPU
     - Notes:
-      - 1/5 (Monday)
-        - Use the `1,000,000` design points to train NN emulator on likelihood. Then try marginal likelihood.
+      - 1/7 (Tuesday)
+        - The `1,000,000` design point neural net on likelihood trained after about 300 epochs.
+        - ![alt text](image-4.png)
+        - [x] Check nn LMSE: its prediction LMSE is 421 on the `10,000` design points
+          - roughly LMSE of 8 on the training points
+        - [x] Check nn marginal likelihood
+          - ![alt text](image-5.png) still very bad. Will look into `qRW` emulation next, with a hybrid approach
+          - [ ] why is it so slow when using multiprocessing? Using multiple processes do not speed it up over using single process
+            - It's not multiprocessing's problem
+            - It's better to **run `NN_predict` once** on a big input array, than to run `NN_predict` multiple times on several separate arrays:
+            - 
+          - 
+          - [x] how to remove the `-Inf`?
+      - 1/6 (Monday)
+        - [x] Use the `1,000,000` design points to train NN emulator on likelihood. Then try marginal likelihood.
         - ![alt text](image-3.png)
         - Need to write a function to use the `NN emulator` to predict
       - 1/4 (Saturday)
         - start calculating `1,000,000` design points on misspiggy
       - 1/3 (Friday)
         - maybe spline emulator on log (of log likelihood) is better?
+          - training LMSE is 42 (on `10,000` design points)
         - create neural network emulator (there are "0"s in the training likelihoods, and we are training on log scales of the log-likelihoods. Hard code those as 0. When making prediction, do not `np.exp(0) = 1`, just return 0)
           - using log MSE, is training on log scales necessary?
       - 12/31 (Tuesday) plot emulated "marginal/profile" likelihood. spline emulator does not do well.
