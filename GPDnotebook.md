@@ -58,12 +58,14 @@ for t in range(Nt):
 
 - Emulation:
   - the CDF $F_X(x)$ or the quantile $F_X^{-1}(x)$:
-    - grid out the $\phi$ (at 0.001 intervals) and pre-specify some levels of $\tau$ (e.g. 1, 5, 10?) and store the calculated $F_X(x)$?
-      - $\tau$ is heavily over-estimated, so we might want to just fix it? (In which case, pre-computation is managable for `pRW/qRW`?)
+    - Pre-train. Grid out the $\phi$ (at 0.001 intervals) and pre-specify some levels of $\tau$ (e.g. 1, 5, 10?) and store the calculated $F_X(x)$?
+      - $\tau$ is heavily over-estimated, so we might want to <mark>just fix it</mark>? (In which case, pre-computation is managable for `pRW/qRW`?)
       - $\gamma$ will also need a wide range, specifying any possible $\bar{\gamma}_j$ in the spatial domain, for spatial prediction. Hence, there will be a lot of design points
     - Use neural network to train just (0.9, 0.9999), and use numerical integration for [0.9999,1)
-      - Speed up the sampler (take `qRW` outside, block update for the $Z_t$)
-      - implement the 2-piece `qRW`
+      - [ ] Speed up the sampler (take `qRW` outside, block update for the $Z_t$)
+      - [ ] implement the 2-piece `qRW`
+      - 1/8 (Wednesday)
+        - [ ] Start a `qRW` nn emulator on (0.9, 0.9999).
   - the likelihood
     - spline emulator
       - [ ] Do cross-validation (?) to select `degree` and `smoothing`
@@ -77,11 +79,9 @@ for t in range(Nt):
           - roughly LMSE of 8 on the training points
         - [x] Check nn marginal likelihood
           - ![alt text](image-5.png) still very bad. Will look into `qRW` emulation next, with a hybrid approach
-          - [ ] why is it so slow when using multiprocessing? Using multiple processes do not speed it up over using single process
+          - [x] why is it so slow when using multiprocessing? Using multiple processes do not speed it up over using single process
             - It's not multiprocessing's problem
             - It's better to **run `NN_predict` once** on a big input array, than to run `NN_predict` multiple times on several separate arrays:
-            - 
-          - 
           - [x] how to remove the `-Inf`?
       - 1/6 (Monday)
         - [x] Use the `1,000,000` design points to train NN emulator on likelihood. Then try marginal likelihood.
