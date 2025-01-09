@@ -65,7 +65,9 @@ for t in range(Nt):
       - [ ] Speed up the sampler (take `qRW` outside, block update for the $Z_t$)
       - [ ] implement the 2-piece `qRW`
       - 1/8 (Wednesday)
-        - [ ] Start a `qRW` nn emulator on (0.9, 0.9999).
+        - [x] Start coding `emulate_qRW.py`, an nn emulator on (0.9, 0.9999).
+      - 1/9 (Thursday)
+        - [x] run the design points on `misspiggy`
   - the likelihood
     - spline emulator
       - [ ] Do cross-validation (?) to select `degree` and `smoothing`
