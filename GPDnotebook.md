@@ -24,6 +24,8 @@
 
 # Meetings
 
+## Jan. 23 Thursday Meeting Muyang/Likun/Ben
+
 ## Winter break
 
 This code takes only 0.3 seconds, as oppose to 18 seconds when doing `Nt` times of `NN_predict`.
@@ -62,12 +64,17 @@ for t in range(Nt):
       - $\tau$ is heavily over-estimated, so we might want to <mark>just fix it</mark>? (In which case, pre-computation is managable for `pRW/qRW`?)
       - $\gamma$ will also need a wide range, specifying any possible $\bar{\gamma}_j$ in the spatial domain, for spatial prediction. Hence, there will be a lot of design points
     - Use neural network to train just (0.9, 0.9999), and use numerical integration for [0.9999,1)
-      - [ ] Speed up the sampler (take `qRW` outside, block update for the $Z_t$)
-      - [ ] implement the 2-piece `qRW`
-      - 1/8 (Wednesday)
-        - [x] Start coding `emulate_qRW.py`, an nn emulator on (0.9, 0.9999).
+      - [ ] TODO: Speed up the sampler (take `qRW` outside, block update for the $Z_t$)
+      - [ ] TODO: implement the 2-piece `qRW` (split by `p, phi, gamma, tau` bounds)
+      - 1/21 (Tuesday)
+        - `qRW`'s emulation isn't good enough:
+          - ![alt text](image-6.png) ![alt text](image-7.png)
+          - MSE loss is quite small on the `log(qRW)`; this could be preventing "further training"?
+          - [ ] Can we try training directly on the not logged `qRW`?
       - 1/9 (Thursday)
         - [x] run the design points on `misspiggy`
+      - 1/8 (Wednesday)
+        - [x] Start coding `emulate_qRW.py`, an nn emulator on (0.9, 0.9999).
   - the likelihood
     - spline emulator
       - [ ] Do cross-validation (?) to select `degree` and `smoothing`
@@ -109,6 +116,10 @@ for t in range(Nt):
       
       
 - Underestimation of $\phi$:
+
+  - (1/21) Chain that fixes $\rho$ and $\gamma_k$ doesn't resolve under-estimation on $\phi$
+    - ![alt text](image-8.png)
+    - stagnant chains could be due to the `recv_bloc` error?
   - fix $\gamma$ and $\tau$ still leads to underestimation on some:
   - ![alt text](image.png)
   - 1/3 run a chain that fix just $\rho$?
