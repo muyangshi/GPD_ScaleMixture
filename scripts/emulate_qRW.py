@@ -59,6 +59,7 @@ random_generator = np.random.RandomState(7)
 n_processes = 7 if cpu_count() < 64 else 64
 
 N = int(1e8)
+N_val = int(1e6)
 d = 4
 
 """
@@ -98,7 +99,7 @@ u_bounds = [0.9999, 0.95,         5, 100]
 X_lhs = qmc.scale(lhs_samples, l_bounds, u_bounds)
 
 
-# %% Step 1.5: Calculate the design points
+# Calculate the design points
 
 def qRW_par(args): # wrapper to put qRW for multiprocessing
     p, phi, gamma, tau = args
@@ -117,10 +118,35 @@ print('done:', round(end_time - start_time, 3), 'using processes:', str(n_proces
 np.save(rf'qRW_X_{N}.npy', X_lhs)
 np.save(rf'qRW_Y_{N}.npy', Y_lhs)
 
+# Caluclate a set of validation points
+
+lhs_sampler_val = qmc.LatinHypercube(d, scramble = False, seed = 122)
+lhs_samples_val = lhs_sampler_val.random(N_val) # doesn't include the boundary
+lhs_samples_val = np.row_stack(([0]*d, lhs_samples_val, [1]*d)) # manually add the boundary
+#              p,     phi, gamma_bar, tau
+l_bounds  = [0.9,    0.05,       0.5,   1]
+u_bounds  = [0.9999, 0.95,         5, 100] 
+X_lhs_val = qmc.scale(lhs_samples_val, l_bounds, u_bounds)
+
+start_time = time.time()
+print('start calculating validation qRW()s:', datetime.datetime.now())
+with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
+    Y_lhs_val = pool.map(qRW_par, list(X_lhs_val))
+Y_lhs_val = np.array(Y_lhs_val)
+end_time = time.time()
+print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
+
+np.save(rf'qRW_X_val_{N_val}.npy', X_lhs_val)
+np.save(rf'qRW_Y_val_{N_val}.npy', Y_lhs_val)
+
 # %% Step 2: Emulator
 
-X_lhs = np.load(rf'qRW_X_{N}.npy')
-Y_lhs = np.load(rf'qRW_Y_{N}.npy')
+X_lhs     = np.load(rf'qRW_X_{N}.npy')
+Y_lhs     = np.load(rf'qRW_Y_{N}.npy')
+X_lhs_val = np.load(rf'qRW_X_val_{N_val}.npy')
+Y_lhs_val = np.load(rf'qRW_Y_val_{N_val}.npy')
+
+# Use part of the design points as training/validation
 
 train_size    = 0.9
 indices       = np.arange(X_lhs.shape[0])
@@ -132,8 +158,27 @@ test_indices  = indices[split_idx:]
 
 X_train       = X_lhs[train_indices]
 X_val         = X_lhs[test_indices]
-y_train       = np.log(Y_lhs[train_indices])
-y_val         = np.log(Y_lhs[test_indices])
+
+# # to train on log scale
+# y_train       = np.log(Y_lhs[train_indices])
+# y_val         = np.log(Y_lhs[test_indices])
+
+# to train on original scale
+y_train       = Y_lhs[train_indices]
+y_val         = Y_lhs[test_indices]
+
+# Use separate sets of training and validation points
+
+X_train = X_lhs
+X_val   = X_lhs_val
+
+# to train on log scale
+# y_train = np.log(Y_lhs)
+# y_val   = np.log(Y_lhs_val)
+
+# to train on original scale
+y_train = Y_lhs
+y_val   = Y_lhs_val
 
 # Defining model
 

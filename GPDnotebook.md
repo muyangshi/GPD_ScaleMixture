@@ -2,7 +2,7 @@
 
 ## TODOs
 
-- (December and January) emulation
+- (December and January; now it needs February too) emulation
   - Directly emulate the likelihood
     - Ben and Likun think this will work better
   - Can we use Emily's work on Variational Bayes Nerual Framework?
@@ -66,11 +66,17 @@ for t in range(Nt):
     - Use neural network to train just (0.9, 0.9999), and use numerical integration for [0.9999,1)
       - [ ] TODO: Speed up the sampler (take `qRW` outside, block update for the $Z_t$)
       - [ ] TODO: implement the 2-piece `qRW` (split by `p, phi, gamma, tau` bounds)
+        - The NN's prediction is better to be called once; 
+        - the numerical integration is better to be distributively calculated on each worker.
+      - 1/22 (Wednesday)
+        - train directly on not logged `qRW`
+        - calculate a separate set of validation points
       - 1/21 (Tuesday)
         - `qRW`'s emulation isn't good enough:
           - ![alt text](image-6.png) ![alt text](image-7.png)
           - MSE loss is quite small on the `log(qRW)`; this could be preventing "further training"?
           - [ ] Can we try training directly on the not logged `qRW`?
+            - or, use LMSE as error? (in case of overflow?)
       - 1/9 (Thursday)
         - [x] run the design points on `misspiggy`
       - 1/8 (Wednesday)
