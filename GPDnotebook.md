@@ -26,6 +26,15 @@
 
 ## Jan. 23 Thursday Meeting Muyang/Likun/Ben
 
+- Ben: tryout different neural network structures and activation functions
+
+- Likun: Convolutional Neural Network to utilize the smoothness within a parameter's space?
+
+- It is using GPU
+  - checked GPU usage by `nvidia-smi`
+  - ![alt text](image-11.png)
+  - ![alt text](image-12.png)
+
 ## Winter break
 
 This code takes only 0.3 seconds, as oppose to 18 seconds when doing `Nt` times of `NN_predict`.
@@ -65,9 +74,14 @@ for t in range(Nt):
       - $\gamma$ will also need a wide range, specifying any possible $\bar{\gamma}_j$ in the spatial domain, for spatial prediction. Hence, there will be a lot of design points
     - Use neural network to train just (0.9, 0.9999), and use numerical integration for [0.9999,1)
       - [ ] TODO: Speed up the sampler (take `qRW` outside, block update for the $Z_t$)
-      - [ ] TODO: implement the 2-piece `qRW` (split by `p, phi, gamma, tau` bounds)
+      - [x] TODO: implement the 2-piece `qRW` (split by `p, phi, gamma, tau` bounds)
         - The NN's prediction is better to be called once; 
         - the numerical integration is better to be distributively calculated on each worker.
+        - it should be fine ==> if we are not calling `NN_predict` $N_t$ times in a for-loop: we are using `mpi` so each worker core will take care of "one" $t$ from $N_t$
+      - [x] TODO: taking a look at the marginal likelihood surface using the emulated `qRW_NN_2p` two-piece quantile function
+        - ![alt text](image-10.png)
+      - 1/24 (Thursday)
+        - direct training on `qRW` still leads to huge MSE. Should try LMSE next.
       - 1/22 (Wednesday)
         - train directly on not logged `qRW`
         - calculate a separate set of validation points
@@ -75,7 +89,7 @@ for t in range(Nt):
         - `qRW`'s emulation isn't good enough:
           - ![alt text](image-6.png) ![alt text](image-7.png)
           - MSE loss is quite small on the `log(qRW)`; this could be preventing "further training"?
-          - [ ] Can we try training directly on the not logged `qRW`?
+          - [x] Can we try training directly on the not logged `qRW`?
             - or, use LMSE as error? (in case of overflow?)
       - 1/9 (Thursday)
         - [x] run the design points on `misspiggy`
@@ -122,7 +136,8 @@ for t in range(Nt):
       
       
 - Underestimation of $\phi$:
-
+  - Chain that only update $\phi$ and $S$ is good:
+    - ![alt text](image-9.png)
   - (1/21) Chain that fixes $\rho$ and $\gamma_k$ doesn't resolve under-estimation on $\phi$
     - ![alt text](image-8.png)
     - stagnant chains could be due to the `recv_bloc` error?
