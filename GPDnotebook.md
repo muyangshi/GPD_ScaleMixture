@@ -24,16 +24,26 @@
 
 # Meetings
 
-## Jan. 23 Thursday Meeting Muyang/Likun/Ben
+## Jan. 28 (Tuesday) Muyang/Likun/Ben
+
+## Jan. 23 (Thursday) Muyang/Likun/Ben
 
 - Ben: tryout different neural network structures and activation functions
+  - train the likelihood 
+    - [ ] with a different activation function (that takes negative values)
+    - [ ] Train the original likelihood, not the log likelihood
+  - train the `qRW` quantile
+    - [x] try one version with a large number of layers and nodes
+    - [x] try activation functions
+      - four 64-node layers with `ELU` activation, `mean_squared_logarithmic_error`, and larger `batch_size` of 256
 
 - Likun: Convolutional Neural Network to utilize the smoothness within a parameter's space?
 
 - It is using GPU
+  - `tf.config.experimental.list_physical_devices('GPU')`
   - checked GPU usage by `nvidia-smi`
-  - ![alt text](image-11.png)
-  - ![alt text](image-12.png)
+    - ![alt text](image-11.png)
+    - ![alt text](image-12.png)
 
 ## Winter break
 
