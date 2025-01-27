@@ -265,18 +265,34 @@ bestmodel.save(rf'./qRW_NN_{N}.keras')
 
 # %% Step 3: Prediction
 
+# qRW_NN_keras = keras.models.load_model('checkpoint.model.keras')
+
 qRW_NN_keras = keras.models.load_model(rf'qRW_NN_{N}.keras')
 
-def relu_np(x): # changes x IN PLACE! faster than return x * (x > 0)
-    np.maximum(x, 0, x)
+def relu_np(x): 
+    # np.maximum(x, 0, x) # changes x IN PLACE! faster than return x * (x > 0)
+    return np.where(x > 0, x, 0)
+
+def elu_np(x):
+    return np.where(x > 0, 
+                    x, 
+                    np.exp(x) - 1)
 
 def identity(x):
-    pass
+    return x
 
 Ws, bs, acts = [], [], []
 for layer in qRW_NN_keras.layers:
     W, b = layer.get_weights()
-    act  = relu_np if layer.get_config()['activation'] == 'relu' else identity
+    if layer.get_config()['activation'] == 'relu':
+        act = relu_np
+    elif layer.get_config()['activation'] == 'elu':
+        act = elu_np
+    elif layer.get_config()['activation'] == 'linear':
+        act = identity
+    else:
+        print(layer.get_config()['activation'])
+        raise NotImplementedError
     Ws.append(W)
     bs.append(b)
     acts.append(act)
@@ -285,9 +301,9 @@ def qRW_NN(X, weights = Ws, biases = bs, activations = acts):
     Z = X.copy()
     for W, b, activation in zip(weights, biases, activations):
         Z = Z @ W + b
-        activation(Z)
-    # return np.exp(Z) # if training on log scale
+        Z = activation(Z)
     return Z
+    # return np.exp(Z) # if training on log scale
 
 def qRW_NN_2p(X, weights = Ws, biases = bs, activations = acts):
     # to store the outputs
@@ -315,7 +331,7 @@ def qRW_NN_2p(X, weights = Ws, biases = bs, activations = acts):
 ps    = np.linspace(0.9, 0.999, 100)
 tasks = np.array([[p, 0.5, 0.5, 1] for p in ps])
 plt.plot(ps, qRW(ps, 0.5, 0.5, 1), 'k.-', label = 'truth')
-# plt.plot(ps, np.exp(bestmodel.predict(tasks, verbose = 0).ravel()), label = 'NN')
+# plt.plot(ps, qRW_NN_keras.predict(tasks, verbose = 0).ravel(), label = 'NN')
 plt.plot(ps, qRW_NN(tasks, Ws, bs, acts), 'b.-', label = 'qRW NN')
 plt.legend(loc = 'upper left')
 plt.xlabel('p')

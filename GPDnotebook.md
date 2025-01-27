@@ -36,6 +36,7 @@
     - [x] try one version with a large number of layers and nodes
     - [x] try activation functions
       - four 64-node layers with `ELU` activation, `mean_squared_logarithmic_error`, and larger `batch_size` of 256
+      - ![alt text](image-13.png)
 
 - Likun: Convolutional Neural Network to utilize the smoothness within a parameter's space?
 
@@ -44,7 +45,11 @@
   - checked GPU usage by `nvidia-smi`
     - ![alt text](image-11.png)
     - ![alt text](image-12.png)
+  - larger batch_size utilize the parallelization from GPU, so trains faster
 
+- Underestimation of $\phi$:
+  - [ ] is it just this dataset? Try a different seed.
+  - [ ] do a chain that updates $\phi$ + ...
 ## Winter break
 
 This code takes only 0.3 seconds, as oppose to 18 seconds when doing `Nt` times of `NN_predict`.
