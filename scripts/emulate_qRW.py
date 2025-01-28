@@ -188,6 +188,7 @@ model = keras.Sequential(
         layers.Dense(32,  activation = 'relu'),
         layers.Dense(64,  activation = 'relu'),
         layers.Dense(128, activation = 'relu'),
+        layers.Dense(256, activation = 'relu'),
         layers.Dense(64,  activation = 'relu'),
         layers.Dense(32,  activation = 'relu'),
         layers.Dense(1,   activation = 'linear')
@@ -219,7 +220,7 @@ history = model.fit(
     X_train, 
     y_train, 
     epochs = 50, 
-    batch_size = 512,
+    batch_size = 1024,
     verbose = 2,
     validation_data=(X_val, y_val),
     callbacks=[model_checkpoint_callback])

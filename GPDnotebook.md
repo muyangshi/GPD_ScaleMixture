@@ -28,6 +28,9 @@
 
 ## Jan. 23 (Thursday) Muyang/Likun/Ben
 
+- Fix a bug:
+  - [ ] `dX     = dRW(X, u_vec, scale_vec, shape_vec)`
+
 - Ben: tryout different neural network structures and activation functions
   - train the likelihood 
     - [ ] with a different activation function (that takes negative values)
@@ -39,7 +42,8 @@
     - (32-64-128-64-32) with `ReLU` using `mean_squared_logarithmic_error` and larger `batch_size` of 512
       - ![alt text](image-14.png)
       - The extra layer and the increased batch_size seem to help
-      - [ ] further increasing them
+      - [x] further increasing them
+        - (32-64-128-256-64-32) with `batch_size` 1024
     - Other potential solution involves
       - [ ] oversampling the large p region
       - [ ] weight the errors heavier at large p
