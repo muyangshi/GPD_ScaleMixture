@@ -29,7 +29,7 @@
 ## Jan. 23 (Thursday) Muyang/Likun/Ben
 
 - Fix a bug:
-  - [ ] `dX     = dRW(X, u_vec, scale_vec, shape_vec)`
+  - [x] `dX     = dRW(X, u_vec, scale_vec, shape_vec)`
 
 - Ben: tryout different neural network structures and activation functions
   - train the likelihood 

@@ -631,7 +631,7 @@ X = np.column_stack((col1, col2, col3, col4))
 
 #     X_star = (R_vec ** phi_vec) * g(Z_vec)
 #     X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
-#     dX     = dRW(X, u_vec, scale_vec, shape_vec)
+#     dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
     
 #     # log censored likelihood of y on censored sites
 #     censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
@@ -659,7 +659,7 @@ X = np.column_stack((col1, col2, col3, col4))
 #     pY     = pCGP(Y, p, u_vec, scale_vec, shape_vec)
 #     X      = qRW_NN_2p(np.column_stack((pY, phi_vec, gamma_bar_vec, np.full((len(Y),), tau))),
 #                   Ws, bs, acts)
-#     dX     = dRW(X, u_vec, scale_vec, shape_vec)
+#     dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
     
 #     # log censored likelihood of y on censored sites
 #     censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)

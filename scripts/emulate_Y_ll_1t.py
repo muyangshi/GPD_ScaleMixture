@@ -17,7 +17,7 @@ def ll_1t(Y, p, u_vec, scale_vec, shape_vec,        # marginal model parameters
     
     X_star = (R_vec ** phi_vec) * g(Z_vec)
     X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
-    dX     = dRW(X, u_vec, scale_vec, shape_vec)
+    dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
     
     # log censored likelihood of y on censored sites
     censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
@@ -144,7 +144,7 @@ def Y_ll_1t(params): # dependence model parameters)
 
     X_star = (R_vec ** phi_vec) * g(Z_vec)
     X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
-    dX     = dRW(X, u_vec, scale_vec, shape_vec)
+    dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
 
     # if dX < 0: return np.nan
 
@@ -402,7 +402,7 @@ def ll_1t_par(args):
 
     X_star = (R_vec ** phi_vec) * g(Z_vec)
     X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
-    dX     = dRW(X, u_vec, scale_vec, shape_vec)
+    dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
     
     # log censored likelihood of y on censored sites
     censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
