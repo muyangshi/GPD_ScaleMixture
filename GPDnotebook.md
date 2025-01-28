@@ -33,10 +33,17 @@
     - [ ] with a different activation function (that takes negative values)
     - [ ] Train the original likelihood, not the log likelihood
   - train the `qRW` quantile
-    - [x] try one version with a large number of layers and nodes
-    - [x] try activation functions
+    - [x] try one version with a large number of layers and nodes, potentially with different activation functions
       - four 64-node layers with `ELU` activation, `mean_squared_logarithmic_error`, and larger `batch_size` of 256
       - ![alt text](image-13.png)
+    - (32-64-128-64-32) with `ReLU` using `mean_squared_logarithmic_error` and larger `batch_size` of 512
+      - ![alt text](image-14.png)
+      - The extra layer and the increased batch_size seem to help
+      - [ ] further increasing them
+    - Other potential solution involves
+      - [ ] oversampling the large p region
+      - [ ] weight the errors heavier at large p
+      - [ ] try the exponential activation function?
 
 - Likun: Convolutional Neural Network to utilize the smoothness within a parameter's space?
 

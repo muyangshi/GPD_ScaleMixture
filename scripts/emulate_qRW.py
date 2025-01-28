@@ -185,11 +185,12 @@ y_val   = Y_lhs_val
 model = keras.Sequential(
     [   
         keras.Input(shape=(d,)),
-        layers.Dense(64, activation = 'elu'),
-        layers.Dense(64, activation = 'elu'),
-        layers.Dense(64, activation = 'elu'),
-        layers.Dense(64, activation = 'elu'),
-        layers.Dense(1,  activation = 'linear')
+        layers.Dense(32,  activation = 'relu'),
+        layers.Dense(64,  activation = 'relu'),
+        layers.Dense(128, activation = 'relu'),
+        layers.Dense(64,  activation = 'relu'),
+        layers.Dense(32,  activation = 'relu'),
+        layers.Dense(1,   activation = 'linear')
     ]
 )
 
@@ -217,8 +218,8 @@ model_checkpoint_callback = keras.callbacks.ModelCheckpoint(filepath=checkpoint_
 history = model.fit(
     X_train, 
     y_train, 
-    epochs = 100, 
-    batch_size = 256,
+    epochs = 50, 
+    batch_size = 512,
     verbose = 2,
     validation_data=(X_val, y_val),
     callbacks=[model_checkpoint_callback])
