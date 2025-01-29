@@ -97,20 +97,22 @@ n_processes = 7 if cpu_count() < 64 else 64
 #   looked at previous run and initial site-level estimates to get scale and shape
 #   used reverse CDF to span the R <- R is NOT levy(0, 0.5)!
 
+N     = int(1e8)
+N_val = int(1e6)
+d     = 9
+
 
 # %% step 1: generate design points with LHS
 
 # LHS for the design point X
 
-N = int(1e6) # 16 secs on 7 cores
-d = 9
-
 sampler     = qmc.LatinHypercube(d, scramble=False, seed=2345)
 lhs_samples = sampler.random(N) # Generate LHS samples in [0,1]^d
+lhs_samples = np.row_stack(([0]*d, lhs_samples, [1]*d)) # manually add the boundary points
 
 #             pY,    u, scale, shape,   pR,    Z,  phi, gamma_bar,  tau
-l_bounds = [0.001,   30,     5,  -1.0, 0.01, -5.0, 0.05,       1.0,  0.1]
-u_bounds = [0.999,   80,    60,   1.0, 0.95,  5.0, 0.95,       8.0, 10.0]
+l_bounds = [0.001,   30,     5,  -1.0, 0.01, -5.0, 0.05,       0.5,  1.0]
+u_bounds = [0.999,   80,    60,   1.0, 0.95,  5.0, 0.95,       8.0, 50.0]
 X_lhs    = qmc.scale(lhs_samples, l_bounds, u_bounds)        # scale LHS to specified bounds
 
 # Note that R is not levy(0, 0.5)
@@ -122,9 +124,9 @@ X_lhs[:,4] = scipy.stats.levy(loc=0,scale=8.0).ppf(X_lhs[:,4]) # scale the Stabl
 #   otherwise, just return the corresponding threshold u
 X_lhs[:,0] = qCGP(X_lhs[:,0], 0.9, X_lhs[:,1], X_lhs[:,2], X_lhs[:,3])
 
-Y_samples, u_samples, scale_samples, shape_samples, \
-    R_samples, Z_samples, \
-    phi_samples, gamma_bar_samples, tau_samples = X_lhs.T
+# Y_samples, u_samples, scale_samples, shape_samples, \
+#     R_samples, Z_samples, \
+#     phi_samples, gamma_bar_samples, tau_samples = X_lhs.T
 
 print('X_lhs.shape:',X_lhs.shape)
 
@@ -164,8 +166,14 @@ def Y_ll_1t(params): # dependence model parameters)
 
 data = [tuple(row) for row in X_lhs]
 
+start_time = time.time()
+print(rf'start calculating {N} likelihoods using {n_processes} processes:', datetime.datetime.now())
+
 with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
     results = pool.map(Y_ll_1t, data)
+
+end_time = time.time()
+print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
 
 
 # %% remove the NAs
@@ -177,29 +185,56 @@ X_lhs = X_lhs[noNA]
 len(Y_lhs)   # number of design points retained
 len(Y_lhs)/N # proportion of design points retained
 
-np.save(rf'X_lhs_{N}.npy', X_lhs)
-np.save(rf'Y_lhs_{N}.npy', Y_lhs)
+np.save(rf'll_1t_X_lhs_{N}.npy', X_lhs)
+np.save(rf'll_1t_Y_lhs_{N}.npy', Y_lhs)
+
+# %% Generate a set of dedicated validation points
+
+sampler_val     = qmc.LatinHypercube(d, scramble=False, seed=129)
+lhs_samples_val = sampler_val.random(N_val) # Generate LHS samples in [0,1]^d
+lhs_samples_val = np.row_stack(([0]*d, lhs_samples_val, [1]*d)) # add boundaries
+#                    pY,    u, scale, shape,   pR,    Z,  phi, gamma_bar,  tau
+l_bounds       = [0.001,   30,     5,  -1.0, 0.01, -5.0, 0.05,       0.5,  1.0]
+u_bounds       = [0.999,   80,    60,   1.0, 0.95,  5.0, 0.95,       8.0, 50.0]
+X_lhs_val      = qmc.scale(lhs_samples_val, l_bounds, u_bounds)        # scale LHS to specified bounds
+X_lhs_val[:,4] = scipy.stats.levy(loc=0,scale=8.0).ppf(X_lhs_val[:,4]) # scale the Stables
+X_lhs_val[:,0] = qCGP(X_lhs_val[:,0], 0.9, X_lhs_val[:,1], X_lhs_val[:,2], X_lhs_val[:,3])
+print('X_lhs_val.shape:',X_lhs_val.shape)
+
+data_val = [tuple(row) for row in X_lhs_val]
+start_time = time.time()
+print(rf'start calculating {N_val} likelihoods using {n_processes} processes:', datetime.datetime.now())
+with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
+    results_val = pool.map(Y_ll_1t, data_val)
+end_time = time.time()
+print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
+
+noNA = np.where(~np.isnan(results_val))
+Y_lhs_val = np.array(results_val)[noNA]
+X_lhs_val = X_lhs_val[noNA]
+
+np.save(rf'll_1t_X_lhs_val_{N_val}.npy', X_lhs_val)
+np.save(rf'll_1t_Y_lhs_val_{N_val}.npy', Y_lhs_val)
 
 # %% step 2: load design points and train
 
-N = int(1e6) # 16 secs on 7 cores
-d     = 9
-X_lhs = np.load(rf'X_lhs_{N}.npy')
-Y_lhs = np.load(rf'Y_lhs_{N}.npy')
+X_lhs     = np.load(rf'll_1t_X_{N}.npy')
+Y_lhs     = np.load(rf'll_1t_Y_{N}.npy')
+X_lhs_val = np.load(rf'll_1t_X_val_{N_val}.npy')
+Y_lhs_val = np.load(rf'll_1t_Y_val_{N_val}.npy')
 
 # %% step 2a: emulate with scipy rbf smoothing/interpolating splines
 
-spline_Y_ll_1t = RBFInterpolator(X_lhs, Y_lhs, 
-                                 kernel='thin_plate_spline', degree=3,
-                                 neighbors=None, epsilon=None,  smoothing=0.0)
+# spline_Y_ll_1t = RBFInterpolator(X_lhs, Y_lhs, 
+#                                  kernel='thin_plate_spline', degree=3,
+#                                  neighbors=None, epsilon=None,  smoothing=0.0)
 
-save_pickle_data(spline_Y_ll_1t)
+# save_pickle_data(spline_Y_ll_1t)
 
-spline_Y_ll_1t(X_lhs) # took 1.5 seconds
+# spline_Y_ll_1t(X_lhs) # took 1.5 seconds
 
-# LMSE
-np.log(1/N * np.sum(spline_Y_ll_1t(X_lhs) - Y_lhs)**2)
-
+# # LMSE
+# np.log(1/N * np.sum(spline_Y_ll_1t(X_lhs) - Y_lhs)**2)
 
 
 # %% step 2b: emulate with keras+tensorflow

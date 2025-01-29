@@ -27,18 +27,23 @@
 ## Jan. 28 (Tuesday) Muyang/Likun/Ben
 
 - Read the papers
-  - Bayesian Inference in the Presence of Intractable Normalizing Functions
-  - A Function Emulation Approach for Doubly Intractable Distributions
-  - Accelerating Asymptotically Exact MCMC for Computationally Intensive Models via Local Approximations
-  - Neural Likelihood Surfaces for Spatial Processes with Computationally Intensive or Intractable Likelihoods
+  - [ ] Bayesian Inference in the Presence of Intractable Normalizing Functions
+  - [ ] A Function Emulation Approach for Doubly Intractable Distributions
+  - [ ] Accelerating Asymptotically Exact MCMC for Computationally Intensive Models via Local Approximations
+  - [ ] Neural Likelihood Surfaces for Spatial Processes with Computationally Intensive or Intractable Likelihoods
+
 - [x] Document the code sent to Likun
 
-- Generate new design points and training on the likelihood directly
+- training on the **likelihood directly**
+  - [x] Generate new design points
   - [ ] different activation function
   - [ ] original likelihood
 
-- [ ] Keras model initialize weights using last training records
-  - Try further training on the quantile function, because large batch_size didn't coverge in 50 epochs
+- More exploration on emulating the **quantile function**
+  - [x] Keras model initialize weights using last training records, as large batch_size = 1024 didn't coverge in 50 epochs
+    - just do `keras.models.load_model()`
+    - ![alt text](image-17.png)
+    - ![alt text](image-18.png)
   - [ ] exponential activation function
   - [ ] oversampling the large p region
   - [ ] different weighting error function
