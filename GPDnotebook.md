@@ -26,7 +26,18 @@
 
 ## Jan. 28 (Tuesday) Muyang/Likun/Ben
 
+- Read the papers
+- Document the code sent to Likun
+  - 
+
+- Generate new design points and training on the likelihood directly
+
 ## Jan. 23 (Thursday) Muyang/Likun/Ben
+
+- [ ] why is there no speed gain?
+  - what proportion of predictions happens within the emulated range?
+  - Each call to `NN_predict` is costly, but `NN_predict` can do a lot of things very fast at once -- utilize this
+  - `dX` is taking lots of time?
 
 - Fix a bug:
   - [x] `dX     = dRW(X, u_vec, scale_vec, shape_vec)`
@@ -42,6 +53,8 @@
     - (32-64-128-64-32) with `ReLU` using `mean_squared_logarithmic_error` and larger `batch_size` of 512
       - ![alt text](image-14.png)
       - The extra layer and the increased batch_size seem to help
+        - ![alt text](image-15.png)
+        - [ ] why is the result so bad?
       - [x] further increasing them
         - (32-64-128-256-64-32) with `batch_size` 1024
     - Other potential solution involves
