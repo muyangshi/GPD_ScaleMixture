@@ -27,10 +27,21 @@
 ## Jan. 28 (Tuesday) Muyang/Likun/Ben
 
 - Read the papers
-- Document the code sent to Likun
-  - 
+  - Bayesian Inference in the Presence of Intractable Normalizing Functions
+  - A Function Emulation Approach for Doubly Intractable Distributions
+  - Accelerating Asymptotically Exact MCMC for Computationally Intensive Models via Local Approximations
+  - Neural Likelihood Surfaces for Spatial Processes with Computationally Intensive or Intractable Likelihoods
+- [x] Document the code sent to Likun
 
 - Generate new design points and training on the likelihood directly
+  - [ ] different activation function
+  - [ ] original likelihood
+
+- [ ] Keras model initialize weights using last training records
+  - Try further training on the quantile function, because large batch_size didn't coverge in 50 epochs
+  - [ ] exponential activation function
+  - [ ] oversampling the large p region
+  - [ ] different weighting error function
 
 ## Jan. 23 (Thursday) Muyang/Likun/Ben
 
@@ -44,8 +55,8 @@
 
 - Ben: tryout different neural network structures and activation functions
   - train the likelihood 
-    - [ ] with a different activation function (that takes negative values)
-    - [ ] Train the original likelihood, not the log likelihood
+    - [-] with a different activation function (that takes negative values)
+    - [-] Train the original likelihood, not the log likelihood
   - train the `qRW` quantile
     - [x] try one version with a large number of layers and nodes, potentially with different activation functions
       - four 64-node layers with `ELU` activation, `mean_squared_logarithmic_error`, and larger `batch_size` of 256
@@ -54,13 +65,15 @@
       - ![alt text](image-14.png)
       - The extra layer and the increased batch_size seem to help
         - ![alt text](image-15.png)
-        - [ ] why is the result so bad?
+        - [x] why is the result so bad?
+          - because `qRW` isn't interpolating well on non-design point region
+          - ![alt text](image-16.png)
       - [x] further increasing them
         - (32-64-128-256-64-32) with `batch_size` 1024
     - Other potential solution involves
-      - [ ] oversampling the large p region
-      - [ ] weight the errors heavier at large p
-      - [ ] try the exponential activation function?
+      - [-] oversampling the large p region
+      - [-] weight the errors heavier at large p
+      - [-] try the exponential activation function?
 
 - Likun: Convolutional Neural Network to utilize the smoothness within a parameter's space?
 
