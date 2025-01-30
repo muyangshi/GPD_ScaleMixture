@@ -101,6 +101,8 @@ N     = int(1e8)
 N_val = int(1e6)
 d     = 9
 
+EPOCH = 50
+INITIAL_EPOCH = 0
 
 # %% step 1: generate design points with LHS
 
@@ -218,10 +220,10 @@ np.save(rf'll_1t_Y_lhs_val_{N_val}.npy', Y_lhs_val)
 
 # %% step 2: load design points and train
 
-X_lhs     = np.load(rf'll_1t_X_{N}.npy')
-Y_lhs     = np.load(rf'll_1t_Y_{N}.npy')
-X_lhs_val = np.load(rf'll_1t_X_val_{N_val}.npy')
-Y_lhs_val = np.load(rf'll_1t_Y_val_{N_val}.npy')
+X_lhs     = np.load(rf'll_1t_X_lhs_{N}.npy')
+Y_lhs     = np.load(rf'll_1t_Y_lhs_{N}.npy')
+X_lhs_val = np.load(rf'll_1t_X_lhs_val_{N_val}.npy')
+Y_lhs_val = np.load(rf'll_1t_Y_lhs_val_{N_val}.npy')
 
 # %% step 2a: emulate with scipy rbf smoothing/interpolating splines
 
@@ -296,12 +298,13 @@ print('started fitting NN:', datetime.datetime.now())
 checkpoint_filepath = './checkpoint.model.keras' # only saves the best performer seen so far after each epoch 
 model_checkpoint_callback = keras.callbacks.ModelCheckpoint(filepath=checkpoint_filepath,
                                                             monitor='val_loss',
-                                                            mode='max',
+                                                            mode='min',
                                                             save_best_only=True)
 history = model.fit(
     X_train, 
     y_train, 
-    epochs = 100, 
+    epochs = EPOCH, 
+    initial_epoch=INITIAL_EPOCH,
     verbose = 2,
     validation_data=(X_val, y_val),
     callbacks=[model_checkpoint_callback])
@@ -314,6 +317,16 @@ plt.close()
 
 bestmodel = keras.models.load_model(checkpoint_filepath)
 bestmodel.save('./Y_ll_1t_NN.keras')
+
+# %% step 2c: train on the original scale likelihood
+
+X_train = X_lhs
+y_train = Y_lhs
+X_val   = X_lhs_val
+y_val   = Y_lhs_val
+
+# plotting the log-likelihoods:
+plt.hist(y_train.ravel())
 
 
 # %% step 3: plot and benchmark

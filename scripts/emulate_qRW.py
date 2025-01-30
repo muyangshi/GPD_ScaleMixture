@@ -62,6 +62,9 @@ N = int(1e8)
 N_val = int(1e6)
 d = 4
 
+EPOCH = 50
+INITIAL_EPOCH = 0
+
 """
 Notes on coding:
 
@@ -220,12 +223,13 @@ print('started fitting NN:', datetime.datetime.now())
 checkpoint_filepath = './checkpoint.model.keras' # only saves the best performer seen so far after each epoch 
 model_checkpoint_callback = keras.callbacks.ModelCheckpoint(filepath=checkpoint_filepath,
                                                             monitor='val_loss',
-                                                            mode='max',
+                                                            mode='min',
                                                             save_best_only=True)
 history = model.fit(
     X_train, 
     y_train, 
-    epochs = 50, 
+    epochs = EPOCH, 
+    initial_epoch = INITIAL_EPOCH,
     batch_size = 1024,
     verbose = 2,
     validation_data=(X_val, y_val),
@@ -238,7 +242,7 @@ plt.plot(history.history['val_loss'])
 plt.xlabel('epoch')
 plt.ylabel('MSE loss')
 plt.title('validation loss')
-plt.savefig('Plot_val_loss.pdf')
+plt.savefig(rf'Plot_val_loss_{EPOCH}to{INITIAL_EPOCH}.pdf')
 plt.show()
 plt.close()
 
@@ -246,7 +250,7 @@ plt.plot(history.history['loss'])
 plt.xlabel('epoch')
 plt.ylabel('MSE loss')
 plt.title('training loss')
-plt.savefig('Plot_train_loss.pdf')
+plt.savefig(rf'Plot_train_loss_{EPOCH}to{INITIAL_EPOCH}.pdf')
 plt.show()
 plt.close()
 
@@ -346,7 +350,7 @@ plt.xlabel('p')
 plt.ylabel('quantile')
 plt.xticks(np.linspace(0.9, 0.999, 5))
 plt.title(r'qRW(...) along p with $\phi$=0.5 $\gamma$=0.5 $\tau$=1.0')
-plt.savefig('Plot_qRW.pdf')
+plt.savefig(rf'Plot_qRW_{EPOCH}to{INITIAL_EPOCH}.pdf')
 plt.show()
 plt.close()
 
