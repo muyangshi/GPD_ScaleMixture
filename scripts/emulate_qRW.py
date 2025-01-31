@@ -62,8 +62,8 @@ N = int(1e8)
 N_val = int(1e6)
 d = 4
 
-EPOCH = 50
-INITIAL_EPOCH = 0
+INITIAL_EPOCH = 150
+EPOCH = 200
 
 """
 Notes on coding:
@@ -242,7 +242,7 @@ plt.plot(history.history['val_loss'])
 plt.xlabel('epoch')
 plt.ylabel('MSE loss')
 plt.title('validation loss')
-plt.savefig(rf'Plot_val_loss_{EPOCH}to{INITIAL_EPOCH}.pdf')
+plt.savefig(rf'Plot_val_loss_{INITIAL_EPOCH}to{EPOCH}.pdf')
 plt.show()
 plt.close()
 
@@ -250,7 +250,7 @@ plt.plot(history.history['loss'])
 plt.xlabel('epoch')
 plt.ylabel('MSE loss')
 plt.title('training loss')
-plt.savefig(rf'Plot_train_loss_{EPOCH}to{INITIAL_EPOCH}.pdf')
+plt.savefig(rf'Plot_train_loss_{INITIAL_EPOCH}to{EPOCH}.pdf')
 plt.show()
 plt.close()
 
@@ -350,7 +350,21 @@ plt.xlabel('p')
 plt.ylabel('quantile')
 plt.xticks(np.linspace(0.9, 0.999, 5))
 plt.title(r'qRW(...) along p with $\phi$=0.5 $\gamma$=0.5 $\tau$=1.0')
-plt.savefig(rf'Plot_qRW_{EPOCH}to{INITIAL_EPOCH}.pdf')
+plt.savefig(rf'Plot_qRW_{INITIAL_EPOCH}to{EPOCH}.pdf')
+plt.show()
+plt.close()
+
+ps    = np.linspace(0.9, 0.999, 100)
+tasks = np.array([[p, 0.5, 2, 10] for p in ps])
+plt.plot(ps, qRW(ps, 0.5, 2, 10), 'k.-', label = 'truth')
+# plt.plot(ps, qRW_NN_keras.predict(tasks, verbose = 0).ravel(), label = 'NN')
+plt.plot(ps, qRW_NN(tasks, Ws, bs, acts), 'b.-', label = 'qRW NN')
+plt.legend(loc = 'upper left')
+plt.xlabel('p')
+plt.ylabel('quantile')
+plt.xticks(np.linspace(0.9, 0.999, 5))
+plt.title(r'qRW(...) along p with $\phi$=0.5 $\gamma$=2 $\tau$=10')
+plt.savefig(rf'Plot_qRW2_{INITIAL_EPOCH}to{EPOCH}.pdf')
 plt.show()
 plt.close()
 
