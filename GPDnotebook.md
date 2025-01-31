@@ -42,9 +42,14 @@
 - More exploration on emulating the **quantile function**
   - [x] Keras model initialize weights using last training records, as large batch_size = 1024 didn't coverge in 50 epochs
     - just do `keras.models.load_model()`, set `epochs` and `initial_epoch` accordingly (e.g. `epochs=100` with `initial_epoch = 50` will yield 51/100, 52/100, ...)
-    - ![alt text](image-17.png)
-    - ![alt text](image-18.png)
     - does not coverge in 100 epochs
+      - ![alt text](image-17.png)
+      - ![alt text](image-18.png)
+    - does not coverge in 200 epochs
+      - ![alt text](image-19.png)
+      - ![alt text](image-20.png)
+    - training to 300 epochs
+  - [x] add additional printing
   - [ ] exponential activation function
   - [ ] oversampling the large p region
   - [ ] different weighting error function
