@@ -36,8 +36,11 @@
 
 - training on the **likelihood directly**
   - [x] Generate new design points
-  - [ ] different activation function
-  - [ ] original likelihood
+  - [x] different activation function
+    - `ELU`
+  - [x] original likelihood
+  - Train the first 50 epoch:
+    - 
 
 - More exploration on emulating the **quantile function**
   - [x] Keras model initialize weights using last training records, as large batch_size = 1024 didn't coverge in 50 epochs
@@ -49,10 +52,22 @@
       - ![alt text](image-19.png)
       - ![alt text](image-20.png)
     - training to 300 epochs
+      - ![alt text](image-21.png)
+      - ![alt text](image-22.png)
+      - ![alt text](image-24.png)
+      - ![alt text](image-25.png)
+      - ![alt text](image-23.png)
+      - Results on the marginal likelihood
+        - ![alt text](image-26.png)
+        - ![alt text](image-27.png)
+        - We are seeing improvement. Maybe: additional training on bigger batch_size is required.
   - [x] add additional printing
   - [ ] exponential activation function
   - [ ] oversampling the large p region
   - [ ] different weighting error function
+
+- GPU
+  - can't train two neural network's simultaneously. They fight for memory.
 
 ## Jan. 23 (Thursday) Muyang/Likun/Ben
 
