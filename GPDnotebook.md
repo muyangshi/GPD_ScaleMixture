@@ -79,7 +79,78 @@ Logistics
         - ![alt text](image-27.png)
         - We are seeing improvement. Maybe: additional training on bigger batch_size is required.
   - [x] add additional printing
-  - [ ] Make one big prediction instead of several parallelized small prediction
+  - [x] Make one big prediction instead of several parallelized small prediction
+    - Making one big prediction is fast, but I suspect `dX` still uses lots of time.
+```
+Doing N_t calls to qRW_NN
+elapsed: 0.0 0.2
+elapsed: 19.726 0.35000000000000003
+elapsed: 37.988 0.40640640021762764
+elapsed: 53.601 0.5
+elapsed: 80.961 0.6500000000000001
+elapsed: 105.948 0.8
+
+Doing one call to qRW_NN( big X of size (Nt, Ns))
+elapsed: 0.0 0.2
+elapsed: 16.183 0.35000000000000003
+elapsed: 33.922 0.40640640021762764
+elapsed: 52.683 0.5
+elapsed: 73.785 0.6500000000000001
+elapsed: 89.36 0.8
+
+ll_phi_NN_2p_opt = []
+start_time = time.time()
+for phi_x in phi_grid:
+    print('elapsed:', round(time.time() - start_time, 3), phi_x)
+
+    phi_k        = phi_at_knots.copy()
+    phi_k[i]     = phi_x
+    phi_vec_test = gaussian_weight_matrix_phi @ phi_k
+
+    # Calculate the X all at once
+    input_list = [] # used to calculate X
+    for t in range(Nt):
+        pY_t = pCGP(Y[:,t], p, u_matrix[:,t], Scale_matrix[:,t], Shape_matrix[:,t])
+        X_t = np.column_stack((pY_t, phi_vec_test, gamma_bar_vec, np.full((len(pY_t),), tau)))
+        input_list.append(X_t)
+
+    X_nn = qRW_NN_2p(np.vstack(input_list), Ws, bs, acts)
+
+    # Split the X to each t, and use the 
+    # calculated X to calculate likelihood
+    X_nn = X_nn.reshape(Nt, Ns).T
+
+    args_list = []
+
+    for t in range(Nt):
+        # marginal process
+        Y_1t      = Y[:,t]
+        u_vec     = u_matrix[:,t]
+        Scale_vec = Scale_matrix[:,t]
+        Shape_vec = Shape_matrix[:,t]
+
+        # copula process
+        R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+        Z_1t      = Z[:,t]
+        logS_vec  = np.log(S_at_knots[:,t])
+
+        censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+        exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+
+        X_1t      = X_nn[:,t]
+
+        args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
+                        R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
+                        logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t,
+                        X_1t, Ws, bs, acts))
+    
+    with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
+        results = pool.map(ll_1t_par_NN_2p_opt, args_list)
+    ll_phi_NN_2p_opt.append(np.array(results))
+
+ll_phi_NN_2p_opt = np.array(ll_phi_NN_2p_opt)
+np.save(rf'll_phi_NN_2p_opt_k{i}', ll_phi_NN_2p_opt)
+```
   - [ ] exponential activation function
   - [ ] oversampling the large p region
   - [ ] different weighting error function

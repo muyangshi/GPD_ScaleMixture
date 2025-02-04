@@ -183,7 +183,7 @@ X_val   = X_lhs_val
 y_train = Y_lhs
 y_val   = Y_lhs_val
 
-# Defining model
+# %% Defining model
 
 # model = keras.Sequential(
 #     [   
@@ -209,13 +209,15 @@ y_val   = Y_lhs_val
 #     # loss=keras.losses.mean_squared_error
 #     loss = keras.losses.mean_squared_logarithmic_error)
 
-# %% # Fitting Model
+# %% Load Previously Defined Model (For additional training)
 
 """
 If want to train an existing model for additional epochs:
 """
 
 model = keras.models.load_model('./checkpoint.model.keras')
+
+# %% # Fitting Model
 
 start_time = time.time()
 print('started fitting NN:', datetime.datetime.now())
@@ -705,11 +707,35 @@ def ll_1t_par_NN_2p(args):
 
     return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(S_ll) + np.sum(Z_ll)
 
+def ll_1t_par_NN_2p_opt(args):
+    Y, p, u_vec, scale_vec, shape_vec, \
+    R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, \
+    logS_vec, gamma_at_knots, censored_idx, exceed_idx, \
+    X, Ws, bs, acts = args
+
+    X_star = (R_vec ** phi_vec) * g(Z_vec)
+    dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
+    
+    # log censored likelihood of y on censored sites
+    censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
+    # log censored likelihood of y on exceedance sites
+    exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
+                    + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
+                    - np.log(dX[exceed_idx])
+
+    # log likelihood of S
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+
+    # log likelihood of Z
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+
+    return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(S_ll) + np.sum(Z_ll)
+
 # %%
 # phi -------------------------------------------------------------------------------------------------------------
 
 # for i in range(k_phi):
-for i in [4]:
+for i in [0]:
 
     print(phi_at_knots[i]) # which phi_k value to plot a "profile" for
 
@@ -730,8 +756,7 @@ for i in [4]:
     #   - Scale_matrix
     #   - Shape_matrix
     
-
-    # Using qRW_NN_2p -------------------------------------------
+    # %% Using qRW_NN_2p ---------------------------------------------------------
 
     ll_phi_NN_2p = []
     start_time = time.time()
@@ -771,7 +796,69 @@ for i in [4]:
     ll_phi_NN_2p = np.array(ll_phi_NN_2p)
     np.save(rf'll_phi_NN_2p_k{i}', ll_phi_NN_2p)
 
-    # actual calculation ------------------------------------------------------
+    # %% Optimized using qRW_NN_2p -----------------------------------------------
+
+    """
+    Idea:
+        It might be much better to call NN once for a big X
+        than call NN for each t separately
+    """
+
+    ll_phi_NN_2p_opt = []
+    start_time = time.time()
+    for phi_x in phi_grid:
+        print('elapsed:', round(time.time() - start_time, 3), phi_x)
+
+        phi_k        = phi_at_knots.copy()
+        phi_k[i]     = phi_x
+        phi_vec_test = gaussian_weight_matrix_phi @ phi_k
+
+        # Calculate the X all at once
+        input_list = [] # used to calculate X
+        for t in range(Nt):
+            pY_t = pCGP(Y[:,t], p, u_matrix[:,t], Scale_matrix[:,t], Shape_matrix[:,t])
+            X_t = np.column_stack((pY_t, phi_vec_test, gamma_bar_vec, np.full((len(pY_t),), tau)))
+            input_list.append(X_t)
+
+        X_nn = qRW_NN_2p(np.vstack(input_list), Ws, bs, acts)
+
+        # Split the X to each t, and use the 
+        # calculated X to calculate likelihood
+        X_nn = X_nn.reshape(Nt, Ns).T
+
+        args_list = []
+
+        for t in range(Nt):
+            # marginal process
+            Y_1t      = Y[:,t]
+            u_vec     = u_matrix[:,t]
+            Scale_vec = Scale_matrix[:,t]
+            Shape_vec = Shape_matrix[:,t]
+
+            # copula process
+            R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+            Z_1t      = Z[:,t]
+            logS_vec  = np.log(S_at_knots[:,t])
+
+            censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+            exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+
+            X_1t      = X_nn[:,t]
+
+            args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
+                            R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
+                            logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t,
+                            X_1t, Ws, bs, acts))
+        
+        with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
+            results = pool.map(ll_1t_par_NN_2p_opt, args_list)
+        ll_phi_NN_2p_opt.append(np.array(results))
+
+    ll_phi_NN_2p_opt = np.array(ll_phi_NN_2p_opt)
+    np.save(rf'll_phi_NN_2p_opt_k{i}', ll_phi_NN_2p_opt)
+
+
+    # %% actual calculation ------------------------------------------------------
 
     ll_phi     = []
     start_time = time.time()
