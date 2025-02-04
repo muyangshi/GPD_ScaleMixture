@@ -24,6 +24,16 @@
 
 # Meetings
 
+## Feb. 4 (Tuesday) Muyang/Likun/Ben
+
+Logistics
+  - [ ] Summer 2025 Funding? Teaching Assignments?
+  - [ ] Department Scholarships and Awards, need nomination
+  - [ ] Conferences Registration
+    - JSM
+    - WACE
+    - EVA
+
 ## Jan. 28 (Tuesday) Muyang/Likun/Ben
 
 - Read the papers
@@ -40,7 +50,14 @@
     - `ELU`
   - [x] original likelihood
   - Train the first 50 epoch:
-    - 
+    - ![alt text](image-28.png)
+    - ![alt text](image-29.png)
+    - ![alt text](image-30.png)
+  - Keep training, each time for an additional 50 epochs
+    - If the emulator cannot learn the "curvature", try making the model bigger?
+  - [ ] Need to add a check for extrapolation
+  - [ ] Make one big prediction instead of several small prediction
+
 
 - More exploration on emulating the **quantile function**
   - [x] Keras model initialize weights using last training records, as large batch_size = 1024 didn't coverge in 50 epochs
@@ -62,6 +79,7 @@
         - ![alt text](image-27.png)
         - We are seeing improvement. Maybe: additional training on bigger batch_size is required.
   - [x] add additional printing
+  - [ ] Make one big prediction instead of several parallelized small prediction
   - [ ] exponential activation function
   - [ ] oversampling the large p region
   - [ ] different weighting error function

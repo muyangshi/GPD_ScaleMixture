@@ -86,8 +86,8 @@ random_generator = np.random.RandomState(7)
 
 n_processes = 7 if cpu_count() < 64 else 64
 
-INITIAL_EPOCH = 0
-EPOCH         = 50
+INITIAL_EPOCH = 50
+EPOCH         = 100
 
 N             = int(1e8)
 N_val         = int(1e6)
@@ -219,6 +219,17 @@ Y_lhs     = np.load(rf'll_1t_Y_lhs_{N}.npy')
 X_lhs_val = np.load(rf'll_1t_X_lhs_val_{N_val}.npy')
 Y_lhs_val = np.load(rf'll_1t_Y_lhs_val_{N_val}.npy')
 
+# plotting the log-likelihoods:
+#   reveals that the logged version can be so negative 
+#   that np.min(y_val) = -8.475824028546802e+17
+
+# Train on original scale likelihood
+
+X_train = X_lhs
+y_train = np.exp(Y_lhs)
+X_val   = X_lhs_val
+y_val   = np.exp(Y_lhs_val)
+
 # %% step 2a: emulate with scipy rbf smoothing/interpolating splines
 
 # spline_Y_ll_1t = RBFInterpolator(X_lhs, Y_lhs, 
@@ -312,37 +323,32 @@ Y_lhs_val = np.load(rf'll_1t_Y_lhs_val_{N_val}.npy')
 
 # %% step 2c: train on the original scale likelihood
 
-X_train = X_lhs
-y_train = np.exp(Y_lhs)
-X_val   = X_lhs_val
-y_val   = np.exp(Y_lhs_val)
+# model = keras.Sequential(
+#     [
+#         keras.Input(shape=(d,)),
+#         layers.Dense(64,  activation='elu'),
+#         layers.Dense(128, activation='elu'),
+#         layers.Dense(128, activation='elu'),
+#         layers.Dense(64,  activation='elu'),
+#         layers.Dense(1)
+#     ]
+# )
 
-# plotting the log-likelihoods:
-#   reveals that the logged version can be so negative 
-#   that np.min(y_val) = -8.475824028546802e+17
+# initial_learning_rate = 0.001
+# lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+#     initial_learning_rate, decay_steps=100000, decay_rate=0.96, staircase=True
+# )
 
-model = keras.Sequential(
-    [
-        keras.Input(shape=(d,)),
-        layers.Dense(64,  activation='elu'),
-        layers.Dense(128, activation='elu'),
-        layers.Dense(128, activation='elu'),
-        layers.Dense(64,  activation='elu'),
-        layers.Dense(1)
-    ]
-)
+# model.compile(
+#     # optimizer='adam',
+#     optimizer=keras.optimizers.RMSprop(learning_rate=lr_schedule), 
+#     loss=keras.losses.mean_squared_error)
 
-initial_learning_rate = 0.001
-lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-    initial_learning_rate, decay_steps=100000, decay_rate=0.96, staircase=True
-)
+# %% step 2c-2: load previously defined model
 
-model.compile(
-    # optimizer='adam',
-    optimizer=keras.optimizers.RMSprop(learning_rate=lr_schedule), 
-    loss=keras.losses.mean_squared_error)
+model = keras.models.load_model('./checkpoint.model.keras')
 
-# Fitting Model
+# %% Fitting Model
 
 start_time = time.time()
 print('started fitting NN:', datetime.datetime.now())
@@ -357,6 +363,7 @@ history = model.fit(
     y_train, 
     initial_epoch=INITIAL_EPOCH,
     epochs = EPOCH, 
+    batch_size=1024,
     verbose = 2,
     validation_data=(X_val, y_val),
     callbacks=[model_checkpoint_callback])
@@ -389,34 +396,34 @@ bestmodel.save(rf'./Y_L_1t_NN_{N}.keras')
 - Try the emulator on a "profile-ish" likelihood for some parameter
 """
 
-# # %% Actual log likelihood ----------------------------------------------------
-# # likelihood function to use for parallelization
-# def ll_1t_par(args):
-#     Y, p, u_vec, scale_vec, shape_vec, \
-#     R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, \
-#     logS_vec, gamma_at_knots, censored_idx, exceed_idx = args
+# %% Actual log likelihood ----------------------------------------------------
+# likelihood function to use for parallelization
+def ll_1t_par(args):
+    Y, p, u_vec, scale_vec, shape_vec, \
+    R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, \
+    logS_vec, gamma_at_knots, censored_idx, exceed_idx = args
 
-#     X_star = (R_vec ** phi_vec) * g(Z_vec)
-#     X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
-#     dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
+    X_star = (R_vec ** phi_vec) * g(Z_vec)
+    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
+    dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
     
-#     # log censored likelihood of y on censored sites
-#     censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
-#     # log censored likelihood of y on exceedance sites
-#     exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
-#                     + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
-#                     - np.log(dX[exceed_idx])
+    # log censored likelihood of y on censored sites
+    censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
+    # log censored likelihood of y on exceedance sites
+    exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
+                    + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
+                    - np.log(dX[exceed_idx])
 
-#     # log likelihood of S
-#     S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+    # log likelihood of S
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
 
-#     # log likelihood of Z
-#     Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+    # log likelihood of Z
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
 
-#     return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(S_ll) + np.sum(Z_ll)
+    return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(S_ll) + np.sum(Z_ll)
 
 
-# # %% Spline emulator -------------------------------------------------------------
+# %% Spline emulator -------------------------------------------------------------
 
 # # The emulator one does not work, 
 # # at least not on the log-likelihood
@@ -455,53 +462,60 @@ bestmodel.save(rf'./Y_L_1t_NN_{N}.keras')
 
 
 
-# # %% Neural emulator -------------------------------------------------------------
+# %% Neural emulator -------------------------------------------------------------
 
-# model_nn = keras.models.load_model("./Y_L_1t_NN_{N}.keras")
+model_nn = keras.models.load_model(rf"Y_L_1t_NN_{N}.keras")
 
-# def relu_np(x): 
-#     # np.maximum(x, 0, x) # changes x IN PLACE! faster than return x * (x > 0)
-#     return np.where(x > 0, x, 0)
+def relu_np(x): 
+    # np.maximum(x, 0, x) # changes x IN PLACE! faster than return x * (x > 0)
+    return np.where(x > 0, x, 0)
 
-# def elu_np(x):
-#     return np.where(x > 0, 
-#                     x, 
-#                     np.exp(x) - 1)
+def elu_np(x):
+    return np.where(x > 0, 
+                    x, 
+                    np.exp(x) - 1)
 
-# def identity(x):
-#     return x
+def identity(x):
+    return x
 
 
-# Ws, bs, acts = [], [], []
-# for layer in model_nn.layers:
-#     W, b = layer.get_weights()
-#     if layer.get_config()['activation'] == 'relu':
-#         act = relu_np
-#     elif layer.get_config()['activation'] == 'elu':
-#         act = elu_np
-#     elif layer.get_config()['activation'] == 'linear':
-#         act = identity
-#     else:
-#         print(layer.get_config()['activation'])
-#         raise NotImplementedError
-#     Ws.append(W)
-#     bs.append(b)
-#     acts.append(act)
+Ws, bs, acts = [], [], []
+for layer in model_nn.layers:
+    W, b = layer.get_weights()
+    if layer.get_config()['activation'] == 'relu':
+        act = relu_np
+    elif layer.get_config()['activation'] == 'elu':
+        act = elu_np
+    elif layer.get_config()['activation'] == 'linear':
+        act = identity
+    else:
+        print(layer.get_config()['activation'])
+        raise NotImplementedError
+    Ws.append(W)
+    bs.append(b)
+    acts.append(act)
 
-# # Manually perform matrix multiplication, 
-# # to bypass the keras parallelization issue
+# Manually perform matrix multiplication, 
+# to bypass the keras parallelization issue
 
-# # the output is 1D if X is 1D
-# #               2D if X is 2D
-# def Y_ll_1t_nn(Ws, bs, activations, X):
-#     Z = X
-#     for W, b, activation in zip(Ws, bs, activations):
-#         Z = Z @ W + b
-#         activation(Z)
-#     # return np.log(Z)
-#     return np.where(Z != 0, np.log(Z), 0)
+# the output is 1D if X is 1D
+#               2D if X is 2D
+def Y_ll_1t_nn(Ws, bs, activations, X):
+    Z = X
+    for W, b, activation in zip(Ws, bs, activations):
+        Z = Z @ W + b
+        Z = activation(Z)
+    # return np.log(Z)
+    return np.where(Z != 0, np.log(Z), 0)
 
-# # np.log(1/N * np.sum((Y_ll_1t_nn(Ws, bs, acts, X_lhs) - Y_lhs)**2))
+def Y_L_1t_nn(Ws, bs, activations, X):
+    Z = X
+    for W, b, activation in zip(Ws, bs, activations):
+        Z = Z @ W + b
+        Z = activation(Z)
+    return Z
+
+# np.log(1/N * np.sum((Y_ll_1t_nn(Ws, bs, acts, X_lhs) - Y_lhs)**2))
 
 
 
@@ -540,461 +554,461 @@ bestmodel.save(rf'./Y_L_1t_NN_{N}.keras')
 
 
 
-# # %% loading and setting up for plotting
-# # imports -------------------------------------------------------------------------------------------------------------
-
-
-# datafolder = './simulated_seed-2345_t-60_s-50_phi-nonstatsc2_rho-nonstat_tau-10.0/'
-# datafile   = 'simulated_data.RData'
-# r(f'''
-#     load("{datafolder}/{datafile}")
-# ''')
-
-# # Load from .RData file the following
-# #   Y, 
-# #   GP_estimates (u, logsigma, xi), 
-# #   elev, 
-# #   stations
-
-# Y                  = np.array(r('Y'))
-# GP_estimates       = np.array(r('GP_estimates')).T
-# logsigma_estimates = GP_estimates[:,1]
-# xi_estimates       = GP_estimates[:,2]
-# elevations         = np.array(r('elev'))
-# stations           = np.array(r('stations')).T
-
-# # this `u_vec` is the threshold, 
-# # spatially varying but temporally constant
-# # ie, each site has its own threshold
-# u_vec              = GP_estimates[:,0]
-
-
-# # Setup (Covariates and Constants) ------------------------------------------------------------------------------------
-
-# # Ns, Nt
-
-# Ns = Y.shape[0] # number of sites/stations
-# Nt = Y.shape[1] # number of time replicates
-# start_year = 1949
-# end_year   = 2023
-# all_years  = np.linspace(start_year, end_year, Nt)
-# Time       = (all_years - np.mean(all_years))/np.std(all_years, ddof=1) # delta degress of freedom, to match the n-1 in R
-# Time       = Time[0:Nt] # if there is any truncation specified above
-
-# # Knots number and radius
-
-# N_outer_grid_S   = 9
-# N_outer_grid_phi = 9
-# N_outer_grid_rho = 9
-# radius_S         = 3 # radius of Wendland Basis for S
-# eff_range_phi    = 3 # effective range for phi
-# eff_range_rho    = 3 # effective range for rho
-
-# # threshold probability and quantile
-
-# p        = 0.9
-# u_matrix = np.full(shape = (Ns, Nt), fill_value = np.nanquantile(Y, p)) # threshold u on Y, i.e. p = Pr(Y <= u)
-# # u_vec    = u_matrix[:,rank]
-
-# # Sites
-
-# sites_xy = stations
-# sites_x = sites_xy[:,0]
-# sites_y = sites_xy[:,1]
-
-# # define the lower and upper limits for x and y
-# minX, maxX = 0.0, 10.0
-# minY, maxY = 0.0, 10.0
-
-# # Knots - isometric grid of 9 + 4 = 13 knots ----------------------------------
-
-# # isometric knot grid - for R (de-coupled from phi and rho)
-
-# h_dist_between_knots_S     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_S))-1)
-# v_dist_between_knots_S     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_S))-1)
-# x_pos_S                    = np.linspace(minX + h_dist_between_knots_S/2, maxX + h_dist_between_knots_S/2,
-#                                         num = int(2*np.sqrt(N_outer_grid_S)))
-# y_pos_S                    = np.linspace(minY + v_dist_between_knots_S/2, maxY + v_dist_between_knots_S/2,
-#                                         num = int(2*np.sqrt(N_outer_grid_S)))
-# x_outer_pos_S              = x_pos_S[0::2]
-# x_inner_pos_S              = x_pos_S[1::2]
-# y_outer_pos_S              = y_pos_S[0::2]
-# y_inner_pos_S              = y_pos_S[1::2]
-# X_outer_pos_S, Y_outer_pos_S = np.meshgrid(x_outer_pos_S, y_outer_pos_S)
-# X_inner_pos_S, Y_inner_pos_S = np.meshgrid(x_inner_pos_S, y_inner_pos_S)
-# knots_outer_xy_S           = np.vstack([X_outer_pos_S.ravel(), Y_outer_pos_S.ravel()]).T
-# knots_inner_xy_S           = np.vstack([X_inner_pos_S.ravel(), Y_inner_pos_S.ravel()]).T
-# knots_xy_S                 = np.vstack((knots_outer_xy_S, knots_inner_xy_S))
-# knots_id_in_domain_S       = [row for row in range(len(knots_xy_S)) if (minX < knots_xy_S[row,0] < maxX and minY < knots_xy_S[row,1] < maxY)]
-# knots_xy_S                 = knots_xy_S[knots_id_in_domain_S]
-# knots_x_S                  = knots_xy_S[:,0]
-# knots_y_S                  = knots_xy_S[:,1]
-# k_S                        = len(knots_id_in_domain_S)
-
-# # isometric knot grid - for phi (de-coupled from R and rho)
-
-# h_dist_between_knots_phi     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_phi))-1)
-# v_dist_between_knots_phi     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_phi))-1)
-# x_pos_phi                    = np.linspace(minX + h_dist_between_knots_phi/2, maxX + h_dist_between_knots_phi/2,
-#                                         num = int(2*np.sqrt(N_outer_grid_phi)))
-# y_pos_phi                    = np.linspace(minY + v_dist_between_knots_phi/2, maxY + v_dist_between_knots_phi/2,
-#                                         num = int(2*np.sqrt(N_outer_grid_phi)))
-# x_outer_pos_phi              = x_pos_phi[0::2]
-# x_inner_pos_phi              = x_pos_phi[1::2]
-# y_outer_pos_phi              = y_pos_phi[0::2]
-# y_inner_pos_phi              = y_pos_phi[1::2]
-# X_outer_pos_phi, Y_outer_pos_phi = np.meshgrid(x_outer_pos_phi, y_outer_pos_phi)
-# X_inner_pos_phi, Y_inner_pos_phi = np.meshgrid(x_inner_pos_phi, y_inner_pos_phi)
-# knots_outer_xy_phi           = np.vstack([X_outer_pos_phi.ravel(), Y_outer_pos_phi.ravel()]).T
-# knots_inner_xy_phi           = np.vstack([X_inner_pos_phi.ravel(), Y_inner_pos_phi.ravel()]).T
-# knots_xy_phi                 = np.vstack((knots_outer_xy_phi, knots_inner_xy_phi))
-# knots_id_in_domain_phi       = [row for row in range(len(knots_xy_phi)) if (minX < knots_xy_phi[row,0] < maxX and minY < knots_xy_phi[row,1] < maxY)]
-# knots_xy_phi                 = knots_xy_phi[knots_id_in_domain_phi]
-# knots_x_phi                  = knots_xy_phi[:,0]
-# knots_y_phi                  = knots_xy_phi[:,1]
-# k_phi                        = len(knots_id_in_domain_phi)
-
-# # isometric knot grid - for rho (de-coupled from R and phi)
-
-# h_dist_between_knots_rho     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_rho))-1)
-# v_dist_between_knots_rho     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_rho))-1)
-# x_pos_rho                    = np.linspace(minX + h_dist_between_knots_rho/2, maxX + h_dist_between_knots_rho/2,
-#                                         num = int(2*np.sqrt(N_outer_grid_rho)))
-# y_pos_rho                    = np.linspace(minY + v_dist_between_knots_rho/2, maxY + v_dist_between_knots_rho/2,
-#                                         num = int(2*np.sqrt(N_outer_grid_rho)))
-# x_outer_pos_rho              = x_pos_rho[0::2]
-# x_inner_pos_rho              = x_pos_rho[1::2]
-# y_outer_pos_rho              = y_pos_rho[0::2]
-# y_inner_pos_rho              = y_pos_rho[1::2]
-# X_outer_pos_rho, Y_outer_pos_rho = np.meshgrid(x_outer_pos_rho, y_outer_pos_rho)
-# X_inner_pos_rho, Y_inner_pos_rho = np.meshgrid(x_inner_pos_rho, y_inner_pos_rho)
-# knots_outer_xy_rho           = np.vstack([X_outer_pos_rho.ravel(), Y_outer_pos_rho.ravel()]).T
-# knots_inner_xy_rho           = np.vstack([X_inner_pos_rho.ravel(), Y_inner_pos_rho.ravel()]).T
-# knots_xy_rho                 = np.vstack((knots_outer_xy_rho, knots_inner_xy_rho))
-# knots_id_in_domain_rho       = [row for row in range(len(knots_xy_rho)) if (minX < knots_xy_rho[row,0] < maxX and minY < knots_xy_rho[row,1] < maxY)]
-# knots_xy_rho                 = knots_xy_rho[knots_id_in_domain_rho]
-# knots_x_rho                  = knots_xy_rho[:,0]
-# knots_y_rho                  = knots_xy_rho[:,1]
-# k_rho                        = len(knots_id_in_domain_rho)
-
-# # Copula Splines --------------------------------------------------------------
-
-# # Basis Parameters - for the Gaussian and Wendland Basis
-
-# radius_S_from_knots = np.repeat(radius_S, k_S) # influence radius from a knot
-# bandwidth_phi       = eff_range_phi**2/6
-# bandwidth_rho       = eff_range_rho**2/6
-
-# # Generate the weight matrices
-
-# # Weight matrix generated using wendland basis for S
-# wendland_weight_matrix_S = np.full(shape = (Ns,k_S), fill_value = np.nan)
-# for site_id in np.arange(Ns):
-#     # Compute distance between each pair of the two collections of inputs
-#     d_from_knots = scipy.spatial.distance.cdist(XA = sites_xy[site_id,:].reshape((-1,2)),
-#                                                 XB = knots_xy_S)
-#     # influence coming from each of the knots
-#     weight_from_knots = wendland_weights_fun(d_from_knots, radius_S_from_knots)
-#     wendland_weight_matrix_S[site_id, :] = weight_from_knots
-
-# # Weight matrix generated using Gaussian Smoothing Kernel for phi
-# gaussian_weight_matrix_phi = np.full(shape = (Ns, k_phi), fill_value = np.nan)
-# for site_id in np.arange(Ns):
-#     # Compute distance between each pair of the two collections of inputs
-#     d_from_knots = scipy.spatial.distance.cdist(XA = sites_xy[site_id,:].reshape((-1,2)),
-#                                                 XB = knots_xy_phi)
-#     # influence coming from each of the knots
-#     weight_from_knots = weights_fun(d_from_knots, radius_S, bandwidth_phi, cutoff = False) # radius not used when cutoff = False
-#     gaussian_weight_matrix_phi[site_id, :] = weight_from_knots
-
-# # Weight matrix generated using Gaussian Smoothing Kernel for rho
-# gaussian_weight_matrix_rho = np.full(shape = (Ns, k_rho), fill_value = np.nan)
-# for site_id in np.arange(Ns):
-#     # Compute distance between each pair of the two collections of inputs
-#     d_from_knots = scipy.spatial.distance.cdist(XA = sites_xy[site_id,:].reshape((-1,2)),
-#                                                 XB = knots_xy_rho)
-#     # influence coming from each of the knots
-#     weight_from_knots = weights_fun(d_from_knots, radius_S, bandwidth_rho, cutoff = False) # radius not used when cutoff = False
-#     gaussian_weight_matrix_rho[site_id, :] = weight_from_knots
-
-
-# # Marginal Model - GP(sigma, xi) threshold u ---------------------------------
-
-# # Scale logsigma(s)
-# Beta_logsigma_m   = 2 # just intercept and elevation
-# C_logsigma        = np.full(shape = (Beta_logsigma_m, Ns, Nt), fill_value = np.nan)
-# C_logsigma[0,:,:] = 1.0
-# C_logsigma[1,:,:] = np.tile(elevations, reps = (Nt, 1)).T
-
-# # Shape xi(s)
-# Beta_xi_m   = 2 # just intercept and elevation
-# C_xi        = np.full(shape = (Beta_xi_m, Ns, Nt), fill_value = np.nan) # xi design matrix
-# C_xi[0,:,:] = 1.0
-# C_xi[1,:,:] = np.tile(elevations, reps = (Nt, 1)).T
-
-# # Setup For the Copula/Data Model - X = e + X_star = e + R^phi * g(Z) ---------
-
-# # Covariance K for Gaussian Field g(Z)
-# nu        = 0.5                # exponential kernel for matern with nu = 1/2
-# sigsq_vec = np.repeat(1.0, Ns) # sill for Z, hold at 1
-
-# # Scale Mixture R^phi
-# delta = 0.0 # this is the delta in levy, stays 0
-# alpha = 0.5 # alpha in the Stable, stays 0.5
-
-# # Load/Hardcode parameters --------------------------------------------------------------------------------------------
-
-# # True values as intials with the simulation
-
-# data_seed = 2345
-
-# simulation_threshold = 60.0
-# Beta_logsigma        = np.array([3.0, 0.0])
-# Beta_xi              = np.array([0.1, 0.0])
-# range_at_knots       = np.sqrt(0.3*knots_x_rho + 0.4*knots_y_rho)/2
-# phi_at_knots         = 0.65 - np.sqrt((knots_x_phi-5.1)**2/5 + (knots_y_phi-5.3)**2/4)/11.6
-# gamma_k_vec          = np.repeat(0.5, k_S)
-# tau                  = 10
-
-# np.random.seed(data_seed)
-
-# # Marginal Model
-
-# u_matrix = np.full(shape = (Ns, Nt), fill_value = simulation_threshold)
-
-# sigma_Beta_logsigma = 1
-# sigma_Beta_xi      = 1
-
-# # g(Z) Transformed Gaussian Process
-
-# range_vec      = gaussian_weight_matrix_rho @ range_at_knots
-# K              = ns_cov(range_vec = range_vec, sigsq_vec = sigsq_vec,
-#                         coords = sites_xy, kappa = nu, cov_model = "matern")
-# Z              = scipy.stats.multivariate_normal.rvs(mean=np.zeros(shape=(Ns,)),cov=K,size=Nt).T
-# W              = g(Z)
-
-# # phi Dependence parameter
-
-# phi_vec        = gaussian_weight_matrix_phi @ phi_at_knots
-
-# # R^phi Random Scaling
-
-# gamma_bar_vec = np.sum(np.multiply(wendland_weight_matrix_S, gamma_k_vec)**(alpha),
-#                     axis = 1)**(1/alpha) # gamma_bar, axis = 1 to sum over K knots
-
-# S_at_knots     = np.full(shape = (k_S, Nt), fill_value = np.nan)
-# for t in np.arange(Nt):
-#     S_at_knots[:,t] = rlevy(n = k_S, m = delta, s = gamma_k_vec) # generate R at time t, spatially varying k knots
-# R_at_sites = wendland_weight_matrix_S @ S_at_knots
-# R_phi      = np.full(shape = (Ns, Nt), fill_value = np.nan)
-# for t in np.arange(Nt):
-#     R_phi[:,t] = np.power(R_at_sites[:,t], phi_vec)
-
-# # Nuggets
-
-# nuggets = scipy.stats.multivariate_normal.rvs(mean = np.zeros(shape = (Ns,)),
-#                                             cov  = tau**2,
-#                                             size = Nt).T
-# X_star       = R_phi * W
-# X_truth      = X_star + nuggets
-
-# Scale_matrix = np.exp((C_logsigma.T @ Beta_logsigma).T)
-# Shape_matrix = (C_xi.T @ Beta_xi).T
-
-# # %% plotting marginal likelihood surface
-# # phi -------------------------------------------------------------------------------------------------------------
-
-# # for i in range(k_phi):
-# for i in range(1):
-
-#     print(phi_at_knots[i]) # which phi_k value to plot a "profile" for
-
-#     lb = 0.2
-#     ub = 0.8
-#     grids = 5 # fast
-#     # grids = 13
-#     phi_grid = np.linspace(lb, ub, grids)
-#     phi_grid = np.sort(np.insert(phi_grid, 0, phi_at_knots[i]))
-
-#     # unchanged from above:
-#     #   - range_vec
-#     #   - K
-#     #   - tau
-#     #   - gamma_bar_vec
-#     #   - p
-#     #   - u_matrix
-#     #   - Scale_matrix
-#     #   - Shape_matrix
-
-#     # # Using spline emulator -------------------------------------------------
-
-#     # ll_phi_emulator_spline = []
-#     # start_time = time.time()
-#     # for phi_x in phi_grid:
-#     #     args_list = []
-#     #     print('elapsed:', round(time.time() - start_time, 3), phi_x)
-
-#     #     phi_k        = phi_at_knots.copy()
-#     #     phi_k[i]     = phi_x
-#     #     phi_vec_test = gaussian_weight_matrix_phi @ phi_k
-
-#     #     for t in range(Nt):
-#     #         Y_1t      = Y[:,t]
-#     #         u_vec     = u_matrix[:,t]
-#     #         Scale_vec = Scale_matrix[:,t]
-#     #         Shape_vec = Shape_matrix[:,t]
-
-#     #         R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
-#     #         Z_1t      = Z[:,t]
-
-#     #         logS_vec  = np.log(S_at_knots[:,t])
-
-#     #         censored_idx_1t = np.where(Y_1t <= u_vec)[0]
-#     #         exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
-
-#     #         args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
-#     #                           R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
-#     #                           logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t, emulator_spline))
+# %% loading and setting up for plotting
+# imports -------------------------------------------------------------------------------------------------------------
+
+
+datafolder = './simulated_seed-2345_t-60_s-50_phi-nonstatsc2_rho-nonstat_tau-10.0/'
+datafile   = 'simulated_data.RData'
+r(f'''
+    load("{datafolder}/{datafile}")
+''')
+
+# Load from .RData file the following
+#   Y, 
+#   GP_estimates (u, logsigma, xi), 
+#   elev, 
+#   stations
+
+Y                  = np.array(r('Y'))
+GP_estimates       = np.array(r('GP_estimates')).T
+logsigma_estimates = GP_estimates[:,1]
+xi_estimates       = GP_estimates[:,2]
+elevations         = np.array(r('elev'))
+stations           = np.array(r('stations')).T
+
+# this `u_vec` is the threshold, 
+# spatially varying but temporally constant
+# ie, each site has its own threshold
+u_vec              = GP_estimates[:,0]
+
+
+# Setup (Covariates and Constants) ------------------------------------------------------------------------------------
+
+# Ns, Nt
+
+Ns = Y.shape[0] # number of sites/stations
+Nt = Y.shape[1] # number of time replicates
+start_year = 1949
+end_year   = 2023
+all_years  = np.linspace(start_year, end_year, Nt)
+Time       = (all_years - np.mean(all_years))/np.std(all_years, ddof=1) # delta degress of freedom, to match the n-1 in R
+Time       = Time[0:Nt] # if there is any truncation specified above
+
+# Knots number and radius
+
+N_outer_grid_S   = 9
+N_outer_grid_phi = 9
+N_outer_grid_rho = 9
+radius_S         = 3 # radius of Wendland Basis for S
+eff_range_phi    = 3 # effective range for phi
+eff_range_rho    = 3 # effective range for rho
+
+# threshold probability and quantile
+
+p        = 0.9
+u_matrix = np.full(shape = (Ns, Nt), fill_value = np.nanquantile(Y, p)) # threshold u on Y, i.e. p = Pr(Y <= u)
+# u_vec    = u_matrix[:,rank]
+
+# Sites
+
+sites_xy = stations
+sites_x = sites_xy[:,0]
+sites_y = sites_xy[:,1]
+
+# define the lower and upper limits for x and y
+minX, maxX = 0.0, 10.0
+minY, maxY = 0.0, 10.0
+
+# Knots - isometric grid of 9 + 4 = 13 knots ----------------------------------
+
+# isometric knot grid - for R (de-coupled from phi and rho)
+
+h_dist_between_knots_S     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_S))-1)
+v_dist_between_knots_S     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_S))-1)
+x_pos_S                    = np.linspace(minX + h_dist_between_knots_S/2, maxX + h_dist_between_knots_S/2,
+                                        num = int(2*np.sqrt(N_outer_grid_S)))
+y_pos_S                    = np.linspace(minY + v_dist_between_knots_S/2, maxY + v_dist_between_knots_S/2,
+                                        num = int(2*np.sqrt(N_outer_grid_S)))
+x_outer_pos_S              = x_pos_S[0::2]
+x_inner_pos_S              = x_pos_S[1::2]
+y_outer_pos_S              = y_pos_S[0::2]
+y_inner_pos_S              = y_pos_S[1::2]
+X_outer_pos_S, Y_outer_pos_S = np.meshgrid(x_outer_pos_S, y_outer_pos_S)
+X_inner_pos_S, Y_inner_pos_S = np.meshgrid(x_inner_pos_S, y_inner_pos_S)
+knots_outer_xy_S           = np.vstack([X_outer_pos_S.ravel(), Y_outer_pos_S.ravel()]).T
+knots_inner_xy_S           = np.vstack([X_inner_pos_S.ravel(), Y_inner_pos_S.ravel()]).T
+knots_xy_S                 = np.vstack((knots_outer_xy_S, knots_inner_xy_S))
+knots_id_in_domain_S       = [row for row in range(len(knots_xy_S)) if (minX < knots_xy_S[row,0] < maxX and minY < knots_xy_S[row,1] < maxY)]
+knots_xy_S                 = knots_xy_S[knots_id_in_domain_S]
+knots_x_S                  = knots_xy_S[:,0]
+knots_y_S                  = knots_xy_S[:,1]
+k_S                        = len(knots_id_in_domain_S)
+
+# isometric knot grid - for phi (de-coupled from R and rho)
+
+h_dist_between_knots_phi     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_phi))-1)
+v_dist_between_knots_phi     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_phi))-1)
+x_pos_phi                    = np.linspace(minX + h_dist_between_knots_phi/2, maxX + h_dist_between_knots_phi/2,
+                                        num = int(2*np.sqrt(N_outer_grid_phi)))
+y_pos_phi                    = np.linspace(minY + v_dist_between_knots_phi/2, maxY + v_dist_between_knots_phi/2,
+                                        num = int(2*np.sqrt(N_outer_grid_phi)))
+x_outer_pos_phi              = x_pos_phi[0::2]
+x_inner_pos_phi              = x_pos_phi[1::2]
+y_outer_pos_phi              = y_pos_phi[0::2]
+y_inner_pos_phi              = y_pos_phi[1::2]
+X_outer_pos_phi, Y_outer_pos_phi = np.meshgrid(x_outer_pos_phi, y_outer_pos_phi)
+X_inner_pos_phi, Y_inner_pos_phi = np.meshgrid(x_inner_pos_phi, y_inner_pos_phi)
+knots_outer_xy_phi           = np.vstack([X_outer_pos_phi.ravel(), Y_outer_pos_phi.ravel()]).T
+knots_inner_xy_phi           = np.vstack([X_inner_pos_phi.ravel(), Y_inner_pos_phi.ravel()]).T
+knots_xy_phi                 = np.vstack((knots_outer_xy_phi, knots_inner_xy_phi))
+knots_id_in_domain_phi       = [row for row in range(len(knots_xy_phi)) if (minX < knots_xy_phi[row,0] < maxX and minY < knots_xy_phi[row,1] < maxY)]
+knots_xy_phi                 = knots_xy_phi[knots_id_in_domain_phi]
+knots_x_phi                  = knots_xy_phi[:,0]
+knots_y_phi                  = knots_xy_phi[:,1]
+k_phi                        = len(knots_id_in_domain_phi)
+
+# isometric knot grid - for rho (de-coupled from R and phi)
+
+h_dist_between_knots_rho     = (maxX - minX) / (int(2*np.sqrt(N_outer_grid_rho))-1)
+v_dist_between_knots_rho     = (maxY - minY) / (int(2*np.sqrt(N_outer_grid_rho))-1)
+x_pos_rho                    = np.linspace(minX + h_dist_between_knots_rho/2, maxX + h_dist_between_knots_rho/2,
+                                        num = int(2*np.sqrt(N_outer_grid_rho)))
+y_pos_rho                    = np.linspace(minY + v_dist_between_knots_rho/2, maxY + v_dist_between_knots_rho/2,
+                                        num = int(2*np.sqrt(N_outer_grid_rho)))
+x_outer_pos_rho              = x_pos_rho[0::2]
+x_inner_pos_rho              = x_pos_rho[1::2]
+y_outer_pos_rho              = y_pos_rho[0::2]
+y_inner_pos_rho              = y_pos_rho[1::2]
+X_outer_pos_rho, Y_outer_pos_rho = np.meshgrid(x_outer_pos_rho, y_outer_pos_rho)
+X_inner_pos_rho, Y_inner_pos_rho = np.meshgrid(x_inner_pos_rho, y_inner_pos_rho)
+knots_outer_xy_rho           = np.vstack([X_outer_pos_rho.ravel(), Y_outer_pos_rho.ravel()]).T
+knots_inner_xy_rho           = np.vstack([X_inner_pos_rho.ravel(), Y_inner_pos_rho.ravel()]).T
+knots_xy_rho                 = np.vstack((knots_outer_xy_rho, knots_inner_xy_rho))
+knots_id_in_domain_rho       = [row for row in range(len(knots_xy_rho)) if (minX < knots_xy_rho[row,0] < maxX and minY < knots_xy_rho[row,1] < maxY)]
+knots_xy_rho                 = knots_xy_rho[knots_id_in_domain_rho]
+knots_x_rho                  = knots_xy_rho[:,0]
+knots_y_rho                  = knots_xy_rho[:,1]
+k_rho                        = len(knots_id_in_domain_rho)
+
+# Copula Splines --------------------------------------------------------------
+
+# Basis Parameters - for the Gaussian and Wendland Basis
+
+radius_S_from_knots = np.repeat(radius_S, k_S) # influence radius from a knot
+bandwidth_phi       = eff_range_phi**2/6
+bandwidth_rho       = eff_range_rho**2/6
+
+# Generate the weight matrices
+
+# Weight matrix generated using wendland basis for S
+wendland_weight_matrix_S = np.full(shape = (Ns,k_S), fill_value = np.nan)
+for site_id in np.arange(Ns):
+    # Compute distance between each pair of the two collections of inputs
+    d_from_knots = scipy.spatial.distance.cdist(XA = sites_xy[site_id,:].reshape((-1,2)),
+                                                XB = knots_xy_S)
+    # influence coming from each of the knots
+    weight_from_knots = wendland_weights_fun(d_from_knots, radius_S_from_knots)
+    wendland_weight_matrix_S[site_id, :] = weight_from_knots
+
+# Weight matrix generated using Gaussian Smoothing Kernel for phi
+gaussian_weight_matrix_phi = np.full(shape = (Ns, k_phi), fill_value = np.nan)
+for site_id in np.arange(Ns):
+    # Compute distance between each pair of the two collections of inputs
+    d_from_knots = scipy.spatial.distance.cdist(XA = sites_xy[site_id,:].reshape((-1,2)),
+                                                XB = knots_xy_phi)
+    # influence coming from each of the knots
+    weight_from_knots = weights_fun(d_from_knots, radius_S, bandwidth_phi, cutoff = False) # radius not used when cutoff = False
+    gaussian_weight_matrix_phi[site_id, :] = weight_from_knots
+
+# Weight matrix generated using Gaussian Smoothing Kernel for rho
+gaussian_weight_matrix_rho = np.full(shape = (Ns, k_rho), fill_value = np.nan)
+for site_id in np.arange(Ns):
+    # Compute distance between each pair of the two collections of inputs
+    d_from_knots = scipy.spatial.distance.cdist(XA = sites_xy[site_id,:].reshape((-1,2)),
+                                                XB = knots_xy_rho)
+    # influence coming from each of the knots
+    weight_from_knots = weights_fun(d_from_knots, radius_S, bandwidth_rho, cutoff = False) # radius not used when cutoff = False
+    gaussian_weight_matrix_rho[site_id, :] = weight_from_knots
+
+
+# Marginal Model - GP(sigma, xi) threshold u ---------------------------------
+
+# Scale logsigma(s)
+Beta_logsigma_m   = 2 # just intercept and elevation
+C_logsigma        = np.full(shape = (Beta_logsigma_m, Ns, Nt), fill_value = np.nan)
+C_logsigma[0,:,:] = 1.0
+C_logsigma[1,:,:] = np.tile(elevations, reps = (Nt, 1)).T
+
+# Shape xi(s)
+Beta_xi_m   = 2 # just intercept and elevation
+C_xi        = np.full(shape = (Beta_xi_m, Ns, Nt), fill_value = np.nan) # xi design matrix
+C_xi[0,:,:] = 1.0
+C_xi[1,:,:] = np.tile(elevations, reps = (Nt, 1)).T
+
+# Setup For the Copula/Data Model - X = e + X_star = e + R^phi * g(Z) ---------
+
+# Covariance K for Gaussian Field g(Z)
+nu        = 0.5                # exponential kernel for matern with nu = 1/2
+sigsq_vec = np.repeat(1.0, Ns) # sill for Z, hold at 1
+
+# Scale Mixture R^phi
+delta = 0.0 # this is the delta in levy, stays 0
+alpha = 0.5 # alpha in the Stable, stays 0.5
+
+# Load/Hardcode parameters --------------------------------------------------------------------------------------------
+
+# True values as intials with the simulation
+
+data_seed = 2345
+
+simulation_threshold = 60.0
+Beta_logsigma        = np.array([3.0, 0.0])
+Beta_xi              = np.array([0.1, 0.0])
+range_at_knots       = np.sqrt(0.3*knots_x_rho + 0.4*knots_y_rho)/2
+phi_at_knots         = 0.65 - np.sqrt((knots_x_phi-5.1)**2/5 + (knots_y_phi-5.3)**2/4)/11.6
+gamma_k_vec          = np.repeat(0.5, k_S)
+tau                  = 10
+
+np.random.seed(data_seed)
+
+# Marginal Model
+
+u_matrix = np.full(shape = (Ns, Nt), fill_value = simulation_threshold)
+
+sigma_Beta_logsigma = 1
+sigma_Beta_xi      = 1
+
+# g(Z) Transformed Gaussian Process
+
+range_vec      = gaussian_weight_matrix_rho @ range_at_knots
+K              = ns_cov(range_vec = range_vec, sigsq_vec = sigsq_vec,
+                        coords = sites_xy, kappa = nu, cov_model = "matern")
+Z              = scipy.stats.multivariate_normal.rvs(mean=np.zeros(shape=(Ns,)),cov=K,size=Nt).T
+W              = g(Z)
+
+# phi Dependence parameter
+
+phi_vec        = gaussian_weight_matrix_phi @ phi_at_knots
+
+# R^phi Random Scaling
+
+gamma_bar_vec = np.sum(np.multiply(wendland_weight_matrix_S, gamma_k_vec)**(alpha),
+                    axis = 1)**(1/alpha) # gamma_bar, axis = 1 to sum over K knots
+
+S_at_knots     = np.full(shape = (k_S, Nt), fill_value = np.nan)
+for t in np.arange(Nt):
+    S_at_knots[:,t] = rlevy(n = k_S, m = delta, s = gamma_k_vec) # generate R at time t, spatially varying k knots
+R_at_sites = wendland_weight_matrix_S @ S_at_knots
+R_phi      = np.full(shape = (Ns, Nt), fill_value = np.nan)
+for t in np.arange(Nt):
+    R_phi[:,t] = np.power(R_at_sites[:,t], phi_vec)
+
+# Nuggets
+
+nuggets = scipy.stats.multivariate_normal.rvs(mean = np.zeros(shape = (Ns,)),
+                                            cov  = tau**2,
+                                            size = Nt).T
+X_star       = R_phi * W
+X_truth      = X_star + nuggets
+
+Scale_matrix = np.exp((C_logsigma.T @ Beta_logsigma).T)
+Shape_matrix = (C_xi.T @ Beta_xi).T
+
+# %% plotting marginal likelihood surface
+# phi -------------------------------------------------------------------------------------------------------------
+
+# for i in range(k_phi):
+for i in range(1):
+
+    print(phi_at_knots[i]) # which phi_k value to plot a "profile" for
+
+    lb = 0.2
+    ub = 0.8
+    grids = 5 # fast
+    # grids = 13
+    phi_grid = np.linspace(lb, ub, grids)
+    phi_grid = np.sort(np.insert(phi_grid, 0, phi_at_knots[i]))
+
+    # unchanged from above:
+    #   - range_vec
+    #   - K
+    #   - tau
+    #   - gamma_bar_vec
+    #   - p
+    #   - u_matrix
+    #   - Scale_matrix
+    #   - Shape_matrix
+
+    # # Using spline emulator -------------------------------------------------
+
+    # ll_phi_emulator_spline = []
+    # start_time = time.time()
+    # for phi_x in phi_grid:
+    #     args_list = []
+    #     print('elapsed:', round(time.time() - start_time, 3), phi_x)
+
+    #     phi_k        = phi_at_knots.copy()
+    #     phi_k[i]     = phi_x
+    #     phi_vec_test = gaussian_weight_matrix_phi @ phi_k
+
+    #     for t in range(Nt):
+    #         Y_1t      = Y[:,t]
+    #         u_vec     = u_matrix[:,t]
+    #         Scale_vec = Scale_matrix[:,t]
+    #         Shape_vec = Shape_matrix[:,t]
+
+    #         R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+    #         Z_1t      = Z[:,t]
+
+    #         logS_vec  = np.log(S_at_knots[:,t])
+
+    #         censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+    #         exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+
+    #         args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
+    #                           R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
+    #                           logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t, emulator_spline))
             
-#     #     with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
-#     #         results = pool.map(ll_1t_spline_par, args_list)
-#     #     ll_phi_emulator_spline.append(np.array(results))
+    #     with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
+    #         results = pool.map(ll_1t_spline_par, args_list)
+    #     ll_phi_emulator_spline.append(np.array(results))
 
-#     # ll_phi_emulator_spline = np.array(ll_phi_emulator_spline, dtype = object)
-#     # np.save(rf'll_phi_emulator_spline_k{i}', ll_phi_emulator_spline)
+    # ll_phi_emulator_spline = np.array(ll_phi_emulator_spline, dtype = object)
+    # np.save(rf'll_phi_emulator_spline_k{i}', ll_phi_emulator_spline)
     
-#     # Using neural network emulator -------------------------------------------
+    # Using neural network emulator -------------------------------------------
 
-#     ll_phi_emulator_nn = []
-#     start_time = time.time()
-#     for phi_x in phi_grid:
-#         args_list = []
-#         print('elapsed:', round(time.time() - start_time, 3), phi_x)
+    ll_phi_emulator_nn = []
+    start_time = time.time()
+    for phi_x in phi_grid:
+        args_list = []
+        print('elapsed:', round(time.time() - start_time, 3), phi_x)
 
-#         phi_k        = phi_at_knots.copy()
-#         phi_k[i]     = phi_x
-#         phi_vec_test = gaussian_weight_matrix_phi @ phi_k
+        phi_k        = phi_at_knots.copy()
+        phi_k[i]     = phi_x
+        phi_vec_test = gaussian_weight_matrix_phi @ phi_k
 
-#         ll = []
+        ll = []
 
-#         for t in range(Nt):
-#             Y_1t      = Y[:,t]
-#             u_vec     = u_matrix[:,t]
-#             Scale_vec = Scale_matrix[:,t]
-#             Shape_vec = Shape_matrix[:,t]
+        for t in range(Nt):
+            Y_1t      = Y[:,t]
+            u_vec     = u_matrix[:,t]
+            Scale_vec = Scale_matrix[:,t]
+            Shape_vec = Shape_matrix[:,t]
 
-#             R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
-#             Z_1t      = Z[:,t]
+            R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+            Z_1t      = Z[:,t]
 
-#             logS_vec  = np.log(S_at_knots[:,t])
+            logS_vec  = np.log(S_at_knots[:,t])
 
-#             censored_idx_1t = np.where(Y_1t <= u_vec)[0]
-#             exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+            censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+            exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
 
-#             X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec_test, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
+            X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec_test, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
 
-#             Y_ll = Y_ll_1t_nn(Ws, bs, acts, X_input)
-#             S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
-#             Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+            Y_ll = Y_ll_1t_nn(Ws, bs, acts, X_input)
+            S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+            Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
 
-#             ll.append(np.sum(Y_ll) + np.sum(S_ll) + np.sum(Z_ll))
+            ll.append(np.sum(Y_ll) + np.sum(S_ll) + np.sum(Z_ll))
 
-#         ll_phi_emulator_nn.append(np.array(ll))
+        ll_phi_emulator_nn.append(np.array(ll))
 
-#         #     args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
-#         #                       R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
-#         #                       logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t, Y_ll_1t_nn, Ws, bs, acts))
+        #     args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
+        #                       R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
+        #                       logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t, Y_ll_1t_nn, Ws, bs, acts))
             
-#         # with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
-#         #     results = pool.map(ll_1t_nn_par, args_list)
-#         # ll_phi_emulator_nn.append(np.array(results))
+        # with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
+        #     results = pool.map(ll_1t_nn_par, args_list)
+        # ll_phi_emulator_nn.append(np.array(results))
 
-#     ll_phi_emulator_nn = np.array(ll_phi_emulator_nn, dtype = object)
-#     np.save(rf'll_phi_emulator_nn_k{i}', ll_phi_emulator_nn)
+    ll_phi_emulator_nn = np.array(ll_phi_emulator_nn, dtype = object)
+    np.save(rf'll_phi_emulator_nn_k{i}', ll_phi_emulator_nn)
 
-#     # actual calculation ------------------------------------------------------
+    # actual calculation ------------------------------------------------------
 
-#     # ll_phi     = []
-#     # start_time = time.time()
-#     # for phi_x in phi_grid:
+    ll_phi     = []
+    start_time = time.time()
+    for phi_x in phi_grid:
         
-#     #     args_list = []
-#     #     print('elapsed:', round(time.time() - start_time, 3), phi_x)
+        args_list = []
+        print('elapsed:', round(time.time() - start_time, 3), phi_x)
 
-#     #     phi_k        = phi_at_knots.copy()
-#     #     phi_k[i]     = phi_x
-#     #     phi_vec_test = gaussian_weight_matrix_phi @ phi_k
+        phi_k        = phi_at_knots.copy()
+        phi_k[i]     = phi_x
+        phi_vec_test = gaussian_weight_matrix_phi @ phi_k
 
-#     #     for t in range(Nt):
-#     #         # marginal process
-#     #         Y_1t      = Y[:,t]
-#     #         u_vec     = u_matrix[:,t]
-#     #         Scale_vec = Scale_matrix[:,t]
-#     #         Shape_vec = Shape_matrix[:,t]
+        for t in range(Nt):
+            # marginal process
+            Y_1t      = Y[:,t]
+            u_vec     = u_matrix[:,t]
+            Scale_vec = Scale_matrix[:,t]
+            Shape_vec = Shape_matrix[:,t]
 
-#     #         # copula process
-#     #         R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
-#     #         Z_1t      = Z[:,t]
+            # copula process
+            R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+            Z_1t      = Z[:,t]
 
-#     #         logS_vec  = np.log(S_at_knots[:,t])
+            logS_vec  = np.log(S_at_knots[:,t])
 
-#     #         censored_idx_1t = np.where(Y_1t <= u_vec)[0]
-#     #         exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+            censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+            exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
 
-#     #         args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
-#     #                         R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
-#     #                         logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t))
+            args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
+                            R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
+                            logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t))
 
-#     #     with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
-#     #         results = pool.map(ll_1t_par, args_list)
-#     #     ll_phi.append(np.array(results))
+        with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
+            results = pool.map(ll_1t_par, args_list)
+        ll_phi.append(np.array(results))
 
-#     # ll_phi = np.array(ll_phi, dtype = object)
-#     # np.save(rf'll_phi_k{i}', ll_phi)    
+    ll_phi = np.array(ll_phi, dtype = object)
+    np.save(rf'll_phi_k{i}', ll_phi)    
 
-#     # plt.plot(phi_grid, np.sum(ll_phi, axis = 1), 'b.-', label = 'actual')
-#     # plt.plot(phi_grid, np.sum(ll_phi_emulator_spline, axis = 1), 'r.-', label = 'spline emulator')
+    plt.plot(phi_grid, np.sum(ll_phi, axis = 1), 'k.-', label = 'actual')
+    # plt.plot(phi_grid, np.sum(ll_phi_emulator_spline, axis = 1), 'r.-', label = 'spline emulator')
     
-#     plot_ll_nn = []
-#     float_arr = np.vstack(ll_phi_emulator_nn[:, :]).astype(np.float64)
-#     for j in range(len(phi_grid)):
-#         plot_ll_nn.append(np.sum(float_arr[j][np.isfinite(float_arr[j])]))
-#     plt.plot(phi_grid, plot_ll_nn, 'g.-', label = 'nn emulator')
+    plot_ll_nn = []
+    float_arr = np.vstack(ll_phi_emulator_nn[:, :]).astype(np.float64)
+    for j in range(len(phi_grid)):
+        plot_ll_nn.append(np.sum(float_arr[j][np.isfinite(float_arr[j])]))
+    plt.plot(phi_grid, plot_ll_nn, 'b.-', label = 'nn emulator')
     
-#     # plt.plot(phi_grid, np.sum(ll_phi_emulator_nn, axis = 1), color = 'tab:green', linestyle = '.-', label = 'nn emulator')
-#     plt.yscale('symlog')
-#     plt.axvline(x=phi_at_knots[i], color='r', linestyle='--')
-#     plt.legend(loc = 'upper left')
-#     plt.title(rf'marginal loglike against $\phi_{i}$')
-#     plt.xlabel(r'$\phi$')
-#     plt.ylabel('log likelihood')
-#     plt.savefig(rf'profile_ll_phi_k{i}.pdf')
-#     plt.show()
-#     plt.close()
-# # %%
-# ll = []
-# X_inputs = []
+    # plt.plot(phi_grid, np.sum(ll_phi_emulator_nn, axis = 1), color = 'tab:green', linestyle = '.-', label = 'nn emulator')
+    plt.yscale('symlog')
+    plt.axvline(x=phi_at_knots[i], color='r', linestyle='--')
+    plt.legend(loc = 'upper left')
+    plt.title(rf'marginal loglike against $\phi_{i}$')
+    plt.xlabel(r'$\phi$')
+    plt.ylabel('log likelihood')
+    plt.savefig(rf'profile_ll_phi_k{i}.pdf')
+    plt.show()
+    plt.close()
+# %%
+ll = []
+X_inputs = []
 
-# for t in range(Nt):
-#     Y_1t      = Y[:,t]
-#     u_vec     = u_matrix[:,t]
-#     Scale_vec = Scale_matrix[:,t]
-#     Shape_vec = Shape_matrix[:,t]
-#     R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
-#     Z_1t      = Z[:,t]
-#     logS_vec  = np.log(S_at_knots[:,t])
-#     censored_idx_1t = np.where(Y_1t <= u_vec)[0]
-#     exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+for t in range(Nt):
+    Y_1t      = Y[:,t]
+    u_vec     = u_matrix[:,t]
+    Scale_vec = Scale_matrix[:,t]
+    Shape_vec = Shape_matrix[:,t]
+    R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+    Z_1t      = Z[:,t]
+    logS_vec  = np.log(S_at_knots[:,t])
+    censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+    exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
 
-#     X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec_test, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
-#     X_inputs.append(X_input)
+    X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec_test, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
+    X_inputs.append(X_input)
 
-#     # Y_ll = Y_ll_1t_nn(Ws, bs, acts, X_input)
-#     S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
-#     Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+    # Y_ll = Y_ll_1t_nn(Ws, bs, acts, X_input)
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
 
-#     ll.append(np.sum(S_ll) + np.sum(Z_ll))
-# Y_ll_all = Y_ll_1t_nn(Ws,bs,acts,X_inputs)
-# Y_ll_split = np.split(Y_ll_all, Nt)
-# for t in range(Nt):
-#     ll[t] += np.sum(Y_ll_split[t])
+    ll.append(np.sum(S_ll) + np.sum(Z_ll))
+Y_ll_all = Y_ll_1t_nn(Ws,bs,acts,X_inputs)
+Y_ll_split = np.split(Y_ll_all, Nt)
+for t in range(Nt):
+    ll[t] += np.sum(Y_ll_split[t])
