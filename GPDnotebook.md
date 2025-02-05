@@ -24,12 +24,24 @@
 
 # Meetings
 
+## Feb. 11 (Tuesday) Muyang/Likun/Ben
+
+- Kevin Worthington
+
 ## Feb. 4 (Tuesday) Muyang/Likun/Ben
 
+- [ ] Train the likelihood with the input X in the hypercube
+
+- [x] Contact Reetam
+
+- [ ] CMU Group Papper
+  - No need to evaluate likelihood, as long as we can simulate from the model?
+
+
 Logistics
-  - [ ] Summer 2025 Funding? Teaching Assignments?
-  - [ ] Department Scholarships and Awards, need nomination
-  - [ ] Conferences Registration
+  - [x] Summer 2025 Funding? Teaching Assignments?
+  - [x] Department Scholarships and Awards, need nomination
+  - [x] Conferences Registration
     - JSM
     - WACE
     - EVA
@@ -55,8 +67,11 @@ Logistics
     - ![alt text](image-30.png)
   - Keep training, each time for an additional 50 epochs
     - If the emulator cannot learn the "curvature", try making the model bigger?
+    - ![alt text](image-32.png)
+    - ![alt text](image-31.png)
   - [ ] Need to add a check for extrapolation
-  - [ ] Make one big prediction instead of several small prediction
+    - there are `nan` output in neural network outputs. What are they?
+  - [x] Make one big prediction instead of several small prediction
 
 
 - More exploration on emulating the **quantile function**

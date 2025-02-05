@@ -840,7 +840,7 @@ for i in range(1):
     #   - Scale_matrix
     #   - Shape_matrix
 
-    # # Using spline emulator -------------------------------------------------
+    # %% Using spline emulator -------------------------------------------------
 
     # ll_phi_emulator_spline = []
     # start_time = time.time()
@@ -877,56 +877,103 @@ for i in range(1):
     # ll_phi_emulator_spline = np.array(ll_phi_emulator_spline, dtype = object)
     # np.save(rf'll_phi_emulator_spline_k{i}', ll_phi_emulator_spline)
     
-    # Using neural network emulator -------------------------------------------
+    # %% Using neural network emulator -------------------------------------------
 
-    ll_phi_emulator_nn = []
+    # ll_phi_emulator_nn = []
+    # start_time = time.time()
+    # for phi_x in phi_grid:
+    #     args_list = []
+    #     print('elapsed:', round(time.time() - start_time, 3), phi_x)
+
+    #     phi_k        = phi_at_knots.copy()
+    #     phi_k[i]     = phi_x
+    #     phi_vec_test = gaussian_weight_matrix_phi @ phi_k
+
+    #     ll = []
+
+    #     for t in range(Nt):
+    #         Y_1t      = Y[:,t]
+    #         u_vec     = u_matrix[:,t]
+    #         Scale_vec = Scale_matrix[:,t]
+    #         Shape_vec = Shape_matrix[:,t]
+
+    #         R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+    #         Z_1t      = Z[:,t]
+
+    #         logS_vec  = np.log(S_at_knots[:,t])
+
+    #         censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+    #         exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+
+    #         X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec_test, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
+
+    #         Y_ll = Y_ll_1t_nn(Ws, bs, acts, X_input)
+    #         S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+    #         Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+
+    #         ll.append(np.sum(Y_ll) + np.sum(S_ll) + np.sum(Z_ll))
+
+    #     ll_phi_emulator_nn.append(np.array(ll))
+
+    #     #     args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
+    #     #                       R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
+    #     #                       logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t, Y_ll_1t_nn, Ws, bs, acts))
+            
+    #     # with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
+    #     #     results = pool.map(ll_1t_nn_par, args_list)
+    #     # ll_phi_emulator_nn.append(np.array(results))
+
+    # ll_phi_emulator_nn = np.array(ll_phi_emulator_nn, dtype = object)
+    # np.save(rf'll_phi_emulator_nn_k{i}', ll_phi_emulator_nn)
+
+    # %% Using neural network emulator optimized ------------------------------
+
+    """
+    Idea:
+        It might be much better to call NN once for a big X
+        than call NN for each t separately
+    """
+
+    ll_phi_NN_opt = []
     start_time = time.time()
     for phi_x in phi_grid:
-        args_list = []
         print('elapsed:', round(time.time() - start_time, 3), phi_x)
 
         phi_k        = phi_at_knots.copy()
         phi_k[i]     = phi_x
         phi_vec_test = gaussian_weight_matrix_phi @ phi_k
 
-        ll = []
-
+        ll         = []
+        input_list = [] # used to calculate all the Y-likelihoods
         for t in range(Nt):
             Y_1t      = Y[:,t]
             u_vec     = u_matrix[:,t]
             Scale_vec = Scale_matrix[:,t]
             Shape_vec = Shape_matrix[:,t]
-
             R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
             Z_1t      = Z[:,t]
-
             logS_vec  = np.log(S_at_knots[:,t])
-
-            censored_idx_1t = np.where(Y_1t <= u_vec)[0]
-            exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
-
+            # censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+            # exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
             X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec_test, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
+            input_list.append(X_input)
 
-            Y_ll = Y_ll_1t_nn(Ws, bs, acts, X_input)
             S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
             Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
 
-            ll.append(np.sum(Y_ll) + np.sum(S_ll) + np.sum(Z_ll))
+            ll.append(np.sum(S_ll) + np.sum(Z_ll))
 
-        ll_phi_emulator_nn.append(np.array(ll))
+        Y_ll_all   = Y_ll_1t_nn(Ws,bs,acts,input_list)
+        Y_ll_split = np.split(Y_ll_all, Nt)
+        for t in range(Nt):
+            ll[t] += np.sum(Y_ll_split[t])
 
-        #     args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
-        #                       R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
-        #                       logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t, Y_ll_1t_nn, Ws, bs, acts))
-            
-        # with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
-        #     results = pool.map(ll_1t_nn_par, args_list)
-        # ll_phi_emulator_nn.append(np.array(results))
+        ll_phi_NN_opt.append(np.array(ll))
 
-    ll_phi_emulator_nn = np.array(ll_phi_emulator_nn, dtype = object)
-    np.save(rf'll_phi_emulator_nn_k{i}', ll_phi_emulator_nn)
+    ll_phi_NN_opt = np.array(ll_phi_NN_opt)
+    np.save(rf'll_phi_NN_opt_k{i}', ll_phi_NN_opt)
 
-    # actual calculation ------------------------------------------------------
+    # %% actual calculation ------------------------------------------------------
 
     ll_phi     = []
     start_time = time.time()
@@ -964,17 +1011,21 @@ for i in range(1):
         ll_phi.append(np.array(results))
 
     ll_phi = np.array(ll_phi, dtype = object)
-    np.save(rf'll_phi_k{i}', ll_phi)    
+    np.save(rf'll_phi_k{i}', ll_phi)  
 
-    plt.plot(phi_grid, np.sum(ll_phi, axis = 1), 'k.-', label = 'actual')
+    # %% Plotting -------------------------------------------------------------
+
+    plt.plot(phi_grid, np.sum(ll_phi, axis = 1), 'k.-', label = 'true log likelihood')
     # plt.plot(phi_grid, np.sum(ll_phi_emulator_spline, axis = 1), 'r.-', label = 'spline emulator')
     
-    plot_ll_nn = []
-    float_arr = np.vstack(ll_phi_emulator_nn[:, :]).astype(np.float64)
-    for j in range(len(phi_grid)):
-        plot_ll_nn.append(np.sum(float_arr[j][np.isfinite(float_arr[j])]))
-    plt.plot(phi_grid, plot_ll_nn, 'b.-', label = 'nn emulator')
+    # plot_ll_nn = []
+    # float_arr = np.vstack(ll_phi_emulator_nn[:, :]).astype(np.float64)
+    # for j in range(len(phi_grid)):
+    #     plot_ll_nn.append(np.sum(float_arr[j][np.isfinite(float_arr[j])]))
+    # plt.plot(phi_grid, plot_ll_nn, 'b.-', label = 'nn emulator')
     
+    plt.plot(phi_grid, np.nansum(ll_phi_NN_opt, axis = 1), 'b.-', label = 'nn emulator opt')
+
     # plt.plot(phi_grid, np.sum(ll_phi_emulator_nn, axis = 1), color = 'tab:green', linestyle = '.-', label = 'nn emulator')
     plt.yscale('symlog')
     plt.axvline(x=phi_at_knots[i], color='r', linestyle='--')
