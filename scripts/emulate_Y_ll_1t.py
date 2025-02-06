@@ -93,6 +93,123 @@ N             = int(1e8)
 N_val         = int(1e6)
 d             = 9
 
+# %% step 0: define some helper functions
+
+# censoring log-likelihood on Y
+
+def Y_ll_1t1s(Y, u_vec, scale_vec, shape_vec,
+              R_vec, Z_vec, phi_vec, gamma_bar_vec, tau):
+    
+    p = 0.9
+
+    X_star = (R_vec ** phi_vec) * g(Z_vec)
+    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
+    dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
+
+    if Y <= u_vec:
+        # log censored likelihood of y on censored sites
+        censored_ll = scipy.stats.norm.logcdf((X - X_star)/tau)
+        return censored_ll
+    else: # if Y > u_vec
+        # log censored likelihood of y on exceedance sites
+        exceed_ll   = scipy.stats.norm.logpdf(X, loc = X_star, scale = tau) \
+                        + np.log(dCGP(Y, p, u_vec, scale_vec, shape_vec)) \
+                        - np.log(dX)
+        return exceed_ll
+
+def Y_ll_1t1s_par(params):
+    """
+    calculate the censoring likelihood of Y, at p = 0.9
+    This will compute the site-wise log likelihood at one time
+    Returning results for one site at one time
+    """
+    
+    p = 0.9
+
+    Y, u_vec, scale_vec, shape_vec, \
+    R_vec, Z_vec, phi_vec, gamma_bar_vec, tau = params
+
+    X_star = (R_vec ** phi_vec) * g(Z_vec)
+    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
+    dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
+
+    # if dX < 0: return np.nan
+
+    if Y <= u_vec:
+        # log censored likelihood of y on censored sites
+        censored_ll = scipy.stats.norm.logcdf((X - X_star)/tau)
+        return censored_ll
+    else: # if Y > u_vec
+        # log censored likelihood of y on exceedance sites
+        exceed_ll   = scipy.stats.norm.logpdf(X, loc = X_star, scale = tau) \
+                        + np.log(dCGP(Y, p, u_vec, scale_vec, shape_vec)) \
+                        - np.log(dX)
+        # if np.isnan(exceed_ll):
+        #     print(params)
+        return exceed_ll
+    # return np.sum(censored_ll) + np.sum(exceed_ll)
+
+# Full log-likelihood (Y + S + Z)
+
+# def ll_1t(Y, p, u_vec, scale_vec, shape_vec, \
+#           R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, \
+#           logS_vec, gamma_at_knots, censored_idx, exceed_idx):
+
+#     """
+#     This will compute the sum of the log like for all sites at 1t
+#     The inputs are expected to be vectors
+#     """
+
+#     X_star = (R_vec ** phi_vec) * g(Z_vec)
+#     X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
+#     dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
+    
+#     # log censored likelihood of y on censored sites
+#     censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
+#     # log censored likelihood of y on exceedance sites
+#     exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
+#                     + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
+#                     - np.log(dX[exceed_idx])
+
+#     # log likelihood of S
+#     S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+
+#     # log likelihood of Z
+#     Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+
+#     return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(S_ll) + np.sum(Z_ll)
+
+def ll_1t_par(args): # For use with multiprocessing
+
+    """
+    This will compute the sum of the log like for all sites at 1t
+    The inputs are expected to be vectors
+    """
+
+    Y, p, u_vec, scale_vec, shape_vec, \
+    R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, \
+    logS_vec, gamma_at_knots, censored_idx, exceed_idx = args
+
+    X_star = (R_vec ** phi_vec) * g(Z_vec)
+    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
+    dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
+    
+    # log censored likelihood of y on censored sites
+    censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
+    # log censored likelihood of y on exceedance sites
+    exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
+                    + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
+                    - np.log(dX[exceed_idx])
+
+    # log likelihood of S
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+
+    # log likelihood of Z
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+
+    return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(S_ll) + np.sum(Z_ll)
+
+
 # %% step 1: generate design points with LHS
 
 # r('load("../data/realdata/JJA_precip_nonimputed.RData")')
@@ -134,42 +251,12 @@ d             = 9
 
 # %% Calculate the likelihoods of Y at the design points
 
-# def Y_ll_1t(params):
-#     """
-#     calculate the censoring likelihood of Y, at p = 0.9
-#     """
-    
-#     p = 0.9
-
-#     Y, u_vec, scale_vec, shape_vec, \
-#     R_vec, Z_vec, phi_vec, gamma_bar_vec, tau = params
-
-#     X_star = (R_vec ** phi_vec) * g(Z_vec)
-#     X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
-#     dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
-
-#     # if dX < 0: return np.nan
-
-#     if Y <= u_vec:
-#         # log censored likelihood of y on censored sites
-#         censored_ll = scipy.stats.norm.logcdf((X - X_star)/tau)
-#         return censored_ll
-#     else: # if Y > u_vec
-#         # log censored likelihood of y on exceedance sites
-#         exceed_ll   = scipy.stats.norm.logpdf(X, loc = X_star, scale = tau) \
-#                         + np.log(dCGP(Y, p, u_vec, scale_vec, shape_vec)) \
-#                         - np.log(dX)
-#         # if np.isnan(exceed_ll):
-#         #     print(params)
-#         return exceed_ll
-#     # return np.sum(censored_ll) + np.sum(exceed_ll)
-
 # data = [tuple(row) for row in X_lhs]
 
 # start_time = time.time()
 # print(rf'start calculating {N} likelihoods using {n_processes} processes:', datetime.datetime.now())
 # with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
-#     results = pool.map(Y_ll_1t, data)
+#     results = pool.map(Y_ll_1t1s_par, data)
 # end_time = time.time()
 # print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
 
@@ -181,8 +268,8 @@ d             = 9
 # print('len(Y_lhs):',len(Y_lhs))   # number of design points retained
 # print('proportion not NA:', len(Y_lhs)/N) # proportion of design points retained
 
-# np.save(rf'll_1t_X_lhs_{N}.npy', X_lhs)
-# np.save(rf'll_1t_Y_lhs_{N}.npy', Y_lhs)
+# np.save(rf'll_1t_X_{N}.npy', X_lhs)
+# np.save(rf'll_1t_Y_{N}.npy', Y_lhs)
 
 # %% Generate a set of dedicated validation points
 
@@ -201,7 +288,7 @@ d             = 9
 # start_time = time.time()
 # print(rf'start calculating {N_val} likelihoods using {n_processes} processes:', datetime.datetime.now())
 # with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
-#     results_val = pool.map(Y_ll_1t, data_val)
+#     results_val = pool.map(Y_ll_1t1s_par, data_val)
 # end_time = time.time()
 # print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
 
@@ -209,15 +296,15 @@ d             = 9
 # Y_lhs_val = np.array(results_val)[noNA]
 # X_lhs_val = X_lhs_val[noNA]
 
-# np.save(rf'll_1t_X_lhs_val_{N_val}.npy', X_lhs_val)
-# np.save(rf'll_1t_Y_lhs_val_{N_val}.npy', Y_lhs_val)
+# np.save(rf'll_1t_X_val_{N_val}.npy', X_lhs_val)
+# np.save(rf'll_1t_Y_val_{N_val}.npy', Y_lhs_val)
 
 # %% step 2: load design points and train
 
-X_lhs     = np.load(rf'll_1t_X_lhs_{N}.npy')
-Y_lhs     = np.load(rf'll_1t_Y_lhs_{N}.npy')
-X_lhs_val = np.load(rf'll_1t_X_lhs_val_{N_val}.npy')
-Y_lhs_val = np.load(rf'll_1t_Y_lhs_val_{N_val}.npy')
+X_lhs     = np.load(rf'll_1t_X_{N}.npy')
+Y_lhs     = np.load(rf'll_1t_Y_{N}.npy')
+X_lhs_val = np.load(rf'll_1t_X_val_{N_val}.npy')
+Y_lhs_val = np.load(rf'll_1t_Y_val_{N_val}.npy')
 
 # plotting the log-likelihoods:
 #   reveals that the logged version can be so negative 
@@ -391,37 +478,10 @@ bestmodel = keras.models.load_model(checkpoint_filepath)
 bestmodel.save(rf'./Y_L_1t_NN_{N}.keras')
 
 
-# %% step 3: plot and benchmark
+# %% step 3: Build Prediction Functions
 """
 - Try the emulator on a "profile-ish" likelihood for some parameter
 """
-
-# %% Actual log likelihood ----------------------------------------------------
-# likelihood function to use for parallelization
-def ll_1t_par(args):
-    Y, p, u_vec, scale_vec, shape_vec, \
-    R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, \
-    logS_vec, gamma_at_knots, censored_idx, exceed_idx = args
-
-    X_star = (R_vec ** phi_vec) * g(Z_vec)
-    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
-    dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
-    
-    # log censored likelihood of y on censored sites
-    censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
-    # log censored likelihood of y on exceedance sites
-    exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
-                    + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
-                    - np.log(dX[exceed_idx])
-
-    # log likelihood of S
-    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
-
-    # log likelihood of Z
-    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
-
-    return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(S_ll) + np.sum(Z_ll)
-
 
 # %% Spline emulator -------------------------------------------------------------
 
@@ -500,59 +560,45 @@ for layer in model_nn.layers:
 
 # the output is 1D if X is 1D
 #               2D if X is 2D
-def Y_ll_1t_nn(Ws, bs, activations, X):
+def Y_ll_1t1s_nn(Ws, bs, activations, X):
     Z = X
     for W, b, activation in zip(Ws, bs, activations):
         Z = Z @ W + b
         Z = activation(Z)
-    # return np.log(Z)
-    return np.where(Z != 0, np.log(Z), 0)
+    return np.where(Z > 0, np.log(Z), 0)
 
-def Y_L_1t_nn(Ws, bs, activations, X):
+def Y_L_1t1s_nn(Ws, bs, activations, X):
     Z = X
     for W, b, activation in zip(Ws, bs, activations):
         Z = Z @ W + b
         Z = activation(Z)
     return Z
 
-# np.log(1/N * np.sum((Y_ll_1t_nn(Ws, bs, acts, X_lhs) - Y_lhs)**2))
-
-
-
-# def ll_1t_nn(Y, p, u_vec, scale_vec, shape_vec,            # marginal model parameters
-#                  R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau,        # dependence model parameters
-#                  logS_vec, gamma_at_knots, censored_idx, exceed_idx,  # auxilury information
-#                  emulator):
+# check for extrapolation
+def Y_ll_1t1s_nn_2p(Ws, bs, activations, X):
+    condition_Y          = (30 <= X[:,0]) & (X[:,0] <= 6020)
+    condition_u          = (30 <= X[:,1]) & (X[:,1] <= 80)
+    conditiona_scale     = (5 <= X[:,2]) & (X[:,2] <= 60)
+    conditiona_shape     = (-1.0 <= X[:,3]) & (X[:,3] <= 1.0)
+    conditiona_pR        = (1.2 <= X[:,4]) & (X[:,4] <= 2034)
+    conditiona_Z         = (-5.0 <= X[:,5]) & (X[:,5] <= 5.0)
+    conditiona_phi       = (0.05 <= X[:,6]) & (X[:,6] <= 0.95)
+    conditiona_gamma_bar = (0.5 <= X[:,7]) & (X[:,7] <= 8.0)
+    conditiona_tau       = (1.0 <= X[:,8]) & (X[:,8] <= 50.0)
+    condition            = condition_Y & condition_u & conditiona_scale & conditiona_shape & conditiona_pR & conditiona_Z & conditiona_phi & conditiona_gamma_bar & conditiona_tau
     
-#     Y_ll = emulator(np.array([Y, u_vec, scale_vec, shape_vec, R_vec, Z_vec, phi_vec, gamma_bar_vec, np.full_like(Y, tau)]).T)
+    interp_idx = np.where(condition)[0]
+    extrap_idx = np.where(~condition)[0]
+    
+    ll = np.full((len(X),), np.nan)
+    ll[interp_idx] = Y_ll_1t1s_nn(Ws, bs, activations, X[interp_idx]).ravel()
+    ll[extrap_idx] = [Y_ll_1t1s(*X[idx]) for idx in extrap_idx]
 
-#     # log likelihood of S
-#     S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+    print("proportion extrapolated:",len(extrap_idx) / len(X))
 
-#     # log likelihood of Z
-#     Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+    return ll
 
-#     return np.sum(Y_ll) + np.sum(S_ll) + np.sum(Z_ll)
-
-# def ll_1t_nn_par(args):
-#     Y, p, u_vec, scale_vec, shape_vec, \
-#     R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, \
-#     logS_vec, gamma_at_knots, censored_idx, exceed_idx, emulator, W, b, a = args
-
-#     X_input = np.array([Y, u_vec, scale_vec, shape_vec, R_vec, Z_vec, phi_vec, gamma_bar_vec, np.full_like(Y, tau)]).T
-
-#     Y_ll = emulator(W, b, a, X_input)
-
-#     # log likelihood of S
-#     S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
-
-#     # log likelihood of Z
-#     Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
-
-#     return np.sum(Y_ll) + np.sum(S_ll) + np.sum(Z_ll)
-
-
-
+# np.log(1/N * np.sum((Y_ll_1t1s_nn(Ws, bs, acts, X_lhs) - Y_lhs)**2))
 
 # %% loading and setting up for plotting
 # imports -------------------------------------------------------------------------------------------------------------
@@ -815,7 +861,7 @@ X_truth      = X_star + nuggets
 Scale_matrix = np.exp((C_logsigma.T @ Beta_logsigma).T)
 Shape_matrix = (C_xi.T @ Beta_xi).T
 
-# %% plotting marginal likelihood surface
+# %% Step 4: plotting marginal likelihood surface
 # phi -------------------------------------------------------------------------------------------------------------
 
 # for i in range(k_phi):
@@ -907,7 +953,7 @@ for i in range(1):
 
     #         X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec_test, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
 
-    #         Y_ll = Y_ll_1t_nn(Ws, bs, acts, X_input)
+    #         Y_ll = Y_ll_1t1s_nn(Ws, bs, acts, X_input)
     #         S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
     #         Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
 
@@ -917,7 +963,7 @@ for i in range(1):
 
     #     #     args_list.append((Y_1t, p, u_vec, Scale_vec, Shape_vec,
     #     #                       R_vec, Z_1t, K, phi_vec_test, gamma_bar_vec, tau,
-    #     #                       logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t, Y_ll_1t_nn, Ws, bs, acts))
+    #     #                       logS_vec, gamma_k_vec, censored_idx_1t, exceed_idx_1t, Y_ll_1t1s_nn, Ws, bs, acts))
             
     #     # with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
     #     #     results = pool.map(ll_1t_nn_par, args_list)
@@ -934,7 +980,7 @@ for i in range(1):
         than call NN for each t separately
     """
 
-    ll_phi_NN_opt = []
+    ll_phi_NN_opt_2p = []
     start_time = time.time()
     for phi_x in phi_grid:
         print('elapsed:', round(time.time() - start_time, 3), phi_x)
@@ -963,7 +1009,8 @@ for i in range(1):
 
             ll.append(np.sum(S_ll) + np.sum(Z_ll))
 
-        Y_ll_all   = Y_ll_1t_nn(Ws,bs,acts,input_list)
+        input_list = np.vstack(input_list)
+        Y_ll_all   = Y_ll_1t1s_nn(Ws,bs,acts,input_list)
         Y_ll_split = np.split(Y_ll_all, Nt)
         for t in range(Nt):
             ll[t] += np.sum(Y_ll_split[t])
@@ -972,6 +1019,54 @@ for i in range(1):
 
     ll_phi_NN_opt = np.array(ll_phi_NN_opt)
     np.save(rf'll_phi_NN_opt_k{i}', ll_phi_NN_opt)
+
+    # %% Using neural network emulator optimized 2-piece ----------------------
+
+    """
+    Idea:
+        It might be much better to call NN once for a big X
+        than call NN for each t separately
+    """
+
+    ll_phi_NN_opt_2p = []
+    start_time = time.time()
+    for phi_x in phi_grid:
+        print('elapsed:', round(time.time() - start_time, 3), phi_x)
+
+        phi_k        = phi_at_knots.copy()
+        phi_k[i]     = phi_x
+        phi_vec_test = gaussian_weight_matrix_phi @ phi_k
+
+        ll         = []
+        input_list = [] # used to calculate all the Y-likelihoods
+        for t in range(Nt):
+            Y_1t      = Y[:,t]
+            u_vec     = u_matrix[:,t]
+            Scale_vec = Scale_matrix[:,t]
+            Shape_vec = Shape_matrix[:,t]
+            R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+            Z_1t      = Z[:,t]
+            logS_vec  = np.log(S_at_knots[:,t])
+            # censored_idx_1t = np.where(Y_1t <= u_vec)[0]
+            # exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+            X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec_test, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
+            input_list.append(X_input)
+
+            S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+            Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+
+            ll.append(np.sum(S_ll) + np.sum(Z_ll))
+
+        input_list = np.vstack(input_list)
+        Y_ll_all   = Y_ll_1t1s_nn_2p(Ws,bs,acts,input_list)
+        Y_ll_split = np.split(Y_ll_all, Nt)
+        for t in range(Nt):
+            ll[t] += np.sum(Y_ll_split[t])
+
+        ll_phi_NN_opt_2p.append(np.array(ll))
+
+    ll_phi_NN_opt_2p = np.array(ll_phi_NN_opt_2p)
+    np.save(rf'll_phi_NN_opt_2p_k{i}', ll_phi_NN_opt_2p)
 
     # %% actual calculation ------------------------------------------------------
 
@@ -1015,7 +1110,6 @@ for i in range(1):
 
     # %% Plotting -------------------------------------------------------------
 
-    plt.plot(phi_grid, np.sum(ll_phi, axis = 1), 'k.-', label = 'true log likelihood')
     # plt.plot(phi_grid, np.sum(ll_phi_emulator_spline, axis = 1), 'r.-', label = 'spline emulator')
     
     # plot_ll_nn = []
@@ -1024,9 +1118,10 @@ for i in range(1):
     #     plot_ll_nn.append(np.sum(float_arr[j][np.isfinite(float_arr[j])]))
     # plt.plot(phi_grid, plot_ll_nn, 'b.-', label = 'nn emulator')
     
-    plt.plot(phi_grid, np.nansum(ll_phi_NN_opt, axis = 1), 'b.-', label = 'nn emulator opt')
+    plt.plot(phi_grid, np.nansum(ll_phi_NN_opt, axis = 1), 'b.-', label = 'log(NN_opt)')
+    plt.plot(phi_grid, np.sum(ll_phi_NN_opt_2p, axis = 1), 'g.-', label = 'log(NN_opt_2p)')
+    plt.plot(phi_grid, np.sum(ll_phi, axis = 1), 'k.-', label = 'true log likelihood')
 
-    # plt.plot(phi_grid, np.sum(ll_phi_emulator_nn, axis = 1), color = 'tab:green', linestyle = '.-', label = 'nn emulator')
     plt.yscale('symlog')
     plt.axvline(x=phi_at_knots[i], color='r', linestyle='--')
     plt.legend(loc = 'upper left')
@@ -1043,11 +1138,11 @@ ll_phi_NN_opt.shape # returns (len(phi_grid), Nt)
 nan_input_list = np.array(input_list)[np.where(np.isnan(ll_phi_NN_opt[-1]))[0]]
 nan_input_list.shape # returns (len(nan_input_list), Ns, 9)
 
-nan_ll = Y_ll_1t_nn(Ws,bs,acts,nan_input_list)
+nan_ll = Y_ll_1t1s_nn(Ws,bs,acts,nan_input_list)
 nan_t_idx, nan_s_idx = np.where(np.isnan(nan_ll))[0:2]
 
 nan_inputs = nan_input_list[nan_t_idx, nan_s_idx, :]
-# Y_ll_1t_nn(Ws,bs,acts,nan_inputs) # verified that all outputs are nan
+# Y_ll_1t1s_nn(Ws,bs,acts,nan_inputs) # verified that all outputs are nan
 # model_nn.predict(nan_inputs) # doesn't output nan! Oh but they output negative values
 
 nan_inputs[:,4]
