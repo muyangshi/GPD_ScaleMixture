@@ -30,9 +30,41 @@
 
 ## Feb. 4 (Tuesday) Muyang/Likun/Ben
 
-- [ ] Train the likelihood with the input X in the hypercube
+Emulating the likleihood:
 
-- [x] Contact Reetam
+
+- [x] One big prediction instead of several samll prediction
+- [x] Investiage `nan` outputs
+    - there are `nan` output in neural network outputs. What are they? They are: 
+    - low bound of `pR=0.01` isn't sufficiently small for `scale = 8.0`.
+      - There are many data points in the simulated dataset that has `R` smaller than `scipy.stats.levy(loc=0,scale=8.0).ppf(0.01) = 1.2`
+      - There are also many data points in the simulated dataset that has `R` larger than `scipy.stats.levy(loc=0,scale=8.0).ppf(0.95) = 2034`
+      - Some of these points lead to a prediction, some leads to `nan`
+      - many of the `nan`'s corresponding input X don't fall inside the training range
+      - The model outputs (extrapolated) negative values, which becomes `nan` once we take `np.log()` to get log likelihood
+      - [x] what are the precise bound for `Y` and `R`?
+        - `R`
+          - `scipy.stats.levy(loc=0,scale=8.0).ppf(0.01) = 1.2`
+          - `scipy.stats.levy(loc=0,scale=8.0).ppf(0.95) = 2034`
+        - `Y`
+          - `np.min(X_lhs[:,0]) = 30.0`
+          - `np.max(X_lhs[:,0]) = 6019.999999999992`
+      - [ ] What proportion of each parameter falls within the range of design points?
+- [ ] Need to add a check for extrapolation
+  - [ ] what proportion of the overall predictions fall outside the training range
+
+
+- [ ] Re-train Neural Network with a wider range on R
+
+
+- Contact Reetam
+  - goodness-of-fit plot (If fit is good, prediction is bad)
+    - [ ] Goodness-of-fit plot on the validation dataset (might need to do this on `misspiggy` due to memory issue)
+    - [ ] Goodness-of-fit plot on the simulated dataset
+  - variable importance plots (If `fit` itself is bad)
+
+- [ ] Ben: Train the likelihood with the input X in the hypercube
+
 
 - [ ] CMU Group Papper
   - No need to evaluate likelihood, as long as we can simulate from the model?
@@ -69,9 +101,9 @@ Logistics
     - If the emulator cannot learn the "curvature", try making the model bigger?
     - ![alt text](image-32.png)
     - ![alt text](image-31.png)
-  - [ ] Need to add a check for extrapolation
+  - [-] Need to add a check for extrapolation
     - there are `nan` output in neural network outputs. What are they?
-  - [x] Make one big prediction instead of several small prediction
+  - [-] Make one big prediction instead of several small prediction
 
 
 - More exploration on emulating the **quantile function**

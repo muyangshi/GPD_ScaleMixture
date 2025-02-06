@@ -1036,30 +1036,24 @@ for i in range(1):
     plt.savefig(rf'profile_ll_phi_k{i}.pdf')
     plt.show()
     plt.close()
-# %%
-ll = []
-X_inputs = []
+# %% investigate nan output
 
-for t in range(Nt):
-    Y_1t      = Y[:,t]
-    u_vec     = u_matrix[:,t]
-    Scale_vec = Scale_matrix[:,t]
-    Shape_vec = Shape_matrix[:,t]
-    R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
-    Z_1t      = Z[:,t]
-    logS_vec  = np.log(S_at_knots[:,t])
-    censored_idx_1t = np.where(Y_1t <= u_vec)[0]
-    exceed_idx_1t   = np.where(Y_1t  > u_vec)[0]
+ll_phi_NN_opt.shape # returns (len(phi_grid), Nt)
 
-    X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec_test, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
-    X_inputs.append(X_input)
+nan_input_list = np.array(input_list)[np.where(np.isnan(ll_phi_NN_opt[-1]))[0]]
+nan_input_list.shape # returns (len(nan_input_list), Ns, 9)
 
-    # Y_ll = Y_ll_1t_nn(Ws, bs, acts, X_input)
-    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
-    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+nan_ll = Y_ll_1t_nn(Ws,bs,acts,nan_input_list)
+nan_t_idx, nan_s_idx = np.where(np.isnan(nan_ll))[0:2]
 
-    ll.append(np.sum(S_ll) + np.sum(Z_ll))
-Y_ll_all = Y_ll_1t_nn(Ws,bs,acts,X_inputs)
-Y_ll_split = np.split(Y_ll_all, Nt)
-for t in range(Nt):
-    ll[t] += np.sum(Y_ll_split[t])
+nan_inputs = nan_input_list[nan_t_idx, nan_s_idx, :]
+# Y_ll_1t_nn(Ws,bs,acts,nan_inputs) # verified that all outputs are nan
+# model_nn.predict(nan_inputs) # doesn't output nan! Oh but they output negative values
+
+nan_inputs[:,4]
+# #             pY,    u, scale, shape,   pR,    Z,  phi, gamma_bar,  tau
+# l_bounds = [0.001,   30,     5,  -1.0, 0.01, -5.0, 0.05,       0.5,  1.0]
+# u_bounds = [0.999,   80,    60,   1.0, 0.95,  5.0, 0.95,       8.0, 50.0]
+
+np.logical_or(nan_inputs[:,4] < scipy.stats.levy(loc=0,scale=8.0).ppf(0.01), 
+              nan_inputs[:,4] > scipy.stats.levy(loc=0,scale=8.0).ppf(0.95))
