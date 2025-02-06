@@ -1110,24 +1110,30 @@ for i in range(1):
 
     # %% Plotting -------------------------------------------------------------
 
-    # plt.plot(phi_grid, np.sum(ll_phi_emulator_spline, axis = 1), 'r.-', label = 'spline emulator')
+    fig, ax = plt.subplots()
+
+    # ax.plot(phi_grid, np.sum(ll_phi_emulator_spline, axis = 1), 'r.-', label = 'spline emulator')
     
     # plot_ll_nn = []
     # float_arr = np.vstack(ll_phi_emulator_nn[:, :]).astype(np.float64)
     # for j in range(len(phi_grid)):
     #     plot_ll_nn.append(np.sum(float_arr[j][np.isfinite(float_arr[j])]))
-    # plt.plot(phi_grid, plot_ll_nn, 'b.-', label = 'nn emulator')
+    # ax.plot(phi_grid, plot_ll_nn, 'b.-', label = 'nn emulator')
     
-    plt.plot(phi_grid, np.nansum(ll_phi_NN_opt, axis = 1), 'b.-', label = 'log(NN_opt)')
-    plt.plot(phi_grid, np.sum(ll_phi_NN_opt_2p, axis = 1), 'g.-', label = 'log(NN_opt_2p)')
-    plt.plot(phi_grid, np.sum(ll_phi, axis = 1), 'k.-', label = 'true log likelihood')
+    ax.plot(phi_grid, np.nansum(ll_phi_NN_opt, axis = 1), 'b.-', label = 'log(NN_opt)')
+    ax.plot(phi_grid, np.sum(ll_phi_NN_opt_2p, axis = 1), 'g.-', label = 'log(NN_opt_2p)')
+    ax.plot(phi_grid, np.sum(ll_phi, axis = 1), 'k.-', label = 'true log likelihood')
 
-    plt.yscale('symlog')
-    plt.axvline(x=phi_at_knots[i], color='r', linestyle='--')
-    plt.legend(loc = 'upper left')
-    plt.title(rf'marginal loglike against $\phi_{i}$')
-    plt.xlabel(r'$\phi$')
-    plt.ylabel('log likelihood')
+    ax.axvline(x=phi_at_knots[i], color='r', linestyle='--')
+    ax.legend(loc = 'lower left')
+    ax.set_title(rf'marginal loglike against $\phi_{i}$')
+    ax.set_xlabel(r'$\phi$')
+    ax.set_ylabel('log likelihood')
+
+    ax.set_yscale('symlog')
+    if ax.get_yscale() == 'symlog':
+        ax.set_ylabel('log likelihood -- plt.yscale("symlog")')
+
     plt.savefig(rf'profile_ll_phi_k{i}.pdf')
     plt.show()
     plt.close()

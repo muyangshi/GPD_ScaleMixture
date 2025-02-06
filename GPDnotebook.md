@@ -34,14 +34,15 @@ Emulating the likleihood:
 
 
 - [x] One big prediction instead of several samll prediction
+
 - [x] Investiage `nan` outputs
     - there are `nan` output in neural network outputs. What are they? They are: 
     - low bound of `pR=0.01` isn't sufficiently small for `scale = 8.0`.
       - There are many data points in the simulated dataset that has `R` smaller than `scipy.stats.levy(loc=0,scale=8.0).ppf(0.01) = 1.2`
       - There are also many data points in the simulated dataset that has `R` larger than `scipy.stats.levy(loc=0,scale=8.0).ppf(0.95) = 2034`
       - Some of these points lead to a prediction, some leads to `nan`
-      - many of the `nan`'s corresponding input X don't fall inside the training range
-      - The model outputs (extrapolated) negative values, which becomes `nan` once we take `np.log()` to get log likelihood
+      - Many of the `nan`'s corresponding input X don't fall inside the training range; but some of the `nan`'s corresponds to interpolation range. The `nan` comes from the model outputting negative values, which becomes `nan` once we take `np.log()` to get log likelihood
+        - Changed the prediction function to output zero if the predicted value is negative, i.e. don't do `log(neg)`
       - [x] what are the precise bound for `Y` and `R`?
         - `R`
           - `scipy.stats.levy(loc=0,scale=8.0).ppf(0.01) = 1.2`
@@ -50,11 +51,19 @@ Emulating the likleihood:
           - `np.min(X_lhs[:,0]) = 30.0`
           - `np.max(X_lhs[:,0]) = 6019.999999999992`
       - [ ] What proportion of each parameter falls within the range of design points?
-- [ ] Need to add a check for extrapolation
-  - [ ] what proportion of the overall predictions fall outside the training range
-
-
+- [x] Need to add a check for extrapolation
+  - [x] what proportion of the overall predictions fall outside the training range
+  - ![alt text](image-33.png)
+  - 36% of the simulated dataset falls outside the training range
+  - This time, after incorporating the 2-piece for extrapolation, there is no more `nan` or even 0!
+    - `np.where(ll_phi_NN_opt_2p == 0) --> (array([], dtype=int64), array([], dtype=int64))`
+    - `np.where(np.isnan(ll_phi_NN_opt_2p)) --> (array([], dtype=int64), array([], dtype=int64))`
+  - ![alt text](image-35.png)
+  - ![alt text](image-36.png)
+  - ![alt text](image-37.png)
 - [ ] Re-train Neural Network with a wider range on R
+  - [ ] Figure out range of R?
+  - [ ] Calculate the design points and validation points
 
 
 - Contact Reetam
@@ -101,6 +110,7 @@ Logistics
     - If the emulator cannot learn the "curvature", try making the model bigger?
     - ![alt text](image-32.png)
     - ![alt text](image-31.png)
+    - ![alt text](image-38.png)
   - [-] Need to add a check for extrapolation
     - there are `nan` output in neural network outputs. What are they?
   - [-] Make one big prediction instead of several small prediction
