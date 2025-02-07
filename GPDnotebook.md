@@ -62,17 +62,23 @@ Emulating the likleihood:
   - ![alt text](image-36.png)
   - ![alt text](image-37.png)
 - [ ] Re-train Neural Network with a wider range on R
-  - [ ] Figure out range of R?
-  - [ ] Calculate the design points and validation points
-
+  - [x] Figure out range of R?
+    - `np.min(input_list[:,4]) = 0.057`
+    - `np.max(input_list[:,4]) = 112775`
+    - So let's use 0.01 to 5000000, because
+      - `scipy.stats.levy(loc=0,scale=0.5).ppf(0.001) = 0.046`
+      - `scipy.stats.levy(loc=0, scale=8.0).ppf(0.999) = 5092955`
+  - [x] Calculate the design points and validation points
+  - [x] Train the NN and try out several structures
+  - [ ] If result is bad, Ben: Train the likelihood with the input X in the hypercube
 
 - Contact Reetam
-  - goodness-of-fit plot (If fit is good, prediction is bad)
+  - goodness-of-fit plot (If fit is good, but prediction is bad)
     - [ ] Goodness-of-fit plot on the validation dataset (might need to do this on `misspiggy` due to memory issue)
     - [ ] Goodness-of-fit plot on the simulated dataset
   - variable importance plots (If `fit` itself is bad)
 
-- [ ] Ben: Train the likelihood with the input X in the hypercube
+
 
 
 - [ ] CMU Group Papper

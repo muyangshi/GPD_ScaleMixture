@@ -86,7 +86,7 @@ random_generator = np.random.RandomState(7)
 
 n_processes = 7 if cpu_count() < 64 else 64
 
-INITIAL_EPOCH = 50
+INITIAL_EPOCH = 0
 EPOCH         = 100
 
 N             = int(1e8)
@@ -223,81 +223,77 @@ def ll_1t_par(args): # For use with multiprocessing
 #   looked at previous run and initial site-level estimates to get scale and shape
 #   used reverse CDF to span the R <- R is NOT levy(0, 0.5)!
 
-# # LHS for the design point X
+# LHS for the design point X
 
-# sampler     = qmc.LatinHypercube(d, scramble=False, seed=2345)
-# lhs_samples = sampler.random(N) # Generate LHS samples in [0,1]^d
-# lhs_samples = np.row_stack(([0]*d, lhs_samples, [1]*d)) # manually add the boundary points
+sampler     = qmc.LatinHypercube(d, scramble=False, seed=2345)
+lhs_samples = sampler.random(N) # Generate LHS samples in [0,1]^d
+lhs_samples = np.row_stack(([0]*d, lhs_samples, [1]*d)) # manually add the boundary points
 
-# #             pY,    u, scale, shape,   pR,    Z,  phi, gamma_bar,  tau
-# l_bounds = [0.001,   30,     5,  -1.0, 0.01, -5.0, 0.05,       0.5,  1.0]
-# u_bounds = [0.999,   80,    60,   1.0, 0.95,  5.0, 0.95,       8.0, 50.0]
-# X_lhs    = qmc.scale(lhs_samples, l_bounds, u_bounds)        # scale LHS to specified bounds
+#             pY,    u, scale, shape,    pR,    Z,  phi, gamma_bar,  tau
+l_bounds = [0.001,   30,     5,  -1.0, 1e-2, -5.0, 0.05,       0.5,  1.0]
+u_bounds = [0.999,   80,    60,   1.0,  5e6,  5.0, 0.95,       8.0, 50.0]
+X_lhs    = qmc.scale(lhs_samples, l_bounds, u_bounds)        # scale LHS to specified bounds
 
-# # Note that R is not levy(0, 0.5)
-# #   Check the values of gamma_bar, pick the largest, use that to span the sample space
-# #   Maybe (0, 8)?
+# Note that R is not levy(0, 0.5)
+#   Check the values of gamma_bar, pick the largest, use that to span the sample space
+#   Maybe (0, 8)?
 # X_lhs[:,4] = scipy.stats.levy(loc=0,scale=8.0).ppf(X_lhs[:,4]) # scale the Stables
 
-# # Y assumed to be Generalized Pareto, if pY > 0.9;
-# #   otherwise, just return the corresponding threshold u
-# X_lhs[:,0] = qCGP(X_lhs[:,0], 0.9, X_lhs[:,1], X_lhs[:,2], X_lhs[:,3])
+# Y assumed to be Generalized Pareto, if pY > 0.9;
+#   otherwise, just return the corresponding threshold u
+X_lhs[:,0] = qCGP(X_lhs[:,0], 0.9, X_lhs[:,1], X_lhs[:,2], X_lhs[:,3])
 
-# # Y_samples, u_samples, scale_samples, shape_samples, \
-# #     R_samples, Z_samples, \
-# #     phi_samples, gamma_bar_samples, tau_samples = X_lhs.T
-
-# print('X_lhs.shape:',X_lhs.shape)
+print('X_lhs.shape:',X_lhs.shape)
 
 # %% Calculate the likelihoods of Y at the design points
 
-# data = [tuple(row) for row in X_lhs]
+data = [tuple(row) for row in X_lhs]
 
-# start_time = time.time()
-# print(rf'start calculating {N} likelihoods using {n_processes} processes:', datetime.datetime.now())
-# with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
-#     results = pool.map(Y_ll_1t1s_par, data)
-# end_time = time.time()
-# print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
+start_time = time.time()
+print(rf'start calculating {N} likelihoods using {n_processes} processes:', datetime.datetime.now())
+with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
+    results = pool.map(Y_ll_1t1s_par, data)
+end_time = time.time()
+print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
 
-# # remove the NAs
-# noNA = np.where(~np.isnan(results))
-# Y_lhs = np.array(results)[noNA]
-# X_lhs = X_lhs[noNA]
+# remove the NAs
+noNA = np.where(~np.isnan(results))
+Y_lhs = np.array(results)[noNA]
+X_lhs = X_lhs[noNA]
 
-# print('len(Y_lhs):',len(Y_lhs))   # number of design points retained
-# print('proportion not NA:', len(Y_lhs)/N) # proportion of design points retained
+print('len(Y_lhs):',len(Y_lhs))   # number of design points retained
+print('proportion not NA:', len(Y_lhs)/N) # proportion of design points retained
 
-# np.save(rf'll_1t_X_{N}.npy', X_lhs)
-# np.save(rf'll_1t_Y_{N}.npy', Y_lhs)
+np.save(rf'll_1t_X_{N}.npy', X_lhs)
+np.save(rf'll_1t_Y_{N}.npy', Y_lhs)
 
 # %% Generate a set of dedicated validation points
 
-# sampler_val     = qmc.LatinHypercube(d, scramble=False, seed=129)
-# lhs_samples_val = sampler_val.random(N_val) # Generate LHS samples in [0,1]^d
-# lhs_samples_val = np.row_stack(([0]*d, lhs_samples_val, [1]*d)) # add boundaries
-# #                    pY,    u, scale, shape,   pR,    Z,  phi, gamma_bar,  tau
-# l_bounds       = [0.001,   30,     5,  -1.0, 0.01, -5.0, 0.05,       0.5,  1.0]
-# u_bounds       = [0.999,   80,    60,   1.0, 0.95,  5.0, 0.95,       8.0, 50.0]
-# X_lhs_val      = qmc.scale(lhs_samples_val, l_bounds, u_bounds)        # scale LHS to specified bounds
+sampler_val     = qmc.LatinHypercube(d, scramble=False, seed=129)
+lhs_samples_val = sampler_val.random(N_val) # Generate LHS samples in [0,1]^d
+lhs_samples_val = np.row_stack(([0]*d, lhs_samples_val, [1]*d)) # add boundaries
+#                    pY,    u, scale, shape,   pR,    Z,  phi, gamma_bar,  tau
+l_bounds       = [0.001,   30,     5,  -1.0, 1e-2, -5.0, 0.05,       0.5,  1.0]
+u_bounds       = [0.999,   80,    60,   1.0,  5e6,  5.0, 0.95,       8.0, 50.0]
+X_lhs_val      = qmc.scale(lhs_samples_val, l_bounds, u_bounds)        # scale LHS to specified bounds
 # X_lhs_val[:,4] = scipy.stats.levy(loc=0,scale=8.0).ppf(X_lhs_val[:,4]) # scale the Stables
-# X_lhs_val[:,0] = qCGP(X_lhs_val[:,0], 0.9, X_lhs_val[:,1], X_lhs_val[:,2], X_lhs_val[:,3])
-# print('X_lhs_val.shape:',X_lhs_val.shape)
+X_lhs_val[:,0] = qCGP(X_lhs_val[:,0], 0.9, X_lhs_val[:,1], X_lhs_val[:,2], X_lhs_val[:,3])
+print('X_lhs_val.shape:',X_lhs_val.shape)
 
-# data_val = [tuple(row) for row in X_lhs_val]
-# start_time = time.time()
-# print(rf'start calculating {N_val} likelihoods using {n_processes} processes:', datetime.datetime.now())
-# with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
-#     results_val = pool.map(Y_ll_1t1s_par, data_val)
-# end_time = time.time()
-# print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
+data_val = [tuple(row) for row in X_lhs_val]
+start_time = time.time()
+print(rf'start calculating {N_val} likelihoods using {n_processes} processes:', datetime.datetime.now())
+with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
+    results_val = pool.map(Y_ll_1t1s_par, data_val)
+end_time = time.time()
+print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
 
-# noNA      = np.where(~np.isnan(results_val))
-# Y_lhs_val = np.array(results_val)[noNA]
-# X_lhs_val = X_lhs_val[noNA]
+noNA      = np.where(~np.isnan(results_val))
+Y_lhs_val = np.array(results_val)[noNA]
+X_lhs_val = X_lhs_val[noNA]
 
-# np.save(rf'll_1t_X_val_{N_val}.npy', X_lhs_val)
-# np.save(rf'll_1t_Y_val_{N_val}.npy', Y_lhs_val)
+np.save(rf'll_1t_X_val_{N_val}.npy', X_lhs_val)
+np.save(rf'll_1t_Y_val_{N_val}.npy', Y_lhs_val)
 
 # %% step 2: load design points and train
 
@@ -450,7 +446,7 @@ history = model.fit(
     y_train, 
     initial_epoch=INITIAL_EPOCH,
     epochs = EPOCH, 
-    batch_size=1024,
+    batch_size=4096,
     verbose = 2,
     validation_data=(X_val, y_val),
     callbacks=[model_checkpoint_callback])
@@ -1139,22 +1135,30 @@ for i in range(1):
     plt.close()
 # %% investigate nan output
 
-ll_phi_NN_opt.shape # returns (len(phi_grid), Nt)
+# ll_phi_NN_opt.shape # returns (len(phi_grid), Nt)
 
-nan_input_list = np.array(input_list)[np.where(np.isnan(ll_phi_NN_opt[-1]))[0]]
-nan_input_list.shape # returns (len(nan_input_list), Ns, 9)
+# nan_input_list = np.array(input_list)[np.where(np.isnan(ll_phi_NN_opt[-1]))[0]]
+# nan_input_list.shape # returns (len(nan_input_list), Ns, 9)
 
-nan_ll = Y_ll_1t1s_nn(Ws,bs,acts,nan_input_list)
-nan_t_idx, nan_s_idx = np.where(np.isnan(nan_ll))[0:2]
+# nan_ll = Y_ll_1t1s_nn(Ws,bs,acts,nan_input_list)
+# nan_t_idx, nan_s_idx = np.where(np.isnan(nan_ll))[0:2]
 
-nan_inputs = nan_input_list[nan_t_idx, nan_s_idx, :]
-# Y_ll_1t1s_nn(Ws,bs,acts,nan_inputs) # verified that all outputs are nan
-# model_nn.predict(nan_inputs) # doesn't output nan! Oh but they output negative values
+# nan_inputs = nan_input_list[nan_t_idx, nan_s_idx, :]
+# # Y_ll_1t1s_nn(Ws,bs,acts,nan_inputs) # verified that all outputs are nan
+# # model_nn.predict(nan_inputs) # doesn't output nan! Oh but they output negative values
 
-nan_inputs[:,4]
-# #             pY,    u, scale, shape,   pR,    Z,  phi, gamma_bar,  tau
-# l_bounds = [0.001,   30,     5,  -1.0, 0.01, -5.0, 0.05,       0.5,  1.0]
-# u_bounds = [0.999,   80,    60,   1.0, 0.95,  5.0, 0.95,       8.0, 50.0]
+# nan_inputs[:,4]
+# # #             pY,    u, scale, shape,   pR,    Z,  phi, gamma_bar,  tau
+# # l_bounds = [0.001,   30,     5,  -1.0, 0.01, -5.0, 0.05,       0.5,  1.0]
+# # u_bounds = [0.999,   80,    60,   1.0, 0.95,  5.0, 0.95,       8.0, 50.0]
 
-np.logical_or(nan_inputs[:,4] < scipy.stats.levy(loc=0,scale=8.0).ppf(0.01), 
-              nan_inputs[:,4] > scipy.stats.levy(loc=0,scale=8.0).ppf(0.95))
+# np.logical_or(nan_inputs[:,4] < scipy.stats.levy(loc=0,scale=8.0).ppf(0.01), 
+#               nan_inputs[:,4] > scipy.stats.levy(loc=0,scale=8.0).ppf(0.95))
+
+
+# %% Goodness of Fit Plot
+
+"""
+We will need pointwise likelihood both from the emulator and the actual
+Use Y_ll_1t1s to get the pointwise true likelihood
+"""
