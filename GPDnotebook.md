@@ -26,7 +26,10 @@
 
 ## Feb. 11 (Tuesday) Muyang/Likun/Ben
 
-- Kevin Worthington
+Logistics:
+  - Kevin Worthington
+
+Spline emulator on the original scale likelihood?
 
 ## Feb. 4 (Tuesday) Muyang/Likun/Ben
 
@@ -50,7 +53,7 @@ Emulating the likleihood:
         - `Y`
           - `np.min(X_lhs[:,0]) = 30.0`
           - `np.max(X_lhs[:,0]) = 6019.999999999992`
-      - [ ] What proportion of each parameter falls within the range of design points?
+      - [x] What proportion of each parameter falls within the range of design points?
 - [x] Need to add a check for extrapolation
   - [x] what proportion of the overall predictions fall outside the training range
   - ![alt text](image-33.png)
@@ -61,7 +64,7 @@ Emulating the likleihood:
   - ![alt text](image-35.png)
   - ![alt text](image-36.png)
   - ![alt text](image-37.png)
-- [ ] Re-train Neural Network with a wider range on R
+- [x] Re-train Neural Network with a wider range on R
   - [x] Figure out range of R?
     - `np.min(input_list[:,4]) = 0.057`
     - `np.max(input_list[:,4]) = 112775`
@@ -70,6 +73,8 @@ Emulating the likleihood:
       - `scipy.stats.levy(loc=0, scale=8.0).ppf(0.999) = 5092955`
   - [x] Calculate the design points and validation points
   - [x] Train the NN and try out several structures
+    - ![alt text](image-39.png)
+    - ![alt text](image-40.png)
   - [ ] If result is bad, Ben: Train the likelihood with the input X in the hypercube
 
 - Contact Reetam
