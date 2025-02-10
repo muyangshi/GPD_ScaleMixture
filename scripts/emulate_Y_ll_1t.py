@@ -1162,10 +1162,19 @@ for i in range(1):
 
 # %% Goodness of Fit Plot
 
+# Goodness of fit plot on the validation dataset ------------------------------
+
+
+
+
+# Goodness of fit plot on the simulated dataset -------------------------------
+
 """
 We will need pointwise likelihood both from the emulator and the actual
 Use Y_ll_1t1s to get the pointwise true likelihood
 """
+
+# true likelihood -----------------------------------------
 
 args_list = []
 for t in range(Nt):
@@ -1191,4 +1200,50 @@ with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
 
 # Y_ll_split = np.split(np.array(results), Nt)
 Y_ll_Nt_Ns = np.array(results).reshape((Nt, Ns))
+np.save(r'Y_ll_Nt_Ns.npy', Y_ll_Nt_Ns)
 
+# emulated likelihood -------------------------------------
+
+input_list = [] # used to calculate all the Y-likelihoods
+for t in range(Nt):
+    Y_1t      = Y[:,t]
+    u_vec     = u_matrix[:,t]
+    Scale_vec = Scale_matrix[:,t]
+    Shape_vec = Shape_matrix[:,t]
+    R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+    Z_1t      = Z[:,t]
+    logS_vec  = np.log(S_at_knots[:,t])
+
+    X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
+    input_list.append(X_input)
+
+input_list = np.vstack(input_list)
+
+results          = Y_ll_1t1s_nn_2p(Ws,bs,acts,input_list)
+Y_ll_Nt_Ns_nn_2p = np.array(results).reshape((Nt, Ns))
+
+# plotting ------------------------------------------------
+
+fig, ax = plt.subplots()
+ax.set_aspect('equal', 'datalim')
+ax.scatter(Y_ll_Nt_Ns, Y_ll_Nt_Ns_nn_2p)
+ax.axline((0, 0), slope=1, color='black', linestyle='--')
+ax.set_title(rf'Goodness of Fit Plot on Simulated Dataset all t')
+ax.set_xlabel('True Log Likelihood')
+ax.set_ylabel('log(Emulated Likelihood)')
+plt.savefig(r'GOF_simulated_allt.pdf')
+plt.show()
+plt.close()
+
+for t in range(Nt):
+    fig, ax = plt.subplots()
+    ax.set_aspect('equal', 'datalim')
+    ax.scatter(Y_ll_Nt_Ns[t,:], Y_ll_Nt_Ns_nn_2p[t,:])
+    ax.axline((0, 0), slope=1, color='black', linestyle='--')
+    ax.set_title(rf'Goodness of Fit Plot on Simulated Dataset t={t}')
+    ax.set_xlabel('True Log Likelihood')
+    ax.set_ylabel('log(Emulated Likelihood)')
+    # plt.axis('equal')
+    plt.savefig(rf'GOF_simulated_t{t}.pdf')
+    # plt.show()
+    plt.close()

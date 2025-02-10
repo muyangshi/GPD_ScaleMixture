@@ -29,12 +29,12 @@
 Logistics:
   - Kevin Worthington
 
-Spline emulator on the original scale likelihood?
+Rerun the sampler after fixing the bug in `utilities.py` about the likelihood
+  - see if $\phi$ is still under-estimated
 
 ## Feb. 4 (Tuesday) Muyang/Likun/Ben
 
 Emulating the likleihood:
-
 
 - [x] One big prediction instead of several samll prediction
 
@@ -75,13 +75,18 @@ Emulating the likleihood:
   - [x] Train the NN and try out several structures
     - ![alt text](image-39.png)
     - ![alt text](image-40.png)
-  - [ ] If result is bad, Ben: Train the likelihood with the input X in the hypercube
+  - If result is bad, 
+    - [ ] Ben: Train the likelihood with the input X in the hypercube
+    - [ ] Try a bigger model?
+    - [ ] Spline emulator on the original scale likelihood?
+
 
 - Contact Reetam
   - goodness-of-fit plot (If fit is good, but prediction is bad)
     - [ ] Goodness-of-fit plot on the validation dataset (might need to do this on `misspiggy` due to memory issue)
-    - [ ] Goodness-of-fit plot on the simulated dataset
+    - [x] Goodness-of-fit plot on the simulated dataset
   - variable importance plots (If `fit` itself is bad)
+    - [ ] what's variable importance plot? How to draw one
 
 
 
