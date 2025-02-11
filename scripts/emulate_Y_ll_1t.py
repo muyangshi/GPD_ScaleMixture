@@ -1277,11 +1277,11 @@ for phi_x in phi_grid:
     input_lists.append(input_list)
 
 input_lists = np.array(input_lists)
-np.save('input_lists.npy', input_lists)
+np.save('Y_ll_Nt_Ns_phi_grid_X_lists.npy', input_lists)
 
 Y_ll_Nt_Ns_list = []
 for input_list in input_lists:
     with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
         results = pool.starmap(Y_ll_1t1s, input_list)
     Y_ll_Nt_Ns_list.append(np.array(results))
-np.save(r'Y_ll_Nt_Ns_lists.npy', Y_ll_Nt_Ns_list)
+np.save(r'Y_ll_Nt_Ns_phi_grid_Y_list.npy', Y_ll_Nt_Ns_list)
