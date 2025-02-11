@@ -1247,3 +1247,41 @@ for t in range(Nt):
     plt.savefig(rf'GOF_simulated_t{t}.pdf')
     # plt.show()
     plt.close()
+
+# Goodness of fit plot on simulated dataset with changing phi_0 ---------------
+i = 0
+lb = 0.2
+ub = 0.8
+grids = 5 # fast
+phi_grid = np.linspace(lb, ub, grids)
+phi_grid = np.sort(np.insert(phi_grid, 0, phi_at_knots[i]))
+input_lists = []
+for phi_x in phi_grid:
+    phi_k        = phi_at_knots.copy()
+    phi_k[i]     = phi_x
+    phi_vec_test = gaussian_weight_matrix_phi @ phi_k
+    input_list = [] # used to calculate all the Y-likelihoods
+    for t in range(Nt):
+        Y_1t      = Y[:,t]
+        u_vec     = u_matrix[:,t]
+        Scale_vec = Scale_matrix[:,t]
+        Shape_vec = Shape_matrix[:,t]
+        R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+        Z_1t      = Z[:,t]
+        logS_vec  = np.log(S_at_knots[:,t])
+
+        X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
+        input_list.append(X_input)
+
+    input_list = np.vstack(input_list)
+    input_lists.append(input_list)
+
+input_lists = np.array(input_lists)
+np.save('input_lists.npy', input_lists)
+
+Y_ll_Nt_Ns_list = []
+for input_list in input_lists:
+    with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
+        results = pool.starmap(Y_ll_1t1s, input_list)
+    Y_ll_Nt_Ns_list.append(np.array(results))
+np.save(r'Y_ll_Nt_Ns_lists.npy', Y_ll_Nt_Ns_list)
