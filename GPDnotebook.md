@@ -24,14 +24,45 @@
 
 # Meetings
 
+## Feb. 18 (Tuesday) Muyang/Likun/Ben
+
 ## Feb. 11 (Tuesday) Muyang/Likun/Ben
 
 Logistics:
   - Kevin Worthington
+    - [ ] Yes, I will contact Kevin Worthington
+    - [ ] Send Boes Teaching Award application materials to Ben
   - May 5. 1 - 3 PM works for Ben?
+    - [x] Email Alex
   - EnviBayes should I go?
+    - [x] Yes, reply to the email
 
-Rerun the sampler after fixing the bug in `utilities.py` about the likelihood
+On emulating the likelihood:
+  - [ ] Bigger Model
+  - [ ] Smaller Learning Rate
+  - [ ] Goodness of Fit plot
+
+On emulating the quantile function:
+  - [ ] weighted loss function
+    - e.g.
+```
+def weighted_mse_loss(pred, target, alpha=1.0, eps=1e-8):
+    weights = 1.0 + alpha * target
+    
+    # Weighted sum of squared errors
+    mse = weights * (pred - target)**2
+    
+    # Normalize by the sum of weights
+    wmse = mse.sum() / (weights.sum() + eps)
+    return wms
+```
+  - [ ] Goodness of Fit plot?
+
+Compare to other methods
+  - scipy.interpolate (spline emulator)
+  - Jaywoos KDTrees local polynomial
+
+- [ ] Rerun the sampler after fixing the bug in `utilities.py` about the likelihood
   - see if $\phi$ is still under-estimated
 
 ## Feb. 4 (Tuesday) Muyang/Likun/Ben
@@ -78,14 +109,16 @@ Emulating the likleihood:
     - ![alt text](image-39.png)
     - ![alt text](image-40.png)
   - If result is bad, 
-    - [ ] Ben: Train the likelihood with the input X in the hypercube
-    - [ ] Try a bigger model?
-    - [ ] Spline emulator on the original scale likelihood?
+    - [-] Ben: Train the likelihood with the input X in the hypercube
+    - [-] Try a bigger model?
+    - [-] Spline emulator on the original scale likelihood?
 
 
 - Contact Reetam
   - goodness-of-fit plot (If fit is good, but prediction is bad)
-    - [ ] Goodness-of-fit plot on the validation dataset (might need to do this on `misspiggy` due to memory issue)
+    - [x] Goodness-of-fit plot on the validation dataset (might need to do this on `misspiggy` due to memory issue)
+      - ![alt text](image-41.png)
+      - ![alt text](image-42.png)
     - [x] Goodness-of-fit plot on the simulated dataset
   - variable importance plots (If `fit` itself is bad)
     - [ ] what's variable importance plot? How to draw one

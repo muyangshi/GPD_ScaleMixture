@@ -1164,8 +1164,20 @@ for i in range(1):
 
 # Goodness of fit plot on the validation dataset ------------------------------
 
+Y_lhs_val
 
+Y_lhs_val_pred = Y_ll_1t1s_nn_2p(Ws,bs,acts,X_lhs_val)
 
+fig, ax = plt.subplots()
+ax.set_aspect('equal', 'datalim')
+ax.scatter(np.exp(Y_lhs_val), np.exp(Y_lhs_val_pred))
+ax.axline((0, 0), slope=1, color='black', linestyle='--')
+ax.set_title(rf'Goodness of Fit Plot on Validation Dataset')
+ax.set_xlabel('True exp(log Likelihood)')
+ax.set_ylabel('Emulated Likelihood')
+plt.savefig(r'GOF_validation.pdf')
+plt.show()
+plt.close()
 
 # Goodness of fit plot on the simulated dataset -------------------------------
 
