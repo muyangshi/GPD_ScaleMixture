@@ -28,6 +28,8 @@
 
 Logistics:
   - Kevin Worthington
+  - May 5. 1 - 3 PM works for Ben?
+  - EnviBayes should I go?
 
 Rerun the sampler after fixing the bug in `utilities.py` about the likelihood
   - see if $\phi$ is still under-estimated

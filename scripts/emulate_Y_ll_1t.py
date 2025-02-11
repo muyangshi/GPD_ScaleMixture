@@ -93,7 +93,7 @@ N             = int(1e8)
 N_val         = int(1e6)
 d             = 9
 
-# %% step 0: define some helper functions
+# define some helper functions
 
 # censoring log-likelihood on Y
 
@@ -1200,7 +1200,7 @@ with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
 
 # Y_ll_split = np.split(np.array(results), Nt)
 Y_ll_Nt_Ns = np.array(results).reshape((Nt, Ns))
-np.save(r'Y_ll_Nt_Ns.npy', Y_ll_Nt_Ns)
+np.save(r'Y_ll_Nt_Ns_simulated_dataset.npy', Y_ll_Nt_Ns)
 
 # emulated likelihood -------------------------------------
 
@@ -1248,18 +1248,65 @@ for t in range(Nt):
     # plt.show()
     plt.close()
 
-# Goodness of fit plot on simulated dataset with changing phi_0 ---------------
+# %% Generating X and Y for Likun, when changing phi_0 
+
+# truth ---------------------------------------------------
+
+S_ll_Nt       = []
+Z_ll_Nt       = []
+
+input_list = [] # used to calculate all the Y-likelihoods
+for t in range(Nt):
+    Y_1t      = Y[:,t]
+    u_vec     = u_matrix[:,t]
+    Scale_vec = Scale_matrix[:,t]
+    Shape_vec = Shape_matrix[:,t]
+    R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+    Z_1t      = Z[:,t]
+    logS_vec  = np.log(S_at_knots[:,t])
+
+    X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
+    input_list.append(X_input)
+
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+
+    S_ll_Nt.append(np.sum(S_ll))
+    Z_ll_Nt.append(np.sum(Z_ll))
+
+X_input_Nt_Ns = np.vstack(input_list)
+
+with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
+    results = pool.starmap(Y_ll_1t1s, X_input_Nt_Ns)
+Y_Nt_Ns = np.array(results)
+
+np.save('Y_ll_X_input_Nt_Ns.npy', X_input_Nt_Ns)
+np.save('Y_ll_Y_Nt_Ns.npy', Y_Nt_Ns)
+
+# phi_grid ------------------------------------------------
+
 i = 0
 lb = 0.2
 ub = 0.8
 grids = 5 # fast
 phi_grid = np.linspace(lb, ub, grids)
 phi_grid = np.sort(np.insert(phi_grid, 0, phi_at_knots[i]))
-input_lists = []
+
+Y_Nt_Ns_phi_grid       = []
+X_input_Nt_Ns_phi_grid = []
+S_ll_Nt_phi_grid       = []
+Z_ll_Nt_phi_grid       = []
+
 for phi_x in phi_grid:
+
+    X_input_Nt_Ns = []
+    S_ll_Nt       = []
+    Z_ll_Nt       = []
+
     phi_k        = phi_at_knots.copy()
     phi_k[i]     = phi_x
     phi_vec_test = gaussian_weight_matrix_phi @ phi_k
+
     input_list = [] # used to calculate all the Y-likelihoods
     for t in range(Nt):
         Y_1t      = Y[:,t]
@@ -1270,18 +1317,44 @@ for phi_x in phi_grid:
         Z_1t      = Z[:,t]
         logS_vec  = np.log(S_at_knots[:,t])
 
-        X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
+        X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec_test, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
         input_list.append(X_input)
 
+        S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+        Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+
+        S_ll_Nt.append(np.sum(S_ll))
+        Z_ll_Nt.append(np.sum(Z_ll))
+
     input_list = np.vstack(input_list)
-    input_lists.append(input_list)
+    X_input_Nt_Ns_phi_grid.append(input_list)
 
-input_lists = np.array(input_lists)
-np.save('Y_ll_Nt_Ns_phi_grid_X_lists.npy', input_lists)
+    S_ll_Nt_phi_grid.append(S_ll_Nt)
+    Z_ll_Nt_phi_grid.append(Z_ll_Nt)
 
-Y_ll_Nt_Ns_list = []
-for input_list in input_lists:
+np.array(X_input_Nt_Ns_phi_grid).shape
+np.array(S_ll_Nt_phi_grid).shape
+np.array(Z_ll_Nt_phi_grid).shape
+
+for X_input in X_input_Nt_Ns_phi_grid:
     with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
-        results = pool.starmap(Y_ll_1t1s, input_list)
-    Y_ll_Nt_Ns_list.append(np.array(results))
-np.save(r'Y_ll_Nt_Ns_phi_grid_Y_list.npy', Y_ll_Nt_Ns_list)
+        results = pool.starmap(Y_ll_1t1s, X_input)
+    Y_Nt_Ns_phi_grid.append(np.array(results))
+
+X_input_Nt_Ns_phi_grid = np.array(X_input_Nt_Ns_phi_grid)
+S_ll_Nt_phi_grid       = np.array(S_ll_Nt_phi_grid)
+Z_ll_Nt_phi_grid       = np.array(Z_ll_Nt_phi_grid)
+Y_Nt_Ns_phi_grid       = np.array(Y_Nt_Ns_phi_grid)
+
+plt.plot(phi_grid, np.sum(S_ll_Nt_phi_grid, axis = 1))
+plt.plot(phi_grid, np.sum(Z_ll_Nt_phi_grid, axis = 1))
+plt.plot(phi_grid, np.sum(Y_Nt_Ns_phi_grid, axis = 1))
+
+plt.plot(phi_grid,
+         np.sum(Y_Nt_Ns_phi_grid, axis = 1) + np.sum(Z_ll_Nt_phi_grid, axis = 1) + np.sum(S_ll_Nt_phi_grid, axis = 1))
+
+plt.plot(phi_grid, np.sum(Y_Nt_Ns_phi_grid, axis = 1))
+
+np.save('phi_grid.npy', phi_grid)
+np.save('Y_ll_X_input_Nt_Ns_phi_grid.npy', X_input_Nt_Ns_phi_grid)
+np.save('Y_ll_Y_Nt_Ns_phi_grid.npy', Y_Nt_Ns_phi_grid)
