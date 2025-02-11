@@ -38,8 +38,8 @@ Logistics:
     - [x] Yes, reply to the email
 
 On emulating the likelihood:
-  - [ ] Bigger Model
-  - [ ] Smaller Learning Rate
+  - [x] Bigger Model
+  - [x] Smaller Learning Rate
   - [ ] Goodness of Fit plot
 
 On emulating the quantile function:

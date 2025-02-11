@@ -87,7 +87,7 @@ random_generator = np.random.RandomState(7)
 n_processes = 7 if cpu_count() < 64 else 64
 
 INITIAL_EPOCH = 0
-EPOCH         = 100
+EPOCH         = 200
 
 N             = int(1e8)
 N_val         = int(1e6)
@@ -212,88 +212,88 @@ def ll_1t_par(args): # For use with multiprocessing
 
 # %% step 1: generate design points with LHS
 
-# r('load("../data/realdata/JJA_precip_nonimputed.RData")')
-# Y                  = np.array(r('Y'))
-# GP_estimates       = np.array(r('GP_estimates')).T
-# u_vec              = GP_estimates[:,0]
-# logsigma_estimates = GP_estimates[:,1]
-# xi_estimates       = GP_estimates[:,2]
-# Notes on range of LHS:
-#   looked at data Y to get its range
-#   looked at previous run and initial site-level estimates to get scale and shape
-#   used reverse CDF to span the R <- R is NOT levy(0, 0.5)!
+# # r('load("../data/realdata/JJA_precip_nonimputed.RData")')
+# # Y                  = np.array(r('Y'))
+# # GP_estimates       = np.array(r('GP_estimates')).T
+# # u_vec              = GP_estimates[:,0]
+# # logsigma_estimates = GP_estimates[:,1]
+# # xi_estimates       = GP_estimates[:,2]
+# # Notes on range of LHS:
+# #   looked at data Y to get its range
+# #   looked at previous run and initial site-level estimates to get scale and shape
+# #   used reverse CDF to span the R <- R is NOT levy(0, 0.5)!
 
-# LHS for the design point X
+# # LHS for the design point X
 
-sampler     = qmc.LatinHypercube(d, scramble=False, seed=2345)
-lhs_samples = sampler.random(N) # Generate LHS samples in [0,1]^d
-lhs_samples = np.row_stack(([0]*d, lhs_samples, [1]*d)) # manually add the boundary points
+# sampler     = qmc.LatinHypercube(d, scramble=False, seed=2345)
+# lhs_samples = sampler.random(N) # Generate LHS samples in [0,1]^d
+# lhs_samples = np.row_stack(([0]*d, lhs_samples, [1]*d)) # manually add the boundary points
 
-#             pY,    u, scale, shape,    pR,    Z,  phi, gamma_bar,  tau
-l_bounds = [0.001,   30,     5,  -1.0, 1e-2, -5.0, 0.05,       0.5,  1.0]
-u_bounds = [0.999,   80,    60,   1.0,  5e6,  5.0, 0.95,       8.0, 50.0]
-X_lhs    = qmc.scale(lhs_samples, l_bounds, u_bounds)        # scale LHS to specified bounds
+# #             pY,    u, scale, shape,    pR,    Z,  phi, gamma_bar,  tau
+# l_bounds = [0.001,   30,     5,  -1.0, 1e-2, -5.0, 0.05,       0.5,  1.0]
+# u_bounds = [0.999,   80,    60,   1.0,  5e6,  5.0, 0.95,       8.0, 50.0]
+# X_lhs    = qmc.scale(lhs_samples, l_bounds, u_bounds)        # scale LHS to specified bounds
 
-# Note that R is not levy(0, 0.5)
-#   Check the values of gamma_bar, pick the largest, use that to span the sample space
-#   Maybe (0, 8)?
-# X_lhs[:,4] = scipy.stats.levy(loc=0,scale=8.0).ppf(X_lhs[:,4]) # scale the Stables
+# # Note that R is not levy(0, 0.5)
+# #   Check the values of gamma_bar, pick the largest, use that to span the sample space
+# #   Maybe (0, 8)?
+# # X_lhs[:,4] = scipy.stats.levy(loc=0,scale=8.0).ppf(X_lhs[:,4]) # scale the Stables
 
-# Y assumed to be Generalized Pareto, if pY > 0.9;
-#   otherwise, just return the corresponding threshold u
-X_lhs[:,0] = qCGP(X_lhs[:,0], 0.9, X_lhs[:,1], X_lhs[:,2], X_lhs[:,3])
+# # Y assumed to be Generalized Pareto, if pY > 0.9;
+# #   otherwise, just return the corresponding threshold u
+# X_lhs[:,0] = qCGP(X_lhs[:,0], 0.9, X_lhs[:,1], X_lhs[:,2], X_lhs[:,3])
 
-print('X_lhs.shape:',X_lhs.shape)
+# print('X_lhs.shape:',X_lhs.shape)
 
-# %% Calculate the likelihoods of Y at the design points
+# # Calculate the likelihoods of Y at the design points
 
-data = [tuple(row) for row in X_lhs]
+# data = [tuple(row) for row in X_lhs]
 
-start_time = time.time()
-print(rf'start calculating {N} likelihoods using {n_processes} processes:', datetime.datetime.now())
-with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
-    results = pool.map(Y_ll_1t1s_par, data)
-end_time = time.time()
-print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
+# start_time = time.time()
+# print(rf'start calculating {N} likelihoods using {n_processes} processes:', datetime.datetime.now())
+# with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
+#     results = pool.map(Y_ll_1t1s_par, data)
+# end_time = time.time()
+# print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
 
-# remove the NAs
-noNA = np.where(~np.isnan(results))
-Y_lhs = np.array(results)[noNA]
-X_lhs = X_lhs[noNA]
+# # remove the NAs
+# noNA = np.where(~np.isnan(results))
+# Y_lhs = np.array(results)[noNA]
+# X_lhs = X_lhs[noNA]
 
-print('len(Y_lhs):',len(Y_lhs))   # number of design points retained
-print('proportion not NA:', len(Y_lhs)/N) # proportion of design points retained
+# print('len(Y_lhs):',len(Y_lhs))   # number of design points retained
+# print('proportion not NA:', len(Y_lhs)/N) # proportion of design points retained
 
-np.save(rf'll_1t_X_{N}.npy', X_lhs)
-np.save(rf'll_1t_Y_{N}.npy', Y_lhs)
+# np.save(rf'll_1t_X_{N}.npy', X_lhs)
+# np.save(rf'll_1t_Y_{N}.npy', Y_lhs)
 
-# %% Generate a set of dedicated validation points
+# # Generate a set of dedicated validation points
 
-sampler_val     = qmc.LatinHypercube(d, scramble=False, seed=129)
-lhs_samples_val = sampler_val.random(N_val) # Generate LHS samples in [0,1]^d
-lhs_samples_val = np.row_stack(([0]*d, lhs_samples_val, [1]*d)) # add boundaries
-#                    pY,    u, scale, shape,   pR,    Z,  phi, gamma_bar,  tau
-l_bounds       = [0.001,   30,     5,  -1.0, 1e-2, -5.0, 0.05,       0.5,  1.0]
-u_bounds       = [0.999,   80,    60,   1.0,  5e6,  5.0, 0.95,       8.0, 50.0]
-X_lhs_val      = qmc.scale(lhs_samples_val, l_bounds, u_bounds)        # scale LHS to specified bounds
-# X_lhs_val[:,4] = scipy.stats.levy(loc=0,scale=8.0).ppf(X_lhs_val[:,4]) # scale the Stables
-X_lhs_val[:,0] = qCGP(X_lhs_val[:,0], 0.9, X_lhs_val[:,1], X_lhs_val[:,2], X_lhs_val[:,3])
-print('X_lhs_val.shape:',X_lhs_val.shape)
+# sampler_val     = qmc.LatinHypercube(d, scramble=False, seed=129)
+# lhs_samples_val = sampler_val.random(N_val) # Generate LHS samples in [0,1]^d
+# lhs_samples_val = np.row_stack(([0]*d, lhs_samples_val, [1]*d)) # add boundaries
+# #                    pY,    u, scale, shape,   pR,    Z,  phi, gamma_bar,  tau
+# l_bounds       = [0.001,   30,     5,  -1.0, 1e-2, -5.0, 0.05,       0.5,  1.0]
+# u_bounds       = [0.999,   80,    60,   1.0,  5e6,  5.0, 0.95,       8.0, 50.0]
+# X_lhs_val      = qmc.scale(lhs_samples_val, l_bounds, u_bounds)        # scale LHS to specified bounds
+# # X_lhs_val[:,4] = scipy.stats.levy(loc=0,scale=8.0).ppf(X_lhs_val[:,4]) # scale the Stables
+# X_lhs_val[:,0] = qCGP(X_lhs_val[:,0], 0.9, X_lhs_val[:,1], X_lhs_val[:,2], X_lhs_val[:,3])
+# print('X_lhs_val.shape:',X_lhs_val.shape)
 
-data_val = [tuple(row) for row in X_lhs_val]
-start_time = time.time()
-print(rf'start calculating {N_val} likelihoods using {n_processes} processes:', datetime.datetime.now())
-with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
-    results_val = pool.map(Y_ll_1t1s_par, data_val)
-end_time = time.time()
-print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
+# data_val = [tuple(row) for row in X_lhs_val]
+# start_time = time.time()
+# print(rf'start calculating {N_val} likelihoods using {n_processes} processes:', datetime.datetime.now())
+# with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
+#     results_val = pool.map(Y_ll_1t1s_par, data_val)
+# end_time = time.time()
+# print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
 
-noNA      = np.where(~np.isnan(results_val))
-Y_lhs_val = np.array(results_val)[noNA]
-X_lhs_val = X_lhs_val[noNA]
+# noNA      = np.where(~np.isnan(results_val))
+# Y_lhs_val = np.array(results_val)[noNA]
+# X_lhs_val = X_lhs_val[noNA]
 
-np.save(rf'll_1t_X_val_{N_val}.npy', X_lhs_val)
-np.save(rf'll_1t_Y_val_{N_val}.npy', Y_lhs_val)
+# np.save(rf'll_1t_X_val_{N_val}.npy', X_lhs_val)
+# np.save(rf'll_1t_Y_val_{N_val}.npy', Y_lhs_val)
 
 # %% step 2: load design points and train
 
@@ -409,29 +409,34 @@ y_val   = np.exp(Y_lhs_val)
 model = keras.Sequential(
     [
         keras.Input(shape=(d,)),
-        layers.Dense(64,  activation='elu'),
-        layers.Dense(128, activation='elu'),
-        layers.Dense(128, activation='elu'),
-        layers.Dense(64,  activation='elu'),
+        layers.Dense(128,  activation='elu'),
+        layers.Dense(256,  activation='elu'),
+        layers.Dense(512,  activation='elu'),
+        layers.Dense(512,  activation='elu'),
+        layers.Dense(512,  activation='elu'),
+        layers.Dense(256,  activation='elu'),
+        layers.Dense(128,  activation='elu'),
         layers.Dense(1)
     ]
 )
 
-initial_learning_rate = 0.001
+initial_learning_rate = 1e-4
 lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-    initial_learning_rate, decay_steps=100000, decay_rate=0.96, staircase=True
+    initial_learning_rate, 
+    decay_steps=5e4, # 100,000,000/batch_size = steps per epoch
+    decay_rate=0.96, 
+    staircase=False
 )
 
 model.compile(
-    # optimizer='adam',
-    optimizer=keras.optimizers.RMSprop(learning_rate=lr_schedule), 
+    # optimizer=keras.optimizers.RMSprop(learning_rate=lr_schedule), 
+    optimizer=keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
     loss=keras.losses.mean_squared_error)
 
-# %% step 2c-2: load previously defined model
-
+# load previously defined model
 # model = keras.models.load_model('./checkpoint.model.keras')
 
-# %% Fitting Model
+# Fitting Model
 
 start_time = time.time()
 print('started fitting NN:', datetime.datetime.now())
@@ -446,7 +451,7 @@ history = model.fit(
     y_train, 
     initial_epoch=INITIAL_EPOCH,
     epochs = EPOCH, 
-    batch_size=4096,
+    batch_size=8192,
     verbose = 2,
     validation_data=(X_val, y_val),
     callbacks=[model_checkpoint_callback])
@@ -1049,7 +1054,7 @@ for i in range(1):
     # ax.plot(phi_grid, plot_ll_nn, 'b.-', label = 'nn emulator')
     
 
-# %% Using spline emulator -------------------------------------------------
+# %% Using spline emulator ----------------------------------------------------
 
 # ll_phi_emulator_spline = []
 # start_time = time.time()
@@ -1086,7 +1091,7 @@ for i in range(1):
 # ll_phi_emulator_spline = np.array(ll_phi_emulator_spline, dtype = object)
 # np.save(rf'll_phi_emulator_spline_k{i}', ll_phi_emulator_spline)
 
-# %% Using neural network emulator -------------------------------------------
+# %% Using neural network emulator --------------------------------------------
 
 # ll_phi_emulator_nn = []
 # start_time = time.time()
@@ -1262,111 +1267,111 @@ for t in range(Nt):
 
 # %% Generating X and Y for Likun, when changing phi_0 
 
-# truth ---------------------------------------------------
+# # truth ---------------------------------------------------
 
-S_ll_Nt       = []
-Z_ll_Nt       = []
+# S_ll_Nt       = []
+# Z_ll_Nt       = []
 
-input_list = [] # used to calculate all the Y-likelihoods
-for t in range(Nt):
-    Y_1t      = Y[:,t]
-    u_vec     = u_matrix[:,t]
-    Scale_vec = Scale_matrix[:,t]
-    Shape_vec = Shape_matrix[:,t]
-    R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
-    Z_1t      = Z[:,t]
-    logS_vec  = np.log(S_at_knots[:,t])
+# input_list = [] # used to calculate all the Y-likelihoods
+# for t in range(Nt):
+#     Y_1t      = Y[:,t]
+#     u_vec     = u_matrix[:,t]
+#     Scale_vec = Scale_matrix[:,t]
+#     Shape_vec = Shape_matrix[:,t]
+#     R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+#     Z_1t      = Z[:,t]
+#     logS_vec  = np.log(S_at_knots[:,t])
 
-    X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
-    input_list.append(X_input)
+#     X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
+#     input_list.append(X_input)
 
-    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
-    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+#     S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+#     Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
 
-    S_ll_Nt.append(np.sum(S_ll))
-    Z_ll_Nt.append(np.sum(Z_ll))
+#     S_ll_Nt.append(np.sum(S_ll))
+#     Z_ll_Nt.append(np.sum(Z_ll))
 
-X_input_Nt_Ns = np.vstack(input_list)
+# X_input_Nt_Ns = np.vstack(input_list)
 
-with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
-    results = pool.starmap(Y_ll_1t1s, X_input_Nt_Ns)
-Y_Nt_Ns = np.array(results)
+# with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
+#     results = pool.starmap(Y_ll_1t1s, X_input_Nt_Ns)
+# Y_Nt_Ns = np.array(results)
 
-np.save('Y_ll_X_input_Nt_Ns.npy', X_input_Nt_Ns)
-np.save('Y_ll_Y_Nt_Ns.npy', Y_Nt_Ns)
+# np.save('Y_ll_X_input_Nt_Ns.npy', X_input_Nt_Ns)
+# np.save('Y_ll_Y_Nt_Ns.npy', Y_Nt_Ns)
 
-# phi_grid ------------------------------------------------
+# # phi_grid ------------------------------------------------
 
-i = 0
-lb = 0.2
-ub = 0.8
-grids = 5 # fast
-phi_grid = np.linspace(lb, ub, grids)
-phi_grid = np.sort(np.insert(phi_grid, 0, phi_at_knots[i]))
+# i = 0
+# lb = 0.2
+# ub = 0.8
+# grids = 5 # fast
+# phi_grid = np.linspace(lb, ub, grids)
+# phi_grid = np.sort(np.insert(phi_grid, 0, phi_at_knots[i]))
 
-Y_Nt_Ns_phi_grid       = []
-X_input_Nt_Ns_phi_grid = []
-S_ll_Nt_phi_grid       = []
-Z_ll_Nt_phi_grid       = []
+# Y_Nt_Ns_phi_grid       = []
+# X_input_Nt_Ns_phi_grid = []
+# S_ll_Nt_phi_grid       = []
+# Z_ll_Nt_phi_grid       = []
 
-for phi_x in phi_grid:
+# for phi_x in phi_grid:
 
-    X_input_Nt_Ns = []
-    S_ll_Nt       = []
-    Z_ll_Nt       = []
+#     X_input_Nt_Ns = []
+#     S_ll_Nt       = []
+#     Z_ll_Nt       = []
 
-    phi_k        = phi_at_knots.copy()
-    phi_k[i]     = phi_x
-    phi_vec_test = gaussian_weight_matrix_phi @ phi_k
+#     phi_k        = phi_at_knots.copy()
+#     phi_k[i]     = phi_x
+#     phi_vec_test = gaussian_weight_matrix_phi @ phi_k
 
-    input_list = [] # used to calculate all the Y-likelihoods
-    for t in range(Nt):
-        Y_1t      = Y[:,t]
-        u_vec     = u_matrix[:,t]
-        Scale_vec = Scale_matrix[:,t]
-        Shape_vec = Shape_matrix[:,t]
-        R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
-        Z_1t      = Z[:,t]
-        logS_vec  = np.log(S_at_knots[:,t])
+#     input_list = [] # used to calculate all the Y-likelihoods
+#     for t in range(Nt):
+#         Y_1t      = Y[:,t]
+#         u_vec     = u_matrix[:,t]
+#         Scale_vec = Scale_matrix[:,t]
+#         Shape_vec = Shape_matrix[:,t]
+#         R_vec     = wendland_weight_matrix_S @ S_at_knots[:,t]
+#         Z_1t      = Z[:,t]
+#         logS_vec  = np.log(S_at_knots[:,t])
 
-        X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec_test, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
-        input_list.append(X_input)
+#         X_input = np.array([Y_1t, u_vec, Scale_vec, Shape_vec, R_vec, Z_1t, phi_vec_test, gamma_bar_vec, np.full_like(Y_1t, tau)]).T
+#         input_list.append(X_input)
 
-        S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
-        Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
+#         S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_k_vec) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+#         Z_ll = scipy.stats.multivariate_normal.logpdf(Z_1t, mean = None, cov = K)
 
-        S_ll_Nt.append(np.sum(S_ll))
-        Z_ll_Nt.append(np.sum(Z_ll))
+#         S_ll_Nt.append(np.sum(S_ll))
+#         Z_ll_Nt.append(np.sum(Z_ll))
 
-    input_list = np.vstack(input_list)
-    X_input_Nt_Ns_phi_grid.append(input_list)
+#     input_list = np.vstack(input_list)
+#     X_input_Nt_Ns_phi_grid.append(input_list)
 
-    S_ll_Nt_phi_grid.append(S_ll_Nt)
-    Z_ll_Nt_phi_grid.append(Z_ll_Nt)
+#     S_ll_Nt_phi_grid.append(S_ll_Nt)
+#     Z_ll_Nt_phi_grid.append(Z_ll_Nt)
 
-np.array(X_input_Nt_Ns_phi_grid).shape
-np.array(S_ll_Nt_phi_grid).shape
-np.array(Z_ll_Nt_phi_grid).shape
+# np.array(X_input_Nt_Ns_phi_grid).shape
+# np.array(S_ll_Nt_phi_grid).shape
+# np.array(Z_ll_Nt_phi_grid).shape
 
-for X_input in X_input_Nt_Ns_phi_grid:
-    with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
-        results = pool.starmap(Y_ll_1t1s, X_input)
-    Y_Nt_Ns_phi_grid.append(np.array(results))
+# for X_input in X_input_Nt_Ns_phi_grid:
+#     with multiprocessing.get_context('fork').Pool(processes = n_processes) as pool:
+#         results = pool.starmap(Y_ll_1t1s, X_input)
+#     Y_Nt_Ns_phi_grid.append(np.array(results))
 
-X_input_Nt_Ns_phi_grid = np.array(X_input_Nt_Ns_phi_grid)
-S_ll_Nt_phi_grid       = np.array(S_ll_Nt_phi_grid)
-Z_ll_Nt_phi_grid       = np.array(Z_ll_Nt_phi_grid)
-Y_Nt_Ns_phi_grid       = np.array(Y_Nt_Ns_phi_grid)
+# X_input_Nt_Ns_phi_grid = np.array(X_input_Nt_Ns_phi_grid)
+# S_ll_Nt_phi_grid       = np.array(S_ll_Nt_phi_grid)
+# Z_ll_Nt_phi_grid       = np.array(Z_ll_Nt_phi_grid)
+# Y_Nt_Ns_phi_grid       = np.array(Y_Nt_Ns_phi_grid)
 
-plt.plot(phi_grid, np.sum(S_ll_Nt_phi_grid, axis = 1))
-plt.plot(phi_grid, np.sum(Z_ll_Nt_phi_grid, axis = 1))
-plt.plot(phi_grid, np.sum(Y_Nt_Ns_phi_grid, axis = 1))
+# plt.plot(phi_grid, np.sum(S_ll_Nt_phi_grid, axis = 1))
+# plt.plot(phi_grid, np.sum(Z_ll_Nt_phi_grid, axis = 1))
+# plt.plot(phi_grid, np.sum(Y_Nt_Ns_phi_grid, axis = 1))
 
-plt.plot(phi_grid,
-         np.sum(Y_Nt_Ns_phi_grid, axis = 1) + np.sum(Z_ll_Nt_phi_grid, axis = 1) + np.sum(S_ll_Nt_phi_grid, axis = 1))
+# plt.plot(phi_grid,
+#          np.sum(Y_Nt_Ns_phi_grid, axis = 1) + np.sum(Z_ll_Nt_phi_grid, axis = 1) + np.sum(S_ll_Nt_phi_grid, axis = 1))
 
-plt.plot(phi_grid, np.sum(Y_Nt_Ns_phi_grid, axis = 1))
+# plt.plot(phi_grid, np.sum(Y_Nt_Ns_phi_grid, axis = 1))
 
-np.save('phi_grid.npy', phi_grid)
-np.save('Y_ll_X_input_Nt_Ns_phi_grid.npy', X_input_Nt_Ns_phi_grid)
-np.save('Y_ll_Y_Nt_Ns_phi_grid.npy', Y_Nt_Ns_phi_grid)
+# np.save('phi_grid.npy', phi_grid)
+# np.save('Y_ll_X_input_Nt_Ns_phi_grid.npy', X_input_Nt_Ns_phi_grid)
+# np.save('Y_ll_Y_Nt_Ns_phi_grid.npy', Y_Nt_Ns_phi_grid)
