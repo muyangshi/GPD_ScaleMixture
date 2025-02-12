@@ -30,8 +30,8 @@
 
 Logistics:
   - Kevin Worthington
-    - [ ] Yes, I will contact Kevin Worthington
-    - [ ] Send Boes Teaching Award application materials to Ben
+    - [x] Yes, I will contact Kevin Worthington
+    - [x] Send Boes Teaching Award application materials to Ben
   - May 5. 1 - 3 PM works for Ben?
     - [x] Email Alex
   - EnviBayes should I go?
@@ -40,6 +40,8 @@ Logistics:
 On emulating the likelihood:
   - [x] Bigger Model
   - [x] Smaller Learning Rate
+    - Model is big: (128-256-512-512-512-256-128)
+    - training takes a long time (~22 min per epoch)
   - [ ] Goodness of Fit plot
 
 On emulating the quantile function:
