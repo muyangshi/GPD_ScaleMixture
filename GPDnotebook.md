@@ -42,6 +42,10 @@ On emulating the likelihood:
   - [x] Smaller Learning Rate
     - Model is big: (128-256-512-512-512-256-128)
     - training takes a long time (~22 min per epoch)
+    - after ~100 epochs validation error seems to plateau at around 0.08 (Note that the training loss is also not in monotonic decrease, maybe because of the batch_size?)
+      - [ ] Further training with decreased learning rate?
+        - Re-compile the model, load model weights, and then start with a smaller weights?
+        - Can we continue training with a different learning rate?
   - [ ] Goodness of Fit plot
 
 On emulating the quantile function:
