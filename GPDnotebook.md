@@ -49,7 +49,7 @@ On emulating the likelihood:
     - Model is not good, try Likun's configuration:
       - (512-512-512-512-512)
   - [x] Goodness of Fit plot
-    - see `./data/20240214_NN_Y_ll_1t`
+    - Bad. see `./data/20240214_NN_Y_ll_1t`
 
 On emulating the quantile function:
   - [ ] weighted loss function
@@ -73,6 +73,7 @@ Compare to other methods
 
 - [ ] Rerun the sampler after fixing the bug in `utilities.py` about the likelihood
   - see if $\phi$ is still under-estimated
+  - `np.NINF` removed in Numpy 2.0. Change to `-np.inf`
 
 ## Feb. 4 (Tuesday) Muyang/Likun/Ben
 

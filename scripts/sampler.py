@@ -1313,7 +1313,7 @@ for iter in range(start_iter, n_iters):
 
     #     # Data Likelihood -----------------------------------------------------------------------------------------
     #     if not np.all(0 < gamma_k_vec_proposal):
-    #         llik_1t_proposal = np.NINF
+    #         llik_1t_proposal = -np.inf
     #     else:
     #         gamma_bar_vec_proposal = np.sum(np.multiply(wendland_weight_matrix_S, gamma_k_vec_proposal)**(alpha),
     #                                     axis = 1)**(1/alpha)
@@ -1396,7 +1396,7 @@ for iter in range(start_iter, n_iters):
 
         # Data Likelihood -----------------------------------------------------------------------------------------
         if not all(0 < phi < 1 for phi in phi_knots_proposal):
-            llik_1t_proposal = np.NINF
+            llik_1t_proposal = -np.inf
         else:
             phi_vec_proposal   = gaussian_weight_matrix_phi @ phi_knots_proposal
             
@@ -1456,7 +1456,7 @@ for iter in range(start_iter, n_iters):
 
         # Data Likelihood -----------------------------------------------------------------------------------------
         if not all(rho > 0 for rho in range_knots_proposal):
-            llik_1t_proposal = np.NINF
+            llik_1t_proposal = -np.inf
         else:
             range_vec_proposal = gaussian_weight_matrix_rho @ range_knots_proposal
             K_proposal = ns_cov(range_vec = range_vec_proposal,
@@ -1502,7 +1502,7 @@ for iter in range(start_iter, n_iters):
 
     # Data Likelihood ---------------------------------------------------------------------------------------------
     if not tau_proposal > 0:
-        llik_1t_proposal = np.NINF
+        llik_1t_proposal = -np.inf
     else:
         # "full" version as X and dX are calculated within the likelihood function
         llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
@@ -1517,7 +1517,7 @@ for iter in range(start_iter, n_iters):
         llik_current  = np.sum(llik_1t_current_gathered)
         llik_proposal = np.sum(llik_1t_proposal_gathered)
         lprior_tau_current  = np.log(dhalft(tau_current, nu = 1, mu = 0, sigma = 5))
-        lprior_tau_proposal = np.log(dhalft(tau_proposal, nu = 1, mu = 0, sigma = 5)) if tau_proposal > 0 else np.NINF
+        lprior_tau_proposal = np.log(dhalft(tau_proposal, nu = 1, mu = 0, sigma = 5)) if tau_proposal > 0 else -np.inf
         r = np.exp(llik_proposal + lprior_tau_proposal - llik_current - lprior_tau_current)
         if np.isfinite(r) and r >= random_generator.uniform():
             num_accepted['tau'] += 1
@@ -1552,7 +1552,7 @@ for iter in range(start_iter, n_iters):
 
     # Data Likelihood ---------------------------------------------------------------------------------------------
     if np.any(Scale_vec_proposal <= 0):
-        llik_1t_proposal = np.NINF
+        llik_1t_proposal = -np.inf
     else:
         # "full" version as X and dX are calculated within the likelihood function
         llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_proposal, Shape_vec_current,
@@ -1603,7 +1603,7 @@ for iter in range(start_iter, n_iters):
     # Data Likelihood ---------------------------------------------------------------------------------------------
     
     # shape parameter of GP is the R, right?
-    # if np.any(Shape_vec_proposal <= 0): llik_1t_proposal = np.NINF
+    # if np.any(Shape_vec_proposal <= 0): llik_1t_proposal = -np.inf
 
     llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_proposal,
                              R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
@@ -1649,7 +1649,7 @@ for iter in range(start_iter, n_iters):
         
         # likelihood --------------------------------------------------------------------------------------------------
         lprior_sigma_Beta_logsigma_current  = np.log(dhalft(sigma_Beta_logsigma_current, nu = 2))
-        lprior_sigma_Beta_logsigma_proposal = np.log(dhalft(sigma_Beta_logsigma_proposal, nu = 2)) if sigma_Beta_logsigma_proposal > 0 else np.NINF
+        lprior_sigma_Beta_logsigma_proposal = np.log(dhalft(sigma_Beta_logsigma_proposal, nu = 2)) if sigma_Beta_logsigma_proposal > 0 else -np.inf
 
         llik_current  = lprior_sigma_Beta_logsigma_current  + np.sum(scipy.stats.norm.logpdf(Beta_logsigma_current, loc = 0, scale = sigma_Beta_logsigma_current))
         llik_proposal = lprior_sigma_Beta_logsigma_proposal + np.sum(scipy.stats.norm.logpdf(Beta_logsigma_current, loc = 0, scale = sigma_Beta_logsigma_proposal))
@@ -1674,7 +1674,7 @@ for iter in range(start_iter, n_iters):
         
         # likelihood --------------------------------------------------------------------------------------------------
         lprior_sigma_Beta_xi_current  = np.log(dhalft(sigma_Beta_xi_current,  nu = 2))
-        lprior_sigma_Beta_xi_proposal = np.log(dhalft(sigma_Beta_xi_proposal, nu = 2)) if sigma_Beta_xi_proposal > 0 else np.NINF
+        lprior_sigma_Beta_xi_proposal = np.log(dhalft(sigma_Beta_xi_proposal, nu = 2)) if sigma_Beta_xi_proposal > 0 else -np.inf
 
         llik_current  = lprior_sigma_Beta_xi_current  + np.sum(scipy.stats.norm.logpdf(Beta_xi_current, loc = 0, scale = sigma_Beta_xi_current))
         llik_proposal = lprior_sigma_Beta_xi_proposal + np.sum(scipy.stats.norm.logpdf(Beta_xi_current, loc = 0, scale = sigma_Beta_xi_proposal))
