@@ -43,10 +43,13 @@ On emulating the likelihood:
     - Model is big: (128-256-512-512-512-256-128)
     - training takes a long time (~22 min per epoch)
     - after ~100 epochs validation error seems to plateau at around 0.08 (Note that the training loss is also not in monotonic decrease, maybe because of the batch_size?)
-      - [ ] Further training with decreased learning rate?
+      - Further training with decreased learning rate?
         - Re-compile the model, load model weights, and then start with a smaller weights?
         - Can we continue training with a different learning rate?
-  - [ ] Goodness of Fit plot
+    - Model is not good, try Likun's configuration:
+      - (512-512-512-512-512)
+  - [x] Goodness of Fit plot
+    - see `./data/20240214_NN_Y_ll_1t`
 
 On emulating the quantile function:
   - [ ] weighted loss function
