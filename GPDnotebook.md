@@ -26,6 +26,20 @@
 
 ## Feb. 18 (Tuesday) Muyang/Likun/Ben
 
+Logistics:
+  - STAT 740
+
+- [ ] Learn to allocation GPU memory
+
+Likelihood emulator:
+  - [ ] Rescale training X to be in the unit hypercube
+  - [ ] Local polynomial interpolator, specify # of neighbors
+
+Quantile function emulator:
+  - [ ] regenerate Likun's fit with modified weighted loss function
+  - [ ] train a density funciton emulator
+
+
 ## Feb. 11 (Tuesday) Muyang/Likun/Ben
 
 Logistics:
@@ -48,6 +62,7 @@ On emulating the likelihood:
         - Can we continue training with a different learning rate?
     - Model is not good, try Likun's configuration:
       - (512-512-512-512-512)
+      - 100 epochs is not enough
   - [x] Goodness of Fit plot
     - Bad. see `./data/20240214_NN_Y_ll_1t`
 
@@ -71,7 +86,7 @@ Compare to other methods
   - scipy.interpolate (spline emulator)
   - Jaywoos KDTrees local polynomial
 
-- [ ] Rerun the sampler after fixing the bug in `utilities.py` about the likelihood
+- [x] Rerun the sampler after fixing the bug in `utilities.py` about the likelihood
   - see if $\phi$ is still under-estimated
   - `np.NINF` removed in Numpy 2.0. Change to `-np.inf`
 
