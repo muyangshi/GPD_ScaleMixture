@@ -56,6 +56,7 @@ from pathlib         import Path
 # os.environ["MKL_NUM_THREADS"]        = "1" # export MKL_NUM_THREADS=1
 # os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
 # os.environ["NUMEXPR_NUM_THREADS"]    = "1" # export NUMEXPR_NUM_THREADS=1
+os.environ["TF_ENABLE_AUTO_MIXED_PRECISION"] = "1"
 
 # packages
 import scipy
@@ -66,8 +67,7 @@ import matplotlib.pyplot as plt
 import gstools           as gs
 import geopandas         as gpd
 import rpy2.robjects     as robjects
-
-import tensorflow as tf
+import tensorflow        as tf
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
     try:
@@ -76,6 +76,7 @@ if gpus:
             [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=10240)])
     except RuntimeError as e:
         print(e)
+
 from tensorflow             import keras
 from scipy.stats            import qmc
 from rpy2.robjects          import r
@@ -86,7 +87,11 @@ from rpy2.robjects.packages import importr
 # custom modules
 from utilities              import *
 
-keras.backend.set_floatx('float64')
+# Training Settings
+
+tf.config.optimizer.set_jit(True)
+keras.mixed_precision.set_global_policy('mixed_float16')
+# keras.backend.set_floatx('float64')
 
 print('link function:', norm_pareto, 'Pareto')
 
@@ -453,8 +458,9 @@ lr_schedule = keras.optimizers.schedules.ExponentialDecay(
 
 model.compile(
     # optimizer=keras.optimizers.RMSprop(learning_rate=lr_schedule), 
-    optimizer = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
-    loss      = keras.losses.mean_squared_error)
+    optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
+    loss        = keras.losses.MeanSquaredError(),
+    jit_compile = True)
 
 # load previously defined model
 # model = keras.models.load_model('./checkpoint.model.keras')

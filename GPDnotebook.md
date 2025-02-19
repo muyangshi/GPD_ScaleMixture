@@ -34,10 +34,16 @@ Logistics:
 
 Likelihood emulator:
   - [x] Rescale training X to be in the unit hypercube
-    - an even bigger model (128-256-512-1024-1024-1024-512-256-128-1)
+    - [x] same model structure as before (512-512-512-512-512)
+      - register spill over with `float64`
+      - numerous optimization
+        - TensorFlow32
+        - JIT compile with XLA
+        - mixed_float16
+    - [ ] an even bigger model (128-256-512-1024-1024-1024-512-256-128-1)
     - pickle save `history = model.fit`
   - [ ] Local polynomial interpolator, specify # of neighbors
-  - Somehow incorporate CNN
+  - Somehow incorporate CNN?
     - Troy did weighted sum of a row
     - Can we use a filter to let the NN know if a point is censored?
 
@@ -45,6 +51,8 @@ Quantile function emulator:
   - [ ] regenerate Likun's fit with modified weighted loss function
   - [ ] train a density funciton emulator
 
+Sampler Chain:
+  - underestimation of $\phi$ really does seem to be fixed
 
 ## Feb. 11 (Tuesday) Muyang/Likun/Ben
 
