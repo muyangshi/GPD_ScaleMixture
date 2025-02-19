@@ -45,6 +45,7 @@ import os
 import time
 import multiprocessing
 import datetime
+import pickle
 
 from multiprocessing import Pool, cpu_count
 from time            import strftime, localtime
@@ -65,10 +66,17 @@ import matplotlib.pyplot as plt
 import gstools           as gs
 import geopandas         as gpd
 import rpy2.robjects     as robjects
-import keras
 
-from keras                  import layers
-from keras                  import ops
+import tensorflow as tf
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        tf.config.experimental.set_virtual_device_configuration(
+            gpus[0],
+            [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=10240)])
+    except RuntimeError as e:
+        print(e)
+from tensorflow             import keras
 from scipy.stats            import qmc
 from rpy2.robjects          import r
 from scipy.interpolate      import RBFInterpolator
@@ -87,11 +95,11 @@ random_generator = np.random.RandomState(7)
 n_processes = 7 if cpu_count() < 64 else 64
 
 INITIAL_EPOCH = 0
-EPOCH         = 100
-
+EPOCH         = 50
 N             = int(1e8)
 N_val         = int(1e6)
 d             = 9
+unit_hypercube= True
 
 # define some helper functions
 
@@ -313,6 +321,19 @@ y_train = np.exp(Y_lhs)
 X_val   = X_lhs_val
 y_val   = np.exp(Y_lhs_val)
 
+# scale the X into unit hypercube
+if unit_hypercube:
+    
+    print('scaling X into unit hypercube...')
+
+    X_min   = np.min(X_train, axis = 0)
+    X_max   = np.max(X_train, axis = 0)
+    X_train = (X_train - X_min) / (X_max - X_min)
+    X_val   = (X_val - X_min) / (X_max - X_min)
+
+    np.save('X_min.npy', X_min)
+    np.save('X_max.npy', X_max)
+
 # %% step 2a: emulate with scipy rbf smoothing/interpolating splines
 
 # spline_Y_ll_1t = RBFInterpolator(X_lhs, Y_lhs, 
@@ -409,16 +430,16 @@ y_val   = np.exp(Y_lhs_val)
 model = keras.Sequential(
     [
         keras.Input(shape=(d,)),
-        # layers.Dense(128,  activation='elu'),
-        # layers.Dense(256,  activation='elu'),
-        layers.Dense(512,  activation='relu'),
-        layers.Dense(512,  activation='relu'),
-        layers.Dense(512,  activation='relu'),
-        layers.Dense(512,  activation='relu'),
-        layers.Dense(512,  activation='relu'),
-        # layers.Dense(256,  activation='elu'),
-        # layers.Dense(128,  activation='elu'),
-        layers.Dense(1)
+        keras.layers.Dense(128,  activation='relu'),
+        keras.layers.Dense(256,  activation='relu'),
+        keras.layers.Dense(512,  activation='relu'),
+        keras.layers.Dense(1024, activation='relu'),
+        keras.layers.Dense(1024, activation='relu'),
+        keras.layers.Dense(1024, activation='relu'),
+        keras.layers.Dense(512,  activation='relu'),
+        keras.layers.Dense(256,  activation='relu'),
+        keras.layers.Dense(128,  activation='relu'),
+        keras.layers.Dense(1)
     ]
 )
 
@@ -432,8 +453,8 @@ lr_schedule = keras.optimizers.schedules.ExponentialDecay(
 
 model.compile(
     # optimizer=keras.optimizers.RMSprop(learning_rate=lr_schedule), 
-    optimizer=keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
-    loss=keras.losses.mean_squared_error)
+    optimizer = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
+    loss      = keras.losses.mean_squared_error)
 
 # load previously defined model
 # model = keras.models.load_model('./checkpoint.model.keras')
@@ -460,6 +481,9 @@ history = model.fit(
 
 end_time = time.time()
 print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
+
+with open(rf'trainHistoryDict_{INITIAL_EPOCH}to{EPOCH}.pkl', 'wb') as file:
+    pickle.dump(history.history, file)
 
 plt.plot(history.history['val_loss'])
 plt.xlabel('epoch')
@@ -528,6 +552,8 @@ bestmodel.save(rf'./Y_L_1t_NN_{N}.keras')
 # %% Neural emulator -------------------------------------------------------------
 
 model_nn = keras.models.load_model(rf"Y_L_1t_NN_{N}.keras")
+X_min    = np.load('X_min.npy')
+X_max    = np.load('X_max.npy')
 
 def relu_np(x): 
     # np.maximum(x, 0, x) # changes x IN PLACE! faster than return x * (x > 0)
@@ -563,20 +589,36 @@ for layer in model_nn.layers:
 
 # the output is 1D if X is 1D
 #               2D if X is 2D
-def Y_ll_1t1s_nn(Ws, bs, activations, X):
-    Z = X
-    for W, b, activation in zip(Ws, bs, activations):
-        Z = Z @ W + b
-        Z = activation(Z)
-    return np.where(Z > 0, np.log(Z), 0)
+if unit_hypercube:
+    def Y_ll_1t1s_nn(Ws, bs, activations, X):
+        X = (X - X_min) / (X_max - X_min)
+        Z = X
+        for W, b, activation in zip(Ws, bs, activations):
+            Z = Z @ W + b
+            Z = activation(Z)
+        return np.where(Z > 0, np.log(Z), 0)
 
-def Y_L_1t1s_nn(Ws, bs, activations, X):
-    Z = X
-    for W, b, activation in zip(Ws, bs, activations):
-        Z = Z @ W + b
-        Z = activation(Z)
-    return Z
-
+    def Y_L_1t1s_nn(Ws, bs, activations, X):
+        X = (X - X_min) / (X_max - X_min)
+        Z = X
+        for W, b, activation in zip(Ws, bs, activations):
+            Z = Z @ W + b
+            Z = activation(Z)
+        return Z
+if not unit_hypercube:
+    def Y_ll_1t1s_nn(Ws, bs, activations, X):
+        Z = X
+        for W, b, activation in zip(Ws, bs, activations):
+            Z = Z @ W + b
+            Z = activation(Z)
+        return np.where(Z > 0, np.log(Z), 0)    
+    def Y_L_1t1s_nn(Ws, bs, activations, X):
+        Z = X
+        for W, b, activation in zip(Ws, bs, activations):
+            Z = Z @ W + b
+            Z = activation(Z)
+        return Z
+    
 # check for extrapolation
 def Y_ll_1t1s_nn_2p(Ws, bs, activations, X):
     condition_Y          = (30 <= X[:,0]) & (X[:,0] <= 6020)
@@ -1167,7 +1209,7 @@ for i in range(1):
 #               nan_inputs[:,4] > scipy.stats.levy(loc=0,scale=8.0).ppf(0.95))
 
 
-# %% Goodness of Fit Plot
+# %% Goodness of Fit Plot -----------------------------------------------------
 
 # Goodness of fit plot on the validation dataset ------------------------------
 

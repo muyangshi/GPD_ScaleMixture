@@ -29,11 +29,17 @@
 Logistics:
   - STAT 740
 
-- [ ] Learn to allocation GPU memory
+- [x] Learn to allocation GPU memory
+  - don't use standalone keras. Use `from tensorflow import keras` and never do `from keras import ...` or `import keras`
 
 Likelihood emulator:
-  - [ ] Rescale training X to be in the unit hypercube
+  - [x] Rescale training X to be in the unit hypercube
+    - an even bigger model (128-256-512-1024-1024-1024-512-256-128-1)
+    - pickle save `history = model.fit`
   - [ ] Local polynomial interpolator, specify # of neighbors
+  - Somehow incorporate CNN
+    - Troy did weighted sum of a row
+    - Can we use a filter to let the NN know if a point is censored?
 
 Quantile function emulator:
   - [ ] regenerate Likun's fit with modified weighted loss function
@@ -67,7 +73,7 @@ On emulating the likelihood:
     - Bad. see `./data/20240214_NN_Y_ll_1t`
 
 On emulating the quantile function:
-  - [ ] weighted loss function
+  - weighted loss function
     - e.g.
 ```
 def weighted_mse_loss(pred, target, alpha=1.0, eps=1e-8):
@@ -80,7 +86,7 @@ def weighted_mse_loss(pred, target, alpha=1.0, eps=1e-8):
     wmse = mse.sum() / (weights.sum() + eps)
     return wms
 ```
-  - [ ] Goodness of Fit plot?
+  - Goodness of Fit plot?
 
 Compare to other methods
   - scipy.interpolate (spline emulator)
