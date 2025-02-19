@@ -71,6 +71,9 @@ import tensorflow        as tf
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
     try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+
         tf.config.experimental.set_virtual_device_configuration(
             gpus[0],
             [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=10240)])
@@ -435,15 +438,18 @@ if unit_hypercube:
 model = keras.Sequential(
     [
         keras.Input(shape=(d,)),
-        keras.layers.Dense(128,  activation='relu'),
-        keras.layers.Dense(256,  activation='relu'),
+        # keras.layers.Dense(128,  activation='relu'),
+        # keras.layers.Dense(256,  activation='relu'),
         keras.layers.Dense(512,  activation='relu'),
-        keras.layers.Dense(1024, activation='relu'),
-        keras.layers.Dense(1024, activation='relu'),
-        keras.layers.Dense(1024, activation='relu'),
         keras.layers.Dense(512,  activation='relu'),
-        keras.layers.Dense(256,  activation='relu'),
-        keras.layers.Dense(128,  activation='relu'),
+        keras.layers.Dense(512,  activation='relu'),
+        keras.layers.Dense(512, activation='relu'),
+        # keras.layers.Dense(1024, activation='relu'),
+        # keras.layers.Dense(1024, activation='relu'),
+        # keras.layers.Dense(1024, activation='relu'),
+        keras.layers.Dense(512,  activation='relu'),
+        # keras.layers.Dense(256,  activation='relu'),
+        # keras.layers.Dense(128,  activation='relu'),
         keras.layers.Dense(1)
     ]
 )

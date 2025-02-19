@@ -36,11 +36,13 @@ Likelihood emulator:
   - [x] Rescale training X to be in the unit hypercube
     - [x] same model structure as before (512-512-512-512-512)
       - register spill over with `float64`
-      - numerous optimization
+      - numerous optimization -- indeed speed up training drastically!
         - TensorFlow32
         - JIT compile with XLA
         - mixed_float16
+      - still register spill out. Potentially need to reduce `batch_size` from 8192 to 4096; but training speed is tolorable, maybe no need.
     - [ ] an even bigger model (128-256-512-1024-1024-1024-512-256-128-1)
+      - this is too big and will outspill registers
     - pickle save `history = model.fit`
   - [ ] Local polynomial interpolator, specify # of neighbors
   - Somehow incorporate CNN?
