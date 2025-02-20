@@ -24,6 +24,11 @@
 
 # Meetings
 
+## Feb. 25 (Tuesday) Muyang/Likun/Ben
+
+Logistics:
+  - Weather and Climate Extremes Workshop, student registration code?
+
 ## Feb. 18 (Tuesday) Muyang/Likun/Ben
 
 Logistics:
@@ -32,8 +37,10 @@ Logistics:
 - [x] Learn to allocation GPU memory
   - don't use standalone keras. Use `from tensorflow import keras` and never do `from keras import ...` or `import keras`
 
-Likelihood emulator:
+Likelihood NN emulator:
   - [x] Rescale training X to be in the unit hypercube
+    - pickle save `history = model.fit`
+    - save `X_min.npy` and `X_max.npy` for future prediction
     - [x] same model structure as before (512-512-512-512-512)
       - register spill over with `float64`
       - numerous optimization -- indeed speed up training drastically!
@@ -41,15 +48,24 @@ Likelihood emulator:
         - JIT compile with XLA
         - mixed_float16
       - still register spill out. Potentially need to reduce `batch_size` from 8192 to 4096; but training speed is tolorable, maybe no need.
-    - [ ] an even bigger model (128-256-512-1024-1024-1024-512-256-128-1)
+      - The smalle model even with the re-scaling of X into the unit hypercube does not give good prediction.
+      - Trained to 1,000 epochs, and the performance is still bad.
+    - an even bigger model (128-256-512-1024-1024-1024-512-256-128-1)
       - this is too big and will outspill registers
-    - pickle save `history = model.fit`
-  - [ ] Local polynomial interpolator, specify # of neighbors
+      - don't bother with this and try a different structure
   - Somehow incorporate CNN?
     - Troy did weighted sum of a row
     - Can we use a filter to let the NN know if a point is censored?
+    - CNN is still not the ideal solution here.
 
-Quantile function emulator:
+Exceedance likelihood emulator:
+  - [ ] Only emulate the exceedance part of $(Y - u)$
+
+
+Other methods to emulate the likelihood:
+  - [ ] Local polynomial interpolator, specify # of neighbors
+
+Quantile function NN emulator:
   - [ ] regenerate Likun's fit with modified weighted loss function
   - [ ] train a density funciton emulator
 

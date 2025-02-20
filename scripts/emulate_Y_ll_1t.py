@@ -102,12 +102,12 @@ random_generator = np.random.RandomState(7)
 
 n_processes = 7 if cpu_count() < 64 else 64
 
-INITIAL_EPOCH = 0
-EPOCH         = 50
-N             = int(1e8)
-N_val         = int(1e6)
-d             = 9
-unit_hypercube= True
+INITIAL_EPOCH  = 0
+EPOCH          = 50
+N              = int(1e8)
+N_val          = int(1e6)
+d              = 9
+unit_hypercube = True
 
 # define some helper functions
 
@@ -435,41 +435,43 @@ if unit_hypercube:
 
 # %% step 2c: train on the original scale likelihood
 
-model = keras.Sequential(
-    [
-        keras.Input(shape=(d,)),
-        # keras.layers.Dense(128,  activation='relu'),
-        # keras.layers.Dense(256,  activation='relu'),
-        keras.layers.Dense(512,  activation='relu'),
-        keras.layers.Dense(512,  activation='relu'),
-        keras.layers.Dense(512,  activation='relu'),
-        keras.layers.Dense(512, activation='relu'),
-        # keras.layers.Dense(1024, activation='relu'),
-        # keras.layers.Dense(1024, activation='relu'),
-        # keras.layers.Dense(1024, activation='relu'),
-        keras.layers.Dense(512,  activation='relu'),
-        # keras.layers.Dense(256,  activation='relu'),
-        # keras.layers.Dense(128,  activation='relu'),
-        keras.layers.Dense(1)
-    ]
-)
+if INITIAL_EPOCH == 0:
 
-initial_learning_rate = 1e-5
-lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-    initial_learning_rate, 
-    decay_steps=5e4, # 100,000,000/batch_size = steps per epoch
-    decay_rate=0.96, 
-    staircase=False
-)
+    model = keras.Sequential(
+        [
+            keras.Input(shape=(d,)),
+            # keras.layers.Dense(128,  activation='relu'),
+            # keras.layers.Dense(256,  activation='relu'),
+            keras.layers.Dense(512,  activation='relu'),
+            keras.layers.Dense(512,  activation='relu'),
+            keras.layers.Dense(512,  activation='relu'),
+            keras.layers.Dense(512, activation='relu'),
+            # keras.layers.Dense(1024, activation='relu'),
+            # keras.layers.Dense(1024, activation='relu'),
+            # keras.layers.Dense(1024, activation='relu'),
+            keras.layers.Dense(512,  activation='relu'),
+            # keras.layers.Dense(256,  activation='relu'),
+            # keras.layers.Dense(128,  activation='relu'),
+            keras.layers.Dense(1)
+        ]
+    )
 
-model.compile(
-    # optimizer=keras.optimizers.RMSprop(learning_rate=lr_schedule), 
-    optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
-    loss        = keras.losses.MeanSquaredError(),
-    jit_compile = True)
+    initial_learning_rate = 1e-5
+    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate, 
+        decay_steps=5e4, # 100,000,000/batch_size = steps per epoch
+        decay_rate=0.96, 
+        staircase=False
+    )
 
-# load previously defined model
-# model = keras.models.load_model('./checkpoint.model.keras')
+    model.compile(
+        # optimizer=keras.optimizers.RMSprop(learning_rate=lr_schedule), 
+        optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
+        loss        = keras.losses.MeanSquaredError(),
+        jit_compile = True)
+else:
+    # load previously defined model
+    model = keras.models.load_model('./checkpoint.model.keras')
 
 # Fitting Model
 
