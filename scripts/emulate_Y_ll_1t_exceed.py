@@ -338,51 +338,30 @@ Y_lhs_exceed     = np.load(rf'll_1t_Y_exceed_{N}.npy')
 X_lhs_val_exceed = np.load(rf'll_1t_X_val_exceed_{N_val}.npy')
 Y_lhs_val_exceed = np.load(rf'll_1t_Y_val_exceed_{N_val}.npy')
 
-X_lhs_censored     = np.load(rf'll_1t_X_censored_{N}.npy')
-Y_lhs_censored     = np.load(rf'll_1t_Y_censored_{N}.npy')
-X_lhs_val_censored = np.load(rf'll_1t_X_val_censored_{N_val}.npy')
-Y_lhs_val_censored = np.load(rf'll_1t_Y_val_censored_{N_val}.npy')
-
 # exponentiate the response to get back to the original scale
-y_train_exceed       = np.exp(Y_lhs_exceed)
-y_train_val_exceed   = np.exp(Y_lhs_val_exceed)
-y_train_censored     = np.exp(Y_lhs_censored)
-y_train_val_censored = np.exp(Y_lhs_val_censored)
-
-X_train_exceed       = X_lhs_exceed
-X_train_val_exceed   = X_lhs_val_exceed
-X_train_censored     = X_lhs_censored
-X_train_val_censored = X_lhs_val_censored
+y_train       = np.exp(Y_lhs_exceed)
+y_val         = np.exp(Y_lhs_val_exceed)
+X_train       = X_lhs_exceed
+X_val         = X_lhs_val_exceed
 
 # scale the X into unit hypercube
 if unit_hypercube:
     
     print('scaling X into unit hypercube...')
 
-    # exceedance
-    X_min_exceed = np.min(X_train_exceed, axis = 0)
-    X_max_exceed = np.max(X_train_exceed, axis = 0)
-    X_train_exceed = (X_train_exceed - X_min_exceed) / (X_max_exceed - X_min_exceed)
-    X_val_exceed   = (X_train_val_exceed - X_min_exceed) / (X_max_exceed - X_min_exceed)
+    X_min   = np.min(X_train, axis = 0)
+    X_max   = np.max(X_train, axis = 0)
+    X_train = (X_train - X_min) / (X_max - X_min)
+    X_val   = (X_val - X_min) / (X_max - X_min)
 
-    np.save('X_min_exceed.npy', X_min_exceed)
-    np.save('X_max_exceed.npy', X_max_exceed)
-
-    # censored
-    X_min_censored = np.min(X_train_censored, axis = 0)
-    X_max_censored = np.max(X_train_censored, axis = 0)
-    X_train_censored = (X_train_censored - X_min_censored) / (X_max_censored - X_min_censored)
-    X_val_censored   = (X_train_val_censored - X_min_censored) / (X_max_censored - X_min_censored)
-
-    np.save('X_min_censored.npy', X_min_censored)
-    np.save('X_max_censored.npy', X_max_censored)
+    np.save('X_min_exceed.npy', X_min)
+    np.save('X_max_exceed.npy', X_max)
 
 # %% step 2: train the neural network
 
 if INITIAL_EPOCH == 0:
-
-    # define model for exceedance
-    model_exceed = keras.Sequential(
+    # initialize model
+    model = keras.Sequential(
         [
             keras.Input(shape=(d,)),
             keras.layers.Dense(256,  activation='relu'),
@@ -393,42 +372,20 @@ if INITIAL_EPOCH == 0:
             keras.layers.Dense(1)
         ]
     )
-    lr_schedule_exceed = keras.optimizers.schedules.ExponentialDecay(
+    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate = 1e-5,
         decay_steps           = 5e3, # 100,000,000*(1-p)/batch_size = steps per epoch
         decay_rate            = 0.96,
         staircase             = False
     )
-    model_exceed.compile(
-        optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule_exceed, weight_decay=1e-5),
+    model.compile(
+        optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
         loss        = keras.losses.MeanSquaredError(),
         jit_compile = True)
 
-
-    # define model for censored
-    model_censored = keras.Sequential(
-        [
-            keras.Input(shape=(d,)),
-            keras.layers.Dense(256,  activation='relu'),
-            keras.layers.Dense(512,  activation='relu'),
-            keras.layers.Dense(512,  activation='relu'),            
-            keras.layers.Dense(256,  activation='relu'),
-            keras.layers.Dense(1)
-        ]
-    )
-    lr_schedule_censored = keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate = 1e-5,
-        decay_steps           = 5e4, # 100,000,000*p/batch_size = steps per epoch
-        decay_rate            = 0.96,
-        staircase             = False
-    )
-    model_censored.compile(
-        optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule_censored, weight_decay=1e-5),
-        loss        = keras.losses.MeanSquaredError(),
-        jit_compile = True)
 else:
     # load previously defined model
-    model = keras.models.load_model('./checkpoint.model_exceed.keras')
+    model = keras.models.load_model('./checkpoint.model.keras')
 
 # Fitting Model
 
@@ -520,7 +477,7 @@ for layer in model_nn.layers:
 # the output is 1D if X is 1D
 #               2D if X is 2D
 if unit_hypercube:
-    def Y_ll_1t1s_exceed_nn(Ws, bs, activations, X):
+    def Y_ll_1t1s_nn(Ws, bs, activations, X):
         X = (X - X_min) / (X_max - X_min)
         Z = X
         for W, b, activation in zip(Ws, bs, activations):
@@ -528,7 +485,7 @@ if unit_hypercube:
             Z = activation(Z)
         return np.where(Z > 0, np.log(Z), 0)
 
-    def Y_L_1t1s_exceed_nn(Ws, bs, activations, X):
+    def Y_L_1t1s_nn(Ws, bs, activations, X):
         X = (X - X_min) / (X_max - X_min)
         Z = X
         for W, b, activation in zip(Ws, bs, activations):
@@ -536,13 +493,13 @@ if unit_hypercube:
             Z = activation(Z)
         return Z
 if not unit_hypercube:
-    def Y_ll_1t1s_exceed_nn(Ws, bs, activations, X):
+    def Y_ll_1t1s_nn(Ws, bs, activations, X):
         Z = X
         for W, b, activation in zip(Ws, bs, activations):
             Z = Z @ W + b
             Z = activation(Z)
         return np.where(Z > 0, np.log(Z), 0)    
-    def Y_L_1t1s_exceed_nn(Ws, bs, activations, X):
+    def Y_L_1t1s_nn(Ws, bs, activations, X):
         Z = X
         for W, b, activation in zip(Ws, bs, activations):
             Z = Z @ W + b
@@ -550,7 +507,7 @@ if not unit_hypercube:
         return Z
     
 # check for extrapolation
-def Y_ll_1t1s_exceed_nn_2p(Ws, bs, activations, X):
+def Y_ll_1t1s_nn_2p(Ws, bs, activations, X):
     condition_Y          = (30 <= X[:,0]) & (X[:,0] <= 6020)
     condition_u          = (30 <= X[:,1]) & (X[:,1] <= 80)
     conditiona_scale     = (5 <= X[:,2]) & (X[:,2] <= 60)
@@ -566,7 +523,7 @@ def Y_ll_1t1s_exceed_nn_2p(Ws, bs, activations, X):
     extrap_idx = np.where(~condition)[0]
     
     ll = np.full((len(X),), np.nan)
-    ll[interp_idx] = Y_ll_1t1s_exceed_nn(Ws, bs, activations, X[interp_idx]).ravel()
+    ll[interp_idx] = Y_ll_1t1s_nn(Ws, bs, activations, X[interp_idx]).ravel()
     ll[extrap_idx] = [Y_ll_1t1s(*X[idx]) for idx in extrap_idx]
 
     print("proportion extrapolated:",len(extrap_idx) / len(X))
@@ -578,13 +535,11 @@ def Y_ll_1t1s_exceed_nn_2p(Ws, bs, activations, X):
 # %% Prediction Performance on Validation Dataset
 # Goodness of fit plot on the validation dataset ------------------------------
 
-Y_lhs_val
-
-Y_lhs_val_pred = Y_ll_1t1s_nn_2p(Ws,bs,acts,X_lhs_val)
+y_val_pred = Y_ll_1t1s_nn_2p(Ws,bs,acts,X_val)
 
 fig, ax = plt.subplots()
 ax.set_aspect('equal', 'datalim')
-ax.scatter(np.exp(Y_lhs_val), np.exp(Y_lhs_val_pred))
+ax.scatter(np.exp(y_val), np.exp(y_val_pred))
 ax.axline((0, 0), slope=1, color='black', linestyle='--')
 ax.set_title(rf'Goodness of Fit Plot on Validation Dataset')
 ax.set_xlabel('True exp(log Likelihood)')
@@ -926,7 +881,7 @@ plt.close()
 #         censored_list   = input_list[censored_idx]
 
 #         if len(exceedance_idx) > 0:
-#             result_list[exceedance_idx] = Y_ll_1t1s_exceed_nn(Ws,bs,acts,exceedance_list)
+#             result_list[exceedance_idx] = Y_ll_1t1s_nn(Ws,bs,acts,exceedance_list)
 #         if len(censored_idx) > 0:
 #             result_list[censored_idx] = Y_ll_1t1s(censored_list[:,0], censored_list[:,1], censored_list[:,2], censored_list[:,3], censored_list[:,4], censored_list[:,5], censored_list[:,6], censored_list[:,7], censored_list[:,8])
 
