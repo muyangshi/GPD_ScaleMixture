@@ -108,7 +108,6 @@ unit_hypercube = True
 # define some helper functions
 
 # censoring log-likelihood on Y
-
 def Y_ll_1t1s(Y, u_vec, scale_vec, shape_vec,
               R_vec, Z_vec, phi_vec, gamma_bar_vec, tau):
     
@@ -128,7 +127,6 @@ def Y_ll_1t1s(Y, u_vec, scale_vec, shape_vec,
                         + np.log(dCGP(Y, p, u_vec, scale_vec, shape_vec)) \
                         - np.log(dX)
         return exceed_ll
-
 def Y_ll_1t1s_par(params):
     """
     calculate the censoring likelihood of Y, at p = 0.9
@@ -162,9 +160,8 @@ def Y_ll_1t1s_par(params):
     # return np.sum(censored_ll) + np.sum(exceed_ll)
 
 # Full log-likelihood (Y + S + Z)
-
-def ll_1t(Y, p, u_vec, scale_vec, shape_vec, \
-          R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, \
+def ll_1t(Y, p, u_vec, scale_vec, shape_vec,
+          R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau,
           logS_vec, gamma_at_knots, censored_idx, exceed_idx):
 
     """
@@ -190,7 +187,6 @@ def ll_1t(Y, p, u_vec, scale_vec, shape_vec, \
     Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
 
     return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(S_ll) + np.sum(Z_ll)
-
 def ll_1t_par(args): # For use with multiprocessing
 
     """
@@ -335,7 +331,7 @@ def ll_1t_par(args): # For use with multiprocessing
 # print('# of exceedance points in training:', len(exceedance_idx), 'proportion:', len(exceedance_idx)/N)
 # print('# of exceedance points in validation:', len(exceedance_idx_val), 'proportion:', len(exceedance_idx_val)/N_val)
 
-# %% step 2: load design points and train
+# %% step 1: load design points and train
 
 X_lhs_exceed     = np.load(rf'll_1t_X_exceed_{N}.npy')
 Y_lhs_exceed     = np.load(rf'll_1t_Y_exceed_{N}.npy')
@@ -347,58 +343,92 @@ Y_lhs_censored     = np.load(rf'll_1t_Y_censored_{N}.npy')
 X_lhs_val_censored = np.load(rf'll_1t_X_val_censored_{N_val}.npy')
 Y_lhs_val_censored = np.load(rf'll_1t_Y_val_censored_{N_val}.npy')
 
-# Train on original scale likelihood
+# exponentiate the response to get back to the original scale
+y_train_exceed       = np.exp(Y_lhs_exceed)
+y_train_val_exceed   = np.exp(Y_lhs_val_exceed)
+y_train_censored     = np.exp(Y_lhs_censored)
+y_train_val_censored = np.exp(Y_lhs_val_censored)
 
-X_train = X_lhs
-y_train = np.exp(Y_lhs)
-X_val   = X_lhs_val
-y_val   = np.exp(Y_lhs_val)
+X_train_exceed       = X_lhs_exceed
+X_train_val_exceed   = X_lhs_val_exceed
+X_train_censored     = X_lhs_censored
+X_train_val_censored = X_lhs_val_censored
 
 # scale the X into unit hypercube
 if unit_hypercube:
     
     print('scaling X into unit hypercube...')
 
-    X_min   = np.min(X_train, axis = 0)
-    X_max   = np.max(X_train, axis = 0)
-    X_train = (X_train - X_min) / (X_max - X_min)
-    X_val   = (X_val - X_min) / (X_max - X_min)
+    # exceedance
+    X_min_exceed = np.min(X_train_exceed, axis = 0)
+    X_max_exceed = np.max(X_train_exceed, axis = 0)
+    X_train_exceed = (X_train_exceed - X_min_exceed) / (X_max_exceed - X_min_exceed)
+    X_val_exceed   = (X_train_val_exceed - X_min_exceed) / (X_max_exceed - X_min_exceed)
 
-    np.save('X_min_exceed.npy', X_min)
-    np.save('X_max_exceed.npy', X_max)
+    np.save('X_min_exceed.npy', X_min_exceed)
+    np.save('X_max_exceed.npy', X_max_exceed)
 
-# %% step 2c: train on the original scale likelihood
+    # censored
+    X_min_censored = np.min(X_train_censored, axis = 0)
+    X_max_censored = np.max(X_train_censored, axis = 0)
+    X_train_censored = (X_train_censored - X_min_censored) / (X_max_censored - X_min_censored)
+    X_val_censored   = (X_train_val_censored - X_min_censored) / (X_max_censored - X_min_censored)
+
+    np.save('X_min_censored.npy', X_min_censored)
+    np.save('X_max_censored.npy', X_max_censored)
+
+# %% step 2: train the neural network
 
 if INITIAL_EPOCH == 0:
 
-    model = keras.Sequential(
+    # define model for exceedance
+    model_exceed = keras.Sequential(
         [
             keras.Input(shape=(d,)),
+            keras.layers.Dense(256,  activation='relu'),
             keras.layers.Dense(512,  activation='relu'),
             keras.layers.Dense(512,  activation='relu'),
             keras.layers.Dense(512,  activation='relu'),
-            keras.layers.Dense(512,  activation='relu'),
-            keras.layers.Dense(512,  activation='relu'),
+            keras.layers.Dense(256,  activation='relu'),
             keras.layers.Dense(1)
         ]
     )
-
-    initial_learning_rate = 1e-5
-    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate, 
-        decay_steps=5e4, # 100,000,000/batch_size = steps per epoch
-        decay_rate=0.96, 
-        staircase=False
+    lr_schedule_exceed = keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate = 1e-5,
+        decay_steps           = 5e3, # 100,000,000*(1-p)/batch_size = steps per epoch
+        decay_rate            = 0.96,
+        staircase             = False
     )
+    model_exceed.compile(
+        optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule_exceed, weight_decay=1e-5),
+        loss        = keras.losses.MeanSquaredError(),
+        jit_compile = True)
 
-    model.compile(
-        # optimizer=keras.optimizers.RMSprop(learning_rate=lr_schedule), 
-        optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
+
+    # define model for censored
+    model_censored = keras.Sequential(
+        [
+            keras.Input(shape=(d,)),
+            keras.layers.Dense(256,  activation='relu'),
+            keras.layers.Dense(512,  activation='relu'),
+            keras.layers.Dense(512,  activation='relu'),            
+            keras.layers.Dense(256,  activation='relu'),
+            keras.layers.Dense(1)
+        ]
+    )
+    lr_schedule_censored = keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate = 1e-5,
+        decay_steps           = 5e4, # 100,000,000*p/batch_size = steps per epoch
+        decay_rate            = 0.96,
+        staircase             = False
+    )
+    model_censored.compile(
+        optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule_censored, weight_decay=1e-5),
         loss        = keras.losses.MeanSquaredError(),
         jit_compile = True)
 else:
     # load previously defined model
-    model = keras.models.load_model('./checkpoint.model.keras')
+    model = keras.models.load_model('./checkpoint.model_exceed.keras')
 
 # Fitting Model
 
