@@ -58,9 +58,15 @@ Likelihood NN emulator:
     - Can we use a filter to let the NN know if a point is censored?
     - CNN is still not the ideal solution here.
 
-Exceedance likelihood emulator:
-  - [ ] Only emulate the exceedance part of $(Y - u)$
+Separate emulators for exceedance and censored pieces:
+  - If we have an emulator of the exceedance and an emulator of the `qRW`, we can get away with not emulating the `dRW`
+  - [ ] emulator of the exceedance
+    - Only emulate the exceedance part of $(Y - u)$?
+  - [ ] emulator of the censored
+    - For censored likelihood, the computation bottleneck is in `qRW(0.9, phi, gamma, tau)` the `p` here will be fixed, emulating this fixed-`p` `qRW` should be easy?
 
+Two-head emulator for exceedance and censored pieces:
+  - maybe this help because of the `qRW` part that is used in both censored and (much more extensively in) exceedance part?
 
 Other methods to emulate the likelihood:
   - [ ] Local polynomial interpolator, specify # of neighbors
@@ -71,6 +77,7 @@ Quantile function NN emulator:
 
 Sampler Chain:
   - underestimation of $\phi$ really does seem to be fixed
+  - overestimation of $\tau$ is still present, but nothing too crazy.
 
 ## Feb. 11 (Tuesday) Muyang/Likun/Ben
 
