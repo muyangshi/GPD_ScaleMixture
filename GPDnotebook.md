@@ -61,8 +61,11 @@ Likelihood NN emulator:
 Separate emulators for exceedance and censored pieces:
   - If we have an emulator of the exceedance and an emulator of the `qRW`, we can get away with not emulating the `dRW`
   - [ ] emulator of the exceedance
-    - Only emulate the exceedance part of $(Y - u)$?
+    - Only emulate the exceedance part of $(Y - u)$? This would reduce one dimension of the input
   - [ ] emulator of the censored
+    - Seen an weird bug in `OUTPUT20250220_trial.txt` that prediction is invoking numerical integration, but in truth we are not extrapolating.
+    - (256-512-512-512-256-1)
+      - ![alt text](image-43.png)
     - For censored likelihood, the computation bottleneck is in `qRW(0.9, phi, gamma, tau)` the `p` here will be fixed, emulating this fixed-`p` `qRW` should be easy?
 
 Two-head emulator for exceedance and censored pieces:

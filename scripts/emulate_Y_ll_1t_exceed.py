@@ -70,9 +70,9 @@ if gpus:
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
 
-        tf.config.experimental.set_virtual_device_configuration(
-            gpus[0],
-            [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=10240)])
+        # tf.config.experimental.set_virtual_device_configuration(
+        #     gpus[0],
+        #     [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=10240)])
     except RuntimeError as e:
         print(e)
 
@@ -386,6 +386,16 @@ if INITIAL_EPOCH == 0:
 else:
     # load previously defined model
     model = keras.models.load_model('./checkpoint.model.keras')
+    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate = 1e-6,
+        decay_steps           = 5e3, # 100,000,000*p/batch_size = steps per epoch
+        decay_rate            = 0.96,
+        staircase             = False
+    )
+    model.compile(
+        optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
+        loss        = keras.losses.MeanSquaredError(),
+        jit_compile = True)
 
 # Fitting Model
 
@@ -521,32 +531,31 @@ def Y_ll_1t1s_nn_2p(Ws, bs, activations, X):
     
     interp_idx = np.where(condition)[0]
     extrap_idx = np.where(~condition)[0]
-    
-    ll = np.full((len(X),), np.nan)
-    ll[interp_idx] = Y_ll_1t1s_nn(Ws, bs, activations, X[interp_idx]).ravel()
-    ll[extrap_idx] = [Y_ll_1t1s(*X[idx]) for idx in extrap_idx]
-
     print("proportion extrapolated:",len(extrap_idx) / len(X))
+
+    ll = np.full((len(X),), np.nan)
+    if len(interp_idx) > 0: ll[interp_idx] = Y_ll_1t1s_nn(Ws, bs, activations, X[interp_idx]).ravel()
+    if len(extrap_idx) > 0: ll[extrap_idx] = [Y_ll_1t1s(*X[idx]) for idx in extrap_idx]
 
     return ll
 
 # np.log(1/N * np.sum((Y_ll_1t1s_nn(Ws, bs, acts, X_lhs) - Y_lhs)**2))
 
-# %% Prediction Performance on Validation Dataset
-# Goodness of fit plot on the validation dataset ------------------------------
+# # %% Prediction Performance on Validation Dataset
+# # Goodness of fit plot on the validation dataset ------------------------------
 
-y_val_pred = Y_ll_1t1s_nn_2p(Ws,bs,acts,X_val)
+# y_val_pred = Y_ll_1t1s_nn_2p(Ws,bs,acts,X_val)
 
-fig, ax = plt.subplots()
-ax.set_aspect('equal', 'datalim')
-ax.scatter(np.exp(y_val), np.exp(y_val_pred))
-ax.axline((0, 0), slope=1, color='black', linestyle='--')
-ax.set_title(rf'Goodness of Fit Plot on Validation Dataset')
-ax.set_xlabel('True exp(log Likelihood)')
-ax.set_ylabel('Emulated Likelihood')
-plt.savefig(r'GOF_validation.pdf')
-plt.show()
-plt.close()
+# fig, ax = plt.subplots()
+# ax.set_aspect('equal', 'datalim')
+# ax.scatter(np.exp(y_val), np.exp(y_val_pred))
+# ax.axline((0, 0), slope=1, color='black', linestyle='--')
+# ax.set_title(rf'Goodness of Fit Plot on Validation Dataset')
+# ax.set_xlabel('True exp(log Likelihood)')
+# ax.set_ylabel('Emulated Likelihood')
+# plt.savefig(r'GOF_validation.pdf')
+# plt.show()
+# plt.close()
 
 
 # # %% Prediction Performance on Simulated Dataset
