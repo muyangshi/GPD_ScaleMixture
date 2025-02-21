@@ -99,7 +99,7 @@ random_generator = np.random.RandomState(7)
 n_processes = 7 if cpu_count() < 64 else 64
 
 INITIAL_EPOCH  = 0
-EPOCH          = 50
+EPOCH          = 200
 N              = int(1e8)
 N_val          = int(1e6)
 d              = 9
@@ -339,6 +339,7 @@ X_lhs_val_exceed = np.load(rf'll_1t_X_val_exceed_{N_val}.npy')
 Y_lhs_val_exceed = np.load(rf'll_1t_Y_val_exceed_{N_val}.npy')
 
 # exponentiate the response to get back to the original scale
+
 y_train       = np.exp(Y_lhs_exceed)
 y_val         = np.exp(Y_lhs_val_exceed)
 X_train       = X_lhs_exceed
@@ -364,12 +365,12 @@ if INITIAL_EPOCH == 0:
     model = keras.Sequential(
         [
             keras.Input(shape=(d,)),
-            keras.layers.Dense(256,  activation='relu'),
             keras.layers.Dense(512,  activation='relu'),
             keras.layers.Dense(512,  activation='relu'),
             keras.layers.Dense(512,  activation='relu'),
-            keras.layers.Dense(256,  activation='relu'),
-            keras.layers.Dense(1)
+            keras.layers.Dense(512,  activation='relu'),
+            keras.layers.Dense(512,  activation='relu'),
+            keras.layers.Dense(1,    activation='relu')
         ]
     )
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
@@ -546,16 +547,19 @@ def Y_ll_1t1s_nn_2p(Ws, bs, activations, X):
 
 # y_val_pred = Y_ll_1t1s_nn_2p(Ws,bs,acts,X_val)
 
-# fig, ax = plt.subplots()
-# ax.set_aspect('equal', 'datalim')
-# ax.scatter(np.exp(y_val), np.exp(y_val_pred))
-# ax.axline((0, 0), slope=1, color='black', linestyle='--')
-# ax.set_title(rf'Goodness of Fit Plot on Validation Dataset')
-# ax.set_xlabel('True exp(log Likelihood)')
-# ax.set_ylabel('Emulated Likelihood')
-# plt.savefig(r'GOF_validation.pdf')
-# plt.show()
-# plt.close()
+X_val        = np.load(rf'll_1t_X_val_exceed_{N_val}.npy')
+y_val_L_pred = Y_L_1t1s_nn(Ws, bs, acts, X_val)
+
+fig, ax = plt.subplots()
+ax.set_aspect('equal', 'datalim')
+ax.scatter(np.exp(y_val), y_val_L_pred)
+ax.axline((0, 0), slope=1, color='black', linestyle='--')
+ax.set_title(rf'Goodness of Fit Plot on Validation Dataset')
+ax.set_xlabel('True exp(log Likelihood)')
+ax.set_ylabel('Emulated Likelihood')
+plt.savefig(r'GOF_validation.pdf')
+plt.show()
+plt.close()
 
 
 # # %% Prediction Performance on Simulated Dataset
