@@ -365,30 +365,33 @@ if INITIAL_EPOCH == 0:
     model = keras.Sequential(
         [
             keras.Input(shape=(d,)),
+            keras.layers.Dense(256,  activation='relu'),
             keras.layers.Dense(512,  activation='relu'),
+            keras.layers.Dense(1024,  activation='relu'),
+            keras.layers.Dense(1024,  activation='relu'),
+            keras.layers.Dense(1024,  activation='relu'),
             keras.layers.Dense(512,  activation='relu'),
-            keras.layers.Dense(512,  activation='relu'),
-            keras.layers.Dense(512,  activation='relu'),
-            keras.layers.Dense(512,  activation='relu'),
-            keras.layers.Dense(1,    activation='relu')
+            keras.layers.Dense(256,  activation='relu'),
+            keras.layers.Dense(1,    activation='softplus')
         ]
     )
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate = 1e-5,
+        initial_learning_rate = 1e-4,
         decay_steps           = 5e3, # 100,000,000*(1-p)/batch_size = steps per epoch
         decay_rate            = 0.96,
         staircase             = False
     )
     model.compile(
         optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
-        loss        = keras.losses.MeanSquaredError(),
+        # loss        = keras.losses.MeanSquaredError(),
+        loss        = keras.losses.MeanAbsoluteError(),
         jit_compile = True)
 
 else:
     # load previously defined model
     model = keras.models.load_model('./checkpoint.model.keras')
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate = 1e-6,
+        initial_learning_rate = 1e-5,
         decay_steps           = 5e3, # 100,000,000*p/batch_size = steps per epoch
         decay_rate            = 0.96,
         staircase             = False
@@ -466,6 +469,9 @@ def elu_np(x):
 def identity(x):
     return x
 
+def softplus_np(x):
+    return np.log(1 + np.exp(x))
+
 Ws, bs, acts = [], [], []
 for layer in model_nn.layers:
     W, b = layer.get_weights()
@@ -475,6 +481,8 @@ for layer in model_nn.layers:
         act = elu_np
     elif layer.get_config()['activation'] == 'linear':
         act = identity
+    elif layer.get_config()['activation'] == 'softplus':
+        act = softplus_np
     else:
         print(layer.get_config()['activation'])
         raise NotImplementedError
@@ -547,12 +555,15 @@ def Y_ll_1t1s_nn_2p(Ws, bs, activations, X):
 
 # y_val_pred = Y_ll_1t1s_nn_2p(Ws,bs,acts,X_val)
 
+Y_lhs_val_exceed = np.load(rf'll_1t_Y_val_exceed_{N_val}.npy')
+y_val            = np.exp(Y_lhs_val_exceed)
+
 X_val        = np.load(rf'll_1t_X_val_exceed_{N_val}.npy')
 y_val_L_pred = Y_L_1t1s_nn(Ws, bs, acts, X_val)
 
 fig, ax = plt.subplots()
 ax.set_aspect('equal', 'datalim')
-ax.scatter(np.exp(y_val), y_val_L_pred)
+ax.scatter(y_val, y_val_L_pred)
 ax.axline((0, 0), slope=1, color='black', linestyle='--')
 ax.set_title(rf'Goodness of Fit Plot on Validation Dataset')
 ax.set_xlabel('True exp(log Likelihood)')

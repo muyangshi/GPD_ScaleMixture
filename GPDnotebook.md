@@ -62,12 +62,19 @@ Separate emulators for exceedance and censored pieces:
   - If we have an emulator of the exceedance and an emulator of the `qRW`, we can get away with not emulating the `dRW`
   - [ ] emulator of the exceedance
     - `Y_L_1t1s_nn(Ws, bs, acts, X_val)` produce negative outputs in some places. Changing the output layer to `ReLU`.
+    - ![alt text](image-44.png)
+    - A lot of zeros in the output. Changing the last layer to `softplus` and increasing the size of the model slightly helps. Also, utilizing `MAE` loss function
+      - ![alt text](image-45.png) (first 1000 points)
+      - ![alt text](image-46.png) (still bad overall)
+    - [ ] penalize large likelihood values heavier (like Likun did with the quantile function)
+    - [ ] A much larger model?
+      - check the number of parameters of the model
     - Only emulate the exceedance part of $(Y - u)$? This would reduce one dimension of the input
-  - [ ] emulator of the censored
+  - [x] emulator of the censored
     - Seen an weird bug in `OUTPUT20250220_trial.txt` that prediction is invoking numerical integration, but in truth we are not extrapolating.
     - The bug is because `X_val` was rescaled, previously, before training. Then when it feeds into the `ll_2p` function it will look like it is extrapolation.
-    - (256-512-512-512-256-1)
-      - ![alt text](image-43.png)
+    - (512-512-512-512-512-1)
+      - ![alt text](image-47.png)
     - For censored likelihood, the computation bottleneck is in `qRW(0.9, phi, gamma, tau)` the `p` here will be fixed, emulating this fixed-`p` `qRW` should be easy?
 
 Two-head emulator for exceedance and censored pieces:
@@ -75,10 +82,23 @@ Two-head emulator for exceedance and censored pieces:
 
 Other methods to emulate the likelihood:
   - [ ] Local polynomial interpolator, specify # of neighbors
+    - remember to try this one more time with scaled input X
 
 Quantile function NN emulator:
   - [ ] regenerate Likun's fit with modified weighted loss function
-  - [ ] train a density funciton emulator
+  - train a density funciton emulator
+    - range of parameters
+      - keep $\phi$, $\gamma$, $\tau$ the same with the `qRW` emulator
+      - range on X
+        - only `exceed_ll` involves `dRW`
+        - `X = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec, phi_vec, gamma_bar_vec, tau)` so `X` has be to larger than `qRW(0.9, ...)`
+        - `qRW(0.9, 0.05, 0.5, 1)    = 0.457873773698486`
+        - `qRW(0.9999, 0.95, 5, 100) = 402114519.4524983`
+      - Should train on `log(dRW)`? because density are very small/close to 0.
+        - wait until the design points are generated, look at the range of the response, then decide whether to train on original scale or logged scale
+    - [ ] calculate design points
+    - [ ] train emulator
+      - train with X in the unit hypercube
 
 Sampler Chain:
   - underestimation of $\phi$ really does seem to be fixed

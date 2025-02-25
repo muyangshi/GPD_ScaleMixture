@@ -466,6 +466,9 @@ def elu_np(x):
 def identity(x):
     return x
 
+def softplus_np(x):
+    return np.log(1 + np.exp(x))
+
 Ws, bs, acts = [], [], []
 for layer in model_nn.layers:
     W, b = layer.get_weights()
@@ -547,12 +550,15 @@ def Y_ll_1t1s_nn_2p(Ws, bs, activations, X):
 
 # y_val_pred = Y_ll_1t1s_nn_2p(Ws,bs,acts,X_val)
 
+Y_lhs_val_censored = np.load(rf'll_1t_Y_val_censored_{N_val}.npy')
+y_val              = np.exp(Y_lhs_val_censored)
+
 X_val        = np.load(rf'll_1t_X_val_censored_{N_val}.npy')
 y_val_L_pred = Y_L_1t1s_nn(Ws, bs, acts, X_val)
 
 fig, ax = plt.subplots()
 ax.set_aspect('equal', 'datalim')
-ax.scatter(np.exp(y_val), y_val_L_pred)
+ax.scatter(y_val, y_val_L_pred)
 ax.axline((0, 0), slope=1, color='black', linestyle='--')
 ax.set_title(rf'Goodness of Fit Plot on Validation Dataset')
 ax.set_xlabel('True exp(log Likelihood)')
