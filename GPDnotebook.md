@@ -81,8 +81,13 @@ Two-head emulator for exceedance and censored pieces:
   - maybe this help because of the `qRW` part that is used in both censored and (much more extensively in) exceedance part?
 
 Other methods to emulate the likelihood:
-  - [ ] Local polynomial interpolator, specify # of neighbors
+  - [x] Local polynomial interpolator, specify # of neighbors
     - remember to try this one more time with scaled input X
+    - `multiquadric` kernel
+      - ![alt text](image-48.png)
+    - `thin_plate_spline` kernel
+      - ![alt text](image-49.png)
+    - prediction time is very long ~ 3 minutes (compare to neural networks couple of seconds)
 
 Quantile function NN emulator:
   - [ ] regenerate Likun's fit with modified weighted loss function

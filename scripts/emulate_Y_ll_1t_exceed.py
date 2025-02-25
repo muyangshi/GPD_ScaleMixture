@@ -365,13 +365,13 @@ if INITIAL_EPOCH == 0:
     model = keras.Sequential(
         [
             keras.Input(shape=(d,)),
-            keras.layers.Dense(256,  activation='relu'),
-            keras.layers.Dense(512,  activation='relu'),
-            keras.layers.Dense(1024,  activation='relu'),
-            keras.layers.Dense(1024,  activation='relu'),
-            keras.layers.Dense(1024,  activation='relu'),
-            keras.layers.Dense(512,  activation='relu'),
-            keras.layers.Dense(256,  activation='relu'),
+            keras.layers.Dense(512,  activation='softplus'),
+            keras.layers.Dense(1024,  activation='softplus'),
+            keras.layers.Dense(2048,  activation='softplus'),
+            keras.layers.Dense(2048,  activation='softplus'),
+            keras.layers.Dense(2048,  activation='softplus'),
+            keras.layers.Dense(1024,  activation='softplus'),
+            keras.layers.Dense(512,  activation='softplus'),
             keras.layers.Dense(1,    activation='softplus')
         ]
     )
