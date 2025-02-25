@@ -237,7 +237,7 @@ def ll_1t_par(args): # For use with multiprocessing
 # lhs_samples = sampler.random(N) # Generate LHS samples in [0,1]^d
 # lhs_samples = np.row_stack(([0]*d, lhs_samples, [1]*d)) # manually add the boundary points
 
-# #             pY,    u, scale, shape,    pR,    Z,  phi, gamma_bar,  tau
+# #             pY,    u, scale, shape,     R,    Z,  phi, gamma_bar,  tau
 # l_bounds = [0.001,   30,     5,  -1.0, 1e-2, -5.0, 0.05,       0.5,  1.0]
 # u_bounds = [0.999,   80,    60,   1.0,  5e6,  5.0, 0.95,       8.0, 50.0]
 # X_lhs    = qmc.scale(lhs_samples, l_bounds, u_bounds)        # scale LHS to specified bounds
@@ -280,7 +280,7 @@ def ll_1t_par(args): # For use with multiprocessing
 # sampler_val     = qmc.LatinHypercube(d, scramble=False, seed=129)
 # lhs_samples_val = sampler_val.random(N_val) # Generate LHS samples in [0,1]^d
 # lhs_samples_val = np.row_stack(([0]*d, lhs_samples_val, [1]*d)) # add boundaries
-# #                    pY,    u, scale, shape,   pR,    Z,  phi, gamma_bar,  tau
+# #                    pY,    u, scale, shape,    R,    Z,  phi, gamma_bar,  tau
 # l_bounds       = [0.001,   30,     5,  -1.0, 1e-2, -5.0, 0.05,       0.5,  1.0]
 # u_bounds       = [0.999,   80,    60,   1.0,  5e6,  5.0, 0.95,       8.0, 50.0]
 # X_lhs_val      = qmc.scale(lhs_samples_val, l_bounds, u_bounds)        # scale LHS to specified bounds
@@ -386,7 +386,7 @@ if INITIAL_EPOCH == 0:
         # loss        = keras.losses.MeanSquaredError(),
         loss        = keras.losses.MeanAbsoluteError(),
         jit_compile = True)
-
+    model.summary()
 else:
     # load previously defined model
     model = keras.models.load_model('./checkpoint.model.keras')
@@ -400,6 +400,7 @@ else:
         optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
         loss        = keras.losses.MeanSquaredError(),
         jit_compile = True)
+    model.summary()
 
 # Fitting Model
 

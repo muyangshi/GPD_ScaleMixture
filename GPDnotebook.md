@@ -29,6 +29,15 @@
 Logistics:
   - Weather and Climate Extremes Workshop, student registration code?
 
+Likelihood Emulation:
+  - Neural Network
+    - [ ] reduce one dimension, using $(Y-u)$
+    - `X_lhs[:,0] = np.max(0, X_lhs[:,0] - X_lhs[:,1])`
+
+Distribution Function emulation:
+  - [ ] qRW replicate Likun's
+  - [ ] dRW generate design points
+
 ## Feb. 18 (Tuesday) Muyang/Likun/Ben
 
 Logistics:
@@ -50,9 +59,8 @@ Likelihood NN emulator:
       - still register spill out. Potentially need to reduce `batch_size` from 8192 to 4096; but training speed is tolorable, maybe no need.
       - The smalle model even with the re-scaling of X into the unit hypercube does not give good prediction.
       - Trained to 1,000 epochs, and the performance is still bad.
-    - an even bigger model (128-256-512-1024-1024-1024-512-256-128-1)
+    - an even bigger model (512-1024-2048-2048-2048-1024-512-1)
       - this is too big and will outspill registers
-      - don't bother with this and try a different structure
   - Somehow incorporate CNN?
     - Troy did weighted sum of a row
     - Can we use a filter to let the NN know if a point is censored?
@@ -60,15 +68,17 @@ Likelihood NN emulator:
 
 Separate emulators for exceedance and censored pieces:
   - If we have an emulator of the exceedance and an emulator of the `qRW`, we can get away with not emulating the `dRW`
-  - [ ] emulator of the exceedance
+  - [x] emulator of the exceedance
     - `Y_L_1t1s_nn(Ws, bs, acts, X_val)` produce negative outputs in some places. Changing the output layer to `ReLU`.
     - ![alt text](image-44.png)
     - A lot of zeros in the output. Changing the last layer to `softplus` and increasing the size of the model slightly helps. Also, utilizing `MAE` loss function
       - ![alt text](image-45.png) (first 1000 points)
       - ![alt text](image-46.png) (still bad overall)
     - [ ] penalize large likelihood values heavier (like Likun did with the quantile function)
-    - [ ] A much larger model?
-      - check the number of parameters of the model
+    - [x] A much larger model?
+      - (512-1024-2048-2048-2048-1024-512-1)
+      - check the number of parameters of the model: roughly 13 millions params
+      - ![alt text](image-50.png)
     - Only emulate the exceedance part of $(Y - u)$? This would reduce one dimension of the input
   - [x] emulator of the censored
     - Seen an weird bug in `OUTPUT20250220_trial.txt` that prediction is invoking numerical integration, but in truth we are not extrapolating.

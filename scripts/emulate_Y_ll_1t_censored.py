@@ -237,7 +237,7 @@ def ll_1t_par(args): # For use with multiprocessing
 # lhs_samples = sampler.random(N) # Generate LHS samples in [0,1]^d
 # lhs_samples = np.row_stack(([0]*d, lhs_samples, [1]*d)) # manually add the boundary points
 
-# #             pY,    u, scale, shape,    pR,    Z,  phi, gamma_bar,  tau
+# #             pY,    u, scale, shape,     R,    Z,  phi, gamma_bar,  tau
 # l_bounds = [0.001,   30,     5,  -1.0, 1e-2, -5.0, 0.05,       0.5,  1.0]
 # u_bounds = [0.999,   80,    60,   1.0,  5e6,  5.0, 0.95,       8.0, 50.0]
 # X_lhs    = qmc.scale(lhs_samples, l_bounds, u_bounds)        # scale LHS to specified bounds
