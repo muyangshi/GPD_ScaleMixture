@@ -32,11 +32,20 @@ Logistics:
 Likelihood Emulation:
   - Neural Network
     - [ ] reduce one dimension, using $(Y-u)$
-    - `X_lhs[:,0] = np.max(0, X_lhs[:,0] - X_lhs[:,1])`
+      - `X_lhs[:,0] = np.max(0, X_lhs[:,0] - X_lhs[:,1])`
+      - penalize large likelihood values heavier?
+      - upload the dataset to OneDrive and email Likun
+    - [ ] Separate emulator
+    - [ ] Two head emulator
 
 Distribution Function emulation:
   - [ ] qRW replicate Likun's
-  - [ ] dRW generate design points
+  - [x] dRW generate design points
+    - 
+
+Sampler:
+  - we could even try updating $\gamma_k$ too?
+
 
 ## Feb. 18 (Tuesday) Muyang/Likun/Ben
 
@@ -74,7 +83,7 @@ Separate emulators for exceedance and censored pieces:
     - A lot of zeros in the output. Changing the last layer to `softplus` and increasing the size of the model slightly helps. Also, utilizing `MAE` loss function
       - ![alt text](image-45.png) (first 1000 points)
       - ![alt text](image-46.png) (still bad overall)
-    - [ ] penalize large likelihood values heavier (like Likun did with the quantile function)
+    - [-] penalize large likelihood values heavier (like Likun did with the quantile function)
     - [x] A much larger model?
       - (512-1024-2048-2048-2048-1024-512-1)
       - check the number of parameters of the model: roughly 13 millions params
@@ -100,19 +109,19 @@ Other methods to emulate the likelihood:
     - prediction time is very long ~ 3 minutes (compare to neural networks couple of seconds)
 
 Quantile function NN emulator:
-  - [ ] regenerate Likun's fit with modified weighted loss function
-  - train a density funciton emulator
+  - [-] `qRW()` regenerate Likun's fit with modified weighted loss function
+  - `dRW()` train a density funciton emulator
     - range of parameters
       - keep $\phi$, $\gamma$, $\tau$ the same with the `qRW` emulator
       - range on X
         - only `exceed_ll` involves `dRW`
         - `X = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec, phi_vec, gamma_bar_vec, tau)` so `X` has be to larger than `qRW(0.9, ...)`
-        - `qRW(0.9, 0.05, 0.5, 1)    = 0.457873773698486`
+        - `qRW(0.9, 0.05, 0.5, 1)    = 10.457873773698486`
         - `qRW(0.9999, 0.95, 5, 100) = 402114519.4524983`
       - Should train on `log(dRW)`? because density are very small/close to 0.
         - wait until the design points are generated, look at the range of the response, then decide whether to train on original scale or logged scale
-    - [ ] calculate design points
-    - [ ] train emulator
+    - [-] calculate design points
+    - [-] train emulator
       - train with X in the unit hypercube
 
 Sampler Chain:
