@@ -31,17 +31,27 @@ Logistics:
 
 Likelihood Emulation:
   - Neural Network
-    - [ ] reduce one dimension, using $(Y-u)$
-      - `X_lhs[:,0] = np.max(0, X_lhs[:,0] - X_lhs[:,1])`
+    - [x] reduce one dimension, using $(Y-u)$
+      - `X_lhs[:,0] = np.maximum(0, X_lhs[:,0] - X_lhs[:,1])`
+        - `ll_1t_X_100000000_Y_minus_u.npy`
+        - `ll_1t_X_val_1000000_Y_minus_u.npy`
+      - [x] Further split the reduced dataset into censored part and exceedance part
+        - `ll_1t_X_exceed_100000000_Y_minus_u.npy`
+        - `ll_1t_X_val_exceed_1000000_Y_minus_u.npy`
+        - `ll_1t_X_censored_100000000_Y_minus_u.npy`
+        - `ll_1t_X_val_censored_1000000_Y_minus_u.npy`
       - penalize large likelihood values heavier?
-      - upload the dataset to OneDrive and email Likun
-    - [ ] Separate emulator
+      - [x] upload the dataset to OneDrive and email Likun
+    - Separate emulator
+      - [ ] emulate the censored
+      - [ ] emulate the exceedance
     - [ ] Two head emulator
 
 Distribution Function emulation:
   - [ ] qRW replicate Likun's
-  - [x] dRW generate design points
-    - 
+  - dRW 
+    - [x] generate design points
+    - [ ] emulate
 
 Sampler:
   - we could even try updating $\gamma_k$ too?
