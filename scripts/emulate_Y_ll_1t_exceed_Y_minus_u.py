@@ -108,6 +108,7 @@ N              = int(1e8)
 N_val          = int(1e6)
 d              = 8
 unit_hypercube = True
+BATCH_SIZE     = 4096
 
 # define some helper functions
 
@@ -387,16 +388,16 @@ if INITIAL_EPOCH == 0:
     model = keras.Sequential(
         [
             keras.Input(shape=(d,)),
-            keras.layers.Dense(1024,  activation='softplus'),
-            keras.layers.Dense(1024,  activation='softplus'),
-            keras.layers.Dense(1024,  activation='softplus'),
-            keras.layers.Dense(1024,  activation='softplus'),
-            keras.layers.Dense(1024,  activation='softplus'),
+            # keras.layers.Dense(1024,  activation='softplus'),
+            # keras.layers.Dense(1024,  activation='softplus'),
+            keras.layers.Dense(512,  activation='softplus'),
+            keras.layers.Dense(512,  activation='softplus'),
+            keras.layers.Dense(512,  activation='softplus'),
             keras.layers.Dense(1,     activation='softplus')
         ]
     )
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate = 1e-5,
+        initial_learning_rate = 1e-3,
         decay_steps           = 5e3, # 100,000,000*(1-p)/batch_size = steps per epoch
         decay_rate            = 0.96,
         staircase             = False
@@ -411,14 +412,14 @@ else:
     # load previously defined model
     model = keras.models.load_model('./checkpoint.model.keras')
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate = 1e-6,
-        decay_steps           = 5e3, # 100,000,000*p/batch_size = steps per epoch
+        initial_learning_rate = 1e-4,
+        decay_steps           = 5e3, # 100,000,000*(1-p)/batch_size = steps per epoch
         decay_rate            = 0.96,
         staircase             = False
     )
     model.compile(
         optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
-        loss        = keras.losses.MeanSquaredError(),
+        loss        = keras.losses.MeanAbsoluteError(),
         jit_compile = True)
     model.summary()
 
@@ -437,8 +438,9 @@ history = model.fit(
     y_train, 
     initial_epoch=INITIAL_EPOCH,
     epochs = EPOCH, 
-    batch_size=8192,
+    batch_size=BATCH_SIZE,
     verbose = 2,
+    shuffle = True,
     validation_data=(X_val, y_val),
     callbacks=[model_checkpoint_callback])
 
@@ -474,7 +476,7 @@ bestmodel.save(rf'./Y_L_1t_exceed_NN_{N}.keras')
 """
 # %% Neural emulator -------------------------------------------------------------
 
-model_nn = keras.models.load_model(rf"Y_L_1t_NN_{N}.keras")
+model_nn = keras.models.load_model(rf"Y_L_1t_exceed_NN_{N}.keras")
 X_min    = np.load('X_min.npy')
 X_max    = np.load('X_max.npy')
 

@@ -46,6 +46,9 @@ Likelihood Emulation:
       - The high bar around 0 is just due to `X[:,0]`-- the $(Y-u)$ dimension. This was also seen in the previous training data looking at the scaled `Y` dimension. We scaled by `(X - X_min) / (X_max - X_min)`, and the range is big so histogram of this dimension looks like ![alt text](image-52.png)
     - Separate emulator
       - emulate the exceedance
+        - Still very bad with $(Y-u)$. Suspecting it's because too many small observations and relatively very few large observations due to heavi-tailness.
+        - ![alt text](image-53.png)
+        - [ ] Regenerate design points. Instead of calculating $(Y-u)$ by inverting GP CDF, directly generate them using Latin Hypercube.
         - [ ] Need a new check extrapolation prediction function
       - [ ] emulate the censored
       
