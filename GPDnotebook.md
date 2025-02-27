@@ -42,9 +42,13 @@ Likelihood Emulation:
         - `ll_1t_X_val_censored_1000000_Y_minus_u.npy`
       - penalize large likelihood values heavier?
       - [x] upload the dataset to OneDrive and email Likun
+      - A histogram of `X` scaled into unit hypercube ![alt text](image-51.png)
+      - The high bar around 0 is just due to `X[:,0]`-- the $(Y-u)$ dimension. This was also seen in the previous training data looking at the scaled `Y` dimension. We scaled by `(X - X_min) / (X_max - X_min)`, and the range is big so histogram of this dimension looks like ![alt text](image-52.png)
     - Separate emulator
+      - emulate the exceedance
+        - [ ] Need a new check extrapolation prediction function
       - [ ] emulate the censored
-      - [ ] emulate the exceedance
+      
     - [ ] Two head emulator
 
 Distribution Function emulation:

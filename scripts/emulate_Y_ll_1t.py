@@ -436,42 +436,44 @@ if unit_hypercube:
 # %% step 2c: train on the original scale likelihood
 
 if INITIAL_EPOCH == 0:
-
+    # initialize model
     model = keras.Sequential(
         [
             keras.Input(shape=(d,)),
-            # keras.layers.Dense(128,  activation='relu'),
-            # keras.layers.Dense(256,  activation='relu'),
-            keras.layers.Dense(512,  activation='relu'),
-            keras.layers.Dense(512,  activation='relu'),
-            keras.layers.Dense(512,  activation='relu'),
-            keras.layers.Dense(512, activation='relu'),
-            # keras.layers.Dense(1024, activation='relu'),
-            # keras.layers.Dense(1024, activation='relu'),
-            # keras.layers.Dense(1024, activation='relu'),
-            keras.layers.Dense(512,  activation='relu'),
-            # keras.layers.Dense(256,  activation='relu'),
-            # keras.layers.Dense(128,  activation='relu'),
-            keras.layers.Dense(1)
+            keras.layers.Dense(1024,  activation='softplus'),
+            keras.layers.Dense(1024,  activation='softplus'),
+            keras.layers.Dense(1024,  activation='softplus'),
+            keras.layers.Dense(1024,  activation='softplus'),
+            keras.layers.Dense(1024,  activation='softplus'),
+            keras.layers.Dense(1,     activation='softplus')
         ]
     )
-
-    initial_learning_rate = 1e-5
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate, 
-        decay_steps=5e4, # 100,000,000/batch_size = steps per epoch
-        decay_rate=0.96, 
-        staircase=False
+        initial_learning_rate = 1e-5,
+        decay_steps           = 5e3, # 100,000,000*(1-p)/batch_size = steps per epoch
+        decay_rate            = 0.96,
+        staircase             = False
     )
-
     model.compile(
-        # optimizer=keras.optimizers.RMSprop(learning_rate=lr_schedule), 
         optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
-        loss        = keras.losses.MeanSquaredError(),
+        # loss        = keras.losses.MeanSquaredError(),
+        loss        = keras.losses.MeanAbsoluteError(),
         jit_compile = True)
+    model.summary()
 else:
     # load previously defined model
     model = keras.models.load_model('./checkpoint.model.keras')
+    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate = 1e-6,
+        decay_steps           = 5e3, # 100,000,000*p/batch_size = steps per epoch
+        decay_rate            = 0.96,
+        staircase             = False
+    )
+    model.compile(
+        optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
+        loss        = keras.losses.MeanSquaredError(),
+        jit_compile = True)
+    model.summary()
 
 # Fitting Model
 
@@ -516,53 +518,13 @@ plt.show()
 plt.close()
 
 bestmodel = keras.models.load_model(checkpoint_filepath)
-bestmodel.save(rf'./Y_L_1t_NN_{N}.keras')
+bestmodel.save(rf'./Y_L_1t_exceed_NN_{N}.keras')
 
 
 # %% step 3: Build Prediction Functions
 """
 - Try the emulator on a "profile-ish" likelihood for some parameter
 """
-
-# %% Spline emulator -------------------------------------------------------------
-
-# # The emulator one does not work, 
-# # at least not on the log-likelihood
-
-# # emulator_spline = read_pickle_data('spline_Y_ll_1t')
-
-# # def ll_1t_spline(Y, p, u_vec, scale_vec, shape_vec,            # marginal model parameters
-# #                  R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau,        # dependence model parameters
-# #                  logS_vec, gamma_at_knots, censored_idx, exceed_idx,  # auxilury information
-# #                  emulator):
-    
-# #     Y_ll = emulator(np.array([Y, u_vec, scale_vec, shape_vec, R_vec, Z_vec, phi_vec, gamma_bar_vec, np.full_like(Y, tau)]).T)
-
-# #     # log likelihood of S
-# #     S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
-
-# #     # log likelihood of Z
-# #     Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
-
-# #     return np.sum(Y_ll) + np.sum(S_ll) + np.sum(Z_ll)
-
-# # def ll_1t_spline_par(args):
-# #     Y, p, u_vec, scale_vec, shape_vec, \
-# #     R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau, \
-# #     logS_vec, gamma_at_knots, censored_idx, exceed_idx, emulator = args
-
-# #     Y_ll = emulator(np.array([Y, u_vec, scale_vec, shape_vec, R_vec, Z_vec, phi_vec, gamma_bar_vec, np.full_like(Y, tau)]).T)
-
-# #     # log likelihood of S
-# #     S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
-
-# #     # log likelihood of Z
-# #     Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
-
-# #     return np.sum(Y_ll) + np.sum(S_ll) + np.sum(Z_ll)
-
-
-
 # %% Neural emulator -------------------------------------------------------------
 
 model_nn = keras.models.load_model(rf"Y_L_1t_NN_{N}.keras")
@@ -581,6 +543,8 @@ def elu_np(x):
 def identity(x):
     return x
 
+def softplus_np(x):
+    return np.log(1 + np.exp(x))
 
 Ws, bs, acts = [], [], []
 for layer in model_nn.layers:
@@ -591,6 +555,8 @@ for layer in model_nn.layers:
         act = elu_np
     elif layer.get_config()['activation'] == 'linear':
         act = identity
+    elif layer.get_config()['activation'] == 'softplus':
+        act = softplus_np
     else:
         print(layer.get_config()['activation'])
         raise NotImplementedError
