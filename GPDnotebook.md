@@ -48,10 +48,17 @@ Likelihood Emulation:
       - emulate the exceedance
         - Still very bad with $(Y-u)$. Suspecting it's because too many small observations and relatively very few large observations due to heavi-tailness.
         - ![alt text](image-53.png)
-        - [ ] Regenerate design points. Instead of calculating $(Y-u)$ by inverting GP CDF, directly generate them using Latin Hypercube.
-        - [ ] Need a new check extrapolation prediction function
+    - Regenerate design points.
+      - How I estimated $u$, $\sigma$, and $\xi$: `format_data.R` site-wise GP fit to threshold 0.95. $u$ taken as the threshold. <mark>p = 0.95</mark>
+      - [ ] Regenerate exceedance design points. Instead of calculating $(Y-u)$ by inverting GP CDF, directly generate them using Latin Hypercube.
+        - LB = 0.001 
+        - UB = ?
+          - qGP(0.999, u=0, $\sigma$=60, $\xi$=1)=59940, 
+          - `np.nanmax(data) = 737.9`
+      - [ ] Regenerate censored design points. $u \in (30, 80)$ based on dataset
+    - [ ] Separate emulator
+      - [ ] emulate the exeedance
       - [ ] emulate the censored
-      
     - [ ] Two head emulator
 
 Distribution Function emulation:
@@ -61,7 +68,8 @@ Distribution Function emulation:
     - [ ] emulate
 
 Sampler:
-  - we could even try updating $\gamma_k$ too?
+  - [ ] we could even try updating $\gamma_k$ too?
+  - [ ] Generate simulated dataset with threshold probability `p=0.95`
 
 
 ## Feb. 18 (Tuesday) Muyang/Likun/Ben
