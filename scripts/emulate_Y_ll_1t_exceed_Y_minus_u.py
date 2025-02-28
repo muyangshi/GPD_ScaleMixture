@@ -80,9 +80,8 @@ BATCH_SIZE     = 4096
 
 # censoring log-likelihood on Y
 
-def Y_ll_1t1s(Y, scale_vec, shape_vec,
-              R_vec, Z_vec, phi_vec, gamma_bar_vec, tau,
-              u_vec=0.0):
+def Y_ll_1t1s(Y, u_vec, scale_vec, shape_vec,
+              R_vec, Z_vec, phi_vec, gamma_bar_vec, tau):
     
     p = 0.95
 
@@ -173,6 +172,27 @@ def ll_1t_par(args): # For use with multiprocessing
 #   looked at previous run and initial site-level estimates to get scale and shape
 #   used reverse CDF to span the R <- R is NOT levy(0, 0.5)!
 
+def Y_ll_1t1s_design(Y, scale_vec, shape_vec,
+                     R_vec, Z_vec, phi_vec, gamma_bar_vec, tau):
+    u_vec = 0.0
+    p = 0.95
+
+    X_star = (R_vec ** phi_vec) * g(Z_vec)
+    X      = qRW(pCGP(Y, p, u_vec, scale_vec, shape_vec), phi_vec, gamma_bar_vec, tau)
+    dX     = dRW(X, phi_vec, gamma_bar_vec, tau)
+
+    if Y <= u_vec:
+        # log censored likelihood of y on censored sites
+        censored_ll = scipy.stats.norm.logcdf((X - X_star)/tau)
+        return censored_ll
+    else: # if Y > u_vec
+        # log censored likelihood of y on exceedance sites
+        exceed_ll   = scipy.stats.norm.logpdf(X, loc = X_star, scale = tau) \
+                        + np.log(dCGP(Y, p, u_vec, scale_vec, shape_vec)) \
+                        - np.log(dX)
+        return exceed_ll
+
+
 # LHS for the design point X
 
 sampler     = qmc.LatinHypercube(d, scramble=False, seed=2345)
@@ -189,7 +209,7 @@ data = [tuple(row) for row in X_lhs]
 start_time = time.time()
 print(rf'start calculating {N} likelihoods using {n_processes} processes:', datetime.datetime.now())
 with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
-    results = pool.starmap(Y_ll_1t1s, data)
+    results = pool.starmap(Y_ll_1t1s_design, data)
 end_time = time.time()
 print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
 
@@ -218,7 +238,7 @@ data_val = [tuple(row) for row in X_lhs_val]
 start_time = time.time()
 print(rf'start calculating {N_val} likelihoods using {n_processes} processes:', datetime.datetime.now())
 with multiprocessing.get_context('fork').Pool(processes=n_processes) as pool:
-    results_val = pool.starmap(Y_ll_1t1s, data_val)
+    results_val = pool.starmap(Y_ll_1t1s_design, data_val)
 end_time = time.time()
 print('done:', round(end_time - start_time, 3), 'using processes:', str(n_processes))
 

@@ -50,12 +50,15 @@ Likelihood Emulation:
         - ![alt text](image-53.png)
     - Regenerate design points.
       - How I estimated $u$, $\sigma$, and $\xi$: `format_data.R` site-wise GP fit to threshold 0.95. $u$ taken as the threshold. <mark>p = 0.95</mark>
-      - [ ] Regenerate exceedance design points. Instead of calculating $(Y-u)$ by inverting GP CDF, directly generate them using Latin Hypercube.
+      - [x] Regenerate exceedance design points. Instead of calculating $(Y-u)$ by inverting GP CDF, directly generate them using Latin Hypercube.
         - LB = 0.001 
-        - UB = ?
+        - UB = 1000
           - qGP(0.999, u=0, $\sigma$=60, $\xi$=1)=59940, 
           - `np.nanmax(data) = 737.9`
-      - [ ] Regenerate censored design points. $u \in (30, 80)$ based on dataset
+        - will see `nan` because in the exceedance likelihood piece, there is a `np.log(dCGP(Y, p, u=0, scale, shape))`, when tail is bounded and Y (Y-u) is too big, there is problem.
+        - Roughly 50% are usable (not `-inf`)
+      - [ ] Regenerate censored design points. 
+        - $u \in (30, 80)$ based on dataset
     - [ ] Separate emulator
       - [ ] emulate the exeedance
       - [ ] emulate the censored
