@@ -61,7 +61,9 @@ Likelihood Emulation:
         - $u \in (30, 80)$ based on dataset
     - [ ] Separate emulator
       - [ ] emulate the exeedance
-        - cleanup the `nan` or `-inf`?
+        - There is no `nan`, only `-inf`. 56.9% of the log likelihood are not `-inf`; however, some of those log likelihood are super small, that only 5.86% non-log likelihood are non-zero
+        - Train with the zeros
+        - Train without the zeros
       - [ ] emulate the censored
     - [ ] Two head emulator
 

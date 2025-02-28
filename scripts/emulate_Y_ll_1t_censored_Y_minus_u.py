@@ -197,7 +197,7 @@ def Y_ll_1t1s_design(u_vec, scale_vec, shape_vec,
 
 sampler     = qmc.LatinHypercube(d, scramble=False, seed=2345)
 lhs_samples = sampler.random(N) # Generate LHS samples in [0,1]^d
-lhs_samples = np.row_stack(([0]*d, lhs_samples, [1]*d)) # manually add the boundary points
+lhs_samples = np.vstack(([0]*d, lhs_samples, [1]*d)) # manually add the boundary points
 
 #            u,  scale, shape,    R,    Z,  phi, gamma_bar,  tau
 l_bounds = [30,      5,  -1.0, 1e-2, -5.0, 0.05,       0.5,  1.0]
@@ -228,7 +228,7 @@ np.save(rf'll_1t_Y_censored_Y_minus_u_{N}.npy', Y_lhs)
 
 sampler_val     = qmc.LatinHypercube(d, scramble=False, seed=129)
 lhs_samples_val = sampler_val.random(N_val) # Generate LHS samples in [0,1]^d
-lhs_samples_val = np.row_stack(([0]*d, lhs_samples_val, [1]*d)) # add boundaries
+lhs_samples_val = np.vstack(([0]*d, lhs_samples_val, [1]*d)) # add boundaries
 #            u,  scale, shape,    R,    Z,  phi, gamma_bar,  tau
 l_bounds = [30,      5,  -1.0, 1e-2, -5.0, 0.05,       0.5,  1.0]
 u_bounds = [80,     60,   1.0,  5e6,  5.0, 0.95,       8.0, 50.0]
