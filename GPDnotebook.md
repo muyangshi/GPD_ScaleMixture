@@ -56,11 +56,12 @@ Likelihood Emulation:
           - qGP(0.999, u=0, $\sigma$=60, $\xi$=1)=59940, 
           - `np.nanmax(data) = 737.9`
         - will see `nan` because in the exceedance likelihood piece, there is a `np.log(dCGP(Y, p, u=0, scale, shape))`, when tail is bounded and Y (Y-u) is too big, there is problem.
-        - Roughly 50% are usable (not `-inf`)
-      - [ ] Regenerate censored design points. 
+        - Roughly 50% are usable (not `-inf`); The `-inf` will just evaluate to 0 on original scale likelihood.
+      - [x] Regenerate censored design points. 
         - $u \in (30, 80)$ based on dataset
     - [ ] Separate emulator
       - [ ] emulate the exeedance
+        - cleanup the `nan` or `-inf`?
       - [ ] emulate the censored
     - [ ] Two head emulator
 
