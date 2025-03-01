@@ -59,16 +59,23 @@ Likelihood Emulation:
         - Roughly 50% are usable (not `-inf`); The `-inf` will just evaluate to 0 on original scale likelihood.
       - [x] Regenerate censored design points. 
         - $u \in (30, 80)$ based on dataset
-    - [ ] Separate emulator
-      - [ ] emulate the exeedance
+    - [x] Separate emulator
+      - [x] emulate the exeedance
         - There is no `nan`, only `-inf`. 56.9% of the log likelihood are not `-inf`; however, some of those log likelihood are super small, that only 5.86% non-log likelihood are non-zero
         - Train with the zeros
+          - the training and validation error does not really decrease
         - Train without the zeros
-      - [ ] emulate the censored
-    - [ ] Two head emulator
+          - still couldn't get it to work.
+          - Also tried `log(10 + Y)`
+          - Prediction line is pretty flat
+      - [-] emulate the censored
+    - [-] Two head emulator
 
 Distribution Function emulation:
   - [ ] qRW replicate Likun's
+    - [ ] in the sampler, reduce the $Z_t$ into block updates
+    - [ ] in the sampler, reduce the number of times `dRW` is involved.
+    - [ ] Check sampler speed
   - dRW 
     - [x] generate design points
     - [ ] emulate

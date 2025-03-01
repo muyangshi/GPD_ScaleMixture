@@ -69,14 +69,17 @@ random_generator = np.random.RandomState(7)
 n_processes = 7 if cpu_count() < 64 else 64
 
 INITIAL_EPOCH  = 0
-EPOCH          = 100
-BATCH_SIZE     = 4096
+EPOCH          = 50
+BATCH_SIZE     = 1024
+VALIDATION_BATCH_SIZE = 1024
 N              = int(1e8)
 N_val          = int(1e6)
 d              = 8
 unit_hypercube = True
-trim_zeros     = False
-
+trim_zeros     = True
+SUBSET         = np.round((N+2) * 0.5).astype(int)
+SUBSET_VAL     = np.round((N_val+2) * 0.5).astype(int)
+N_EPOCH_PER_DECAY = 1
 
 # define some helper functions
 
@@ -253,10 +256,10 @@ def ll_1t_par(args): # For use with multiprocessing
 
 # %% step 2: load design points and train
 
-X_lhs     = np.load(rf'll_1t_X_exceed_Y_minus_u_{N}.npy')
-X_lhs_val = np.load(rf'll_1t_X_val_exceed_Y_minus_u_{N_val}.npy')
-Y_lhs     = np.load(rf'll_1t_Y_exceed_Y_minus_u_{N}.npy')
-Y_lhs_val = np.load(rf'll_1t_Y_val_exceed_Y_minus_u_{N_val}.npy')
+X_lhs     = np.load(rf'll_1t_X_exceed_Y_minus_u_{N}.npy')[0:SUBSET]
+X_lhs_val = np.load(rf'll_1t_X_val_exceed_Y_minus_u_{N_val}.npy')[0:SUBSET_VAL]
+Y_lhs     = np.load(rf'll_1t_Y_exceed_Y_minus_u_{N}.npy')[0:SUBSET]
+Y_lhs_val = np.load(rf'll_1t_Y_val_exceed_Y_minus_u_{N_val}.npy')[0:SUBSET_VAL]
 
 # Train on original scale likelihood
 X_train = X_lhs
@@ -287,6 +290,12 @@ if unit_hypercube:
     np.save('X_min.npy', X_min)
     np.save('X_max.npy', X_max)
 
+actual_N_train = len(y_train)
+actual_N_val   = len(y_val)
+
+print('actual_N_train:',actual_N_train)
+print('actual_N_val:', actual_N_val)
+
 # %% step 2: train on the original scale likelihood
 
 if INITIAL_EPOCH == 0:
@@ -296,22 +305,32 @@ if INITIAL_EPOCH == 0:
             keras.Input(shape=(d,)),
             # keras.layers.Dense(1024,  activation='softplus'),
             # keras.layers.Dense(1024,  activation='softplus'),
-            keras.layers.Dense(512,   activation='relu'),
-            keras.layers.Dense(512,   activation='relu'),
-            keras.layers.Dense(512,   activation='relu'),
-            keras.layers.Dense(1,     activation='relu')
+            keras.layers.Dense(128,   
+                               activation='softplus',
+                               kernel_initializer='he_normal'), 
+            keras.layers.Dense(128,   
+                               activation='softplus',
+                               kernel_initializer='he_normal'),
+            keras.layers.Dense(128,   
+                               activation='softplus',
+                               kernel_initializer='he_normal'),
+            keras.layers.Dense(1,     
+                               activation='relu',
+                               kernel_initializer='he_normal')
         ]
     )
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate = 1e-3,
-        decay_steps           = 5e3, # 100,000,000*(1-p)/batch_size = steps per epoch
+        initial_learning_rate = 1e-4,
+        decay_steps           = N_EPOCH_PER_DECAY * actual_N_train // BATCH_SIZE,
         decay_rate            = 0.96,
         staircase             = False
     )
     model.compile(
-        optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
-        loss        = keras.losses.MeanSquaredError(),
+        optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule,
+                                            clipnorm=1.0),
+        # loss        = keras.losses.MeanSquaredError(),
         # loss        = keras.losses.MeanAbsoluteError(),
+        loss        = keras.losses.MeanSquaredLogarithmicError(),
         jit_compile = True)
     model.summary()
 else:
@@ -319,14 +338,16 @@ else:
     model = keras.models.load_model('./checkpoint.model.keras')
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate = 1e-4,
-        decay_steps           = 5e3, # 100,000,000*(1-p)/batch_size = steps per epoch
+        decay_steps           = N_EPOCH_PER_DECAY * actual_N_train // BATCH_SIZE,
         decay_rate            = 0.96,
         staircase             = False
     )
     model.compile(
-        optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule, weight_decay=1e-5),
-        loss        = keras.losses.MeanSquaredError(),
+        optimizer   = keras.optimizers.Adam(learning_rate=lr_schedule,
+                                            clipnorm=1.0),
+        # loss        = keras.losses.MeanSquaredError(),
         # loss        = keras.losses.MeanAbsoluteError(),
+        loss        = keras.losses.MeanSquaredLogarithmicError(),
         jit_compile = True)
     model.summary()
 
@@ -349,6 +370,7 @@ history = model.fit(
     verbose = 2,
     shuffle = True,
     validation_data=(X_val, y_val),
+    validation_batch_size = VALIDATION_BATCH_SIZE,
     callbacks=[model_checkpoint_callback])
 
 end_time = time.time()
@@ -381,7 +403,7 @@ bestmodel.save(rf'./Y_L_1t_exceed_Y_minus_u_NN_{N}.keras')
 """
 - Try the emulator on a "profile-ish" likelihood for some parameter
 """
-# %% Neural emulator -------------------------------------------------------------
+# Neural emulator -------------------------------------------------------------
 
 model_nn = keras.models.load_model(rf"Y_L_1t_exceed_Y_minus_u_NN_{N}.keras")
 X_min    = np.load('X_min.npy')
@@ -479,15 +501,15 @@ if not unit_hypercube:
 
 #     return ll
 
-# # %% Prediction Performance on Validation Dataset
-# # Goodness of fit plot on the validation dataset ------------------------------
+# %% Prediction Performance on Validation Dataset
+# Goodness of fit plot on the validation dataset ------------------------------
 
 # y_val_pred = Y_ll_1t1s_nn_2p(Ws,bs,acts,X_val)
 
-Y_lhs_val_exceed = np.load(rf'll_1t_Y_val_exceed_Y_minus_u_{N_val}.npy')
+Y_lhs_val_exceed = np.load(rf'll_1t_Y_val_exceed_Y_minus_u_{N_val}.npy')[0:SUBSET_VAL]
 y_val            = np.exp(Y_lhs_val_exceed)
 
-X_val        = np.load(rf'll_1t_X_val_exceed_Y_minus_u_{N_val}.npy')
+X_val        = np.load(rf'll_1t_X_val_exceed_Y_minus_u_{N_val}.npy')[0:SUBSET_VAL]
 y_val_L_pred = Y_L_1t1s_nn(Ws, bs, acts, X_val)
 
 fig, ax = plt.subplots()
