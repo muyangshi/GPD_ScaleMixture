@@ -68,14 +68,22 @@ Likelihood Emulation:
           - still couldn't get it to work.
           - Also tried `log(10 + Y)`
           - Prediction line is pretty flat
+          - ![alt text](image-54.png)
+          - ![alt text](image-55.png)
       - [-] emulate the censored
+        - not helpful unless the exceedance emulator can work
     - [-] Two head emulator
 
 Distribution Function emulation:
-  - [ ] qRW replicate Likun's
-    - [ ] in the sampler, reduce the $Z_t$ into block updates
-    - [ ] in the sampler, reduce the number of times `dRW` is involved.
-    - [ ] Check sampler speed
+  - [ ] qRW 
+    - [ ] replicate Likun's
+      - three 512-node layers, with `tanh` activation functions and linear output layers
+      - log response
+      - weighted mse: $w(q) = 1 + \alpha \cdot q$
+    - [ ] modify Likun's
+      - [ ] oversampling the tail region
+      - [ ] multiply the loss for tail samples by a larger factor
+
   - dRW 
     - [x] generate design points
     - [ ] emulate
@@ -83,6 +91,10 @@ Distribution Function emulation:
 Sampler:
   - [ ] we could even try updating $\gamma_k$ too?
   - [ ] Generate simulated dataset with threshold probability `p=0.95`
+  - Plug in `qRW` emualtor
+    - [ ] in the sampler, reduce the $Z_t$ into block updates
+    - [ ] in the sampler, reduce the number of times `dRW` is involved.
+    - [ ] Check sampler speed
 
 
 ## Feb. 18 (Tuesday) Muyang/Likun/Ben
