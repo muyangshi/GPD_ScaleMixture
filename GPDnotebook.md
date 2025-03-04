@@ -76,14 +76,17 @@ Likelihood Emulation:
 
 Distribution Function emulation:
   - [ ] qRW 
-    - [ ] replicate Likun's
-      - three 512-node layers, with `tanh` activation functions and linear output layers
+    - [x] replicate Likun's
+      - three 512-node layers, with `tanh` activation functions and linear output layers. 
+      - [ ] Question: The output must not be too large for `tanh` to work, right? because it's in [-1,1]?
       - log response
       - weighted mse: $w(q) = 1 + \alpha \cdot q$
-    - [ ] modify Likun's
-      - [ ] oversampling the tail region
-      - [ ] multiply the loss for tail samples by a larger factor
-
+      - ![alt text](image-56.png)
+      - ![alt text](image-57.png)
+      - ![alt text](image-58.png)
+      - ![alt text](image-59.png)
+    - [ ] Modify Likun's
+      - [ ] oversampling the large-$p$ region
   - dRW 
     - [x] generate design points
     - [ ] emulate

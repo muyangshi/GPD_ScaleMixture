@@ -84,6 +84,23 @@ N     = int(1e8)
 N_val = int(1e6)
 d     = 4
 
+# @keras.utils.register_keras_serializable(package="Custom")
+def weighted_mse(alpha=1.0, eps=1e-8):
+    def loss_fn(y_true, y_pred):
+        # define the weights
+        weights = 1.0 + alpha * y_true
+
+        # weighted sum of squared errors
+        se      = keras.backend.square(y_pred - y_true)
+        sse     = keras.backend.sum(weights * se)
+
+        # normalize by the sum of weights
+        wmse    = sse / (keras.backend.sum(weights) + eps)
+
+        return wmse
+
+    return loss_fn
+
 """
 Notes on coding:
 
@@ -177,8 +194,8 @@ y_val   = Y_lhs_val
 
 if log_response:
     print('taking log of response...')
-    Y_lhs     = np.log(Y_lhs)
-    Y_lhs_val = np.log(Y_lhs_val)
+    y_train = np.log(Y_lhs)
+    y_val   = np.log(Y_lhs_val)
 
 if unit_hypercube:
     print('scaling X into unit hypercube...')
@@ -192,24 +209,6 @@ if unit_hypercube:
     np.save('X_max.npy', X_max)
 
 # %% Defining model
-
-def weighted_mse(alpha=1.0, eps=1e-8):
-    def loss_fn(y_true, y_pred):
-        # define the weights
-        weights = 1.0 + alpha * y_true
-
-        # weighted sum of squared errors
-        se      = keras.backend.square(y_pred - y_true)
-        sse     = keras.backend.sum(weights * se)
-
-        # normalize by the sum of weights
-        wmse    = sse / (keras.backend.sum(weights) + eps)
-
-        return wmse
-
-    return loss_fn
-       
-
 
 if INITIAL_EPOCH == 0:
     model = keras.Sequential(
@@ -292,7 +291,8 @@ plt.savefig(rf'Plot_train_loss_{INITIAL_EPOCH}to{EPOCH}.pdf')
 plt.show()
 plt.close()
 
-bestmodel = keras.models.load_model(checkpoint_filepath)
+bestmodel = keras.models.load_model(checkpoint_filepath,
+                                    custom_objects={'loss_fn': weighted_mse(alpha=ALPHA)})
 bestmodel.save(rf'./qRW_NN_{N}.keras')
 
 # saving the "best" model
@@ -315,7 +315,8 @@ bestmodel.save(rf'./qRW_NN_{N}.keras')
 
 # %% Step 3: Prediction
 
-model_nn = keras.models.load_model(rf'qRW_NN_{N}.keras')
+model_nn = keras.models.load_model(rf'qRW_NN_{N}.keras',
+                                   custom_objects={"loss_fn": weighted_mse(alpha=ALPHA)})
 X_min    = np.load('X_min.npy')
 X_max    = np.load('X_max.npy')
 
@@ -428,6 +429,42 @@ plt.title(rf'qRW(...) along p with $\phi$={phi} $\gamma$={gamma} $\tau$={tau}')
 plt.savefig(rf'Plot_qRW2_{INITIAL_EPOCH}to{EPOCH}.pdf')
 plt.show()
 plt.close()
+
+# Goodness of Fit plot
+
+X_lhs_val = np.load(rf'qRW_X_val_{N_val}.npy')
+Y_lhs_val = np.load(rf'qRW_Y_val_{N_val}.npy')
+
+X_val   = X_lhs_val
+y_val   = Y_lhs_val
+
+if log_response:
+    y_val   = np.log(Y_lhs_val)
+
+y_val_pred = qRW_NN(X_val, Ws, bs, acts)
+
+fig, ax = plt.subplots()
+ax.set_aspect('equal', 'datalim')
+ax.scatter(y_val, np.log(y_val_pred.ravel()))
+ax.axline((0, 0), slope=1, color='black', linestyle='--')
+ax.set_title(rf'Goodness of Fit Plot on Validation Dataset')
+ax.set_xlabel('True log(qRW)')
+ax.set_ylabel('Emulated log(qRW)')
+plt.savefig(r'GOF_validation_log.pdf')
+plt.show()
+plt.close()
+
+fig, ax = plt.subplots()
+ax.set_aspect('equal', 'datalim')
+ax.scatter(np.exp(y_val), y_val_pred.ravel())
+ax.axline((0, 0), slope=1, color='black', linestyle='--')
+ax.set_title(rf'Goodness of Fit Plot on Validation Dataset')
+ax.set_xlabel('True qRW')
+ax.set_ylabel('Emulated qRW')
+plt.savefig(r'GOF_validation_original.pdf')
+plt.show()
+plt.close()
+
 
 # Marginal Likelihood
 
