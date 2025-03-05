@@ -24,6 +24,29 @@
 
 # Meetings
 
+## Mar. 4 (Tuesday) Muyang/Likun/Ben
+
+Logistics:
+  - [ ] March 15 deadline for EVA contributed paper
+
+Sampler:
+  - [ ] Put `qRW()` emulator into the sampler
+  - Plug in `qRW` emualtor
+    - [ ] in the sampler, reduce the number of times `qRW` and `dRW` are involved.
+      - qRW should be calculated outside
+        - ideally, fewer calls to the predict function (make one big prediction instead of many small predictions)
+      - dRW should be calculated outside
+        - only necessary for the exceedance points
+    - [ ] in the sampler, reduce the $Z_t$ into block updates
+    - [ ] Check sampler speed
+  - [ ] we could even try updating $\gamma_k$ too?
+
+Emulation:
+  - dRW
+    - [ ] emulate `dRW` if necessary
+  - qRW
+    - [ ] the emulator output must not be too large for the `tanh` to work right because it output between [-1, 1]
+
 ## Feb. 25 (Tuesday) Muyang/Likun/Ben
 
 Logistics:
@@ -75,29 +98,36 @@ Likelihood Emulation:
     - [-] Two head emulator
 
 Distribution Function emulation:
-  - [ ] qRW 
+  - [x] qRW 
     - [x] replicate Likun's
       - three 512-node layers, with `tanh` activation functions and linear output layers. 
-      - [ ] Question: The output must not be too large for `tanh` to work, right? because it's in [-1,1]?
+      - [-] Question: The output must not be too large for `tanh` to work, right? because it's in [-1,1]?
       - log response
       - weighted mse: $w(q) = 1 + \alpha \cdot q$
       - ![alt text](image-56.png)
       - ![alt text](image-57.png)
       - ![alt text](image-58.png)
       - ![alt text](image-59.png)
+      - Within [0.9, 0.999] is safe:
+        - ![alt text](image-60.png)
+        - ![alt text](image-61.png)
     - [ ] Modify Likun's
       - [ ] oversampling the large-$p$ region
   - dRW 
     - [x] generate design points
-    - [ ] emulate
+    - [-] emulate
 
 Sampler:
-  - [ ] we could even try updating $\gamma_k$ too?
-  - [ ] Generate simulated dataset with threshold probability `p=0.95`
+  - [-] we could even try updating $\gamma_k$ too?
+  - [-] Generate simulated dataset with threshold probability `p=0.95`
   - Plug in `qRW` emualtor
-    - [ ] in the sampler, reduce the $Z_t$ into block updates
-    - [ ] in the sampler, reduce the number of times `dRW` is involved.
-    - [ ] Check sampler speed
+    - [-] in the sampler, reduce the number of times `qRW` and `dRW` are involved.
+      - qRW should be calculated outside
+        - ideally, fewer calls to the predict function (make one big prediction instead of many small predictions)
+      - dRW should be calculated outside
+        - only necessary for the exceedance points
+    - [-] in the sampler, reduce the $Z_t$ into block updates
+    - [-] Check sampler speed
 
 
 ## Feb. 18 (Tuesday) Muyang/Likun/Ben
