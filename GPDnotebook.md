@@ -31,14 +31,13 @@ Logistics:
 
 Sampler:
   - [ ] Put `qRW()` emulator into the sampler
-  - Plug in `qRW` emualtor
     - [ ] in the sampler, reduce the number of times `qRW` and `dRW` are involved.
-      - qRW should be calculated outside
-        - ideally, fewer calls to the predict function (make one big prediction instead of many small predictions)
-      - dRW should be calculated outside
+    - [ ] Keep track of `X = qRW(...)` separately
+      - ideally, fewer calls to the predict function (make one big prediction instead of many small predictions)
+    - [ ] Keep track of `dX = dRW(...)` separately
         - only necessary for the exceedance points
-    - [ ] in the sampler, reduce the $Z_t$ into block updates
-    - [ ] Check sampler speed
+  - [ ] in the sampler, reduce the $Z_t$ into block updates
+  - [ ] Check sampler speed
   - [ ] we could even try updating $\gamma_k$ too?
 
 Emulation:
