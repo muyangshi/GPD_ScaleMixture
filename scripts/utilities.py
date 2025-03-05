@@ -1,7 +1,12 @@
+"""
 # combine utilitlies helpful to MCMC sampler
 # grabbed and copied useful functions from Likun's model_sim.py, ns_cov.py
 # Require:
 #   - RW_inte.py, RW_inte_cpp.cpp & RW_inte.cpp.so
+# March 5, 2025
+# Use Neural Network to emulate qRW
+    # Put dRW and qRW outside of the likelihood function, reduce the number of times they are involved
+"""
 # %%
 # general imports and ubiquitous utilities
 import sys
@@ -448,6 +453,53 @@ def ll_1t_detail(Y, p, u_vec, scale_vec, shape_vec,
 
     return (np.sum(censored_ll),np.sum(exceed_ll), np.sum(S_ll), np.sum(Z_ll))
 
+def ll_1t_qRWdRWout(Y, p, u_vec, scale_vec, shape_vec,
+          R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau,
+          logS_vec, gamma_at_knots, censored_idx, exceed_idx,
+          qRW_vec, dRW_vec):
+    
+    X_star = (R_vec ** phi_vec) * g(Z_vec)
+    X      = qRW_vec
+    dX     = dRW_vec
+
+    # log censored likelihood of y on censored sites
+    censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
+    # log censored likelihood of y on exceedance sites
+    exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
+                    + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
+                    - np.log(dX[exceed_idx])
+
+    # log likelihood of S
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec # 0.5 here is the gamma_k, not \bar{\gamma}
+
+    # log likelihood of Z
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+
+    return np.sum(censored_ll) + np.sum(exceed_ll) + np.sum(S_ll) + np.sum(Z_ll)
+
+def ll_1t_qRWdRWout_detail(Y, p, u_vec, scale_vec, shape_vec,
+          R_vec, Z_vec, K, phi_vec, gamma_bar_vec, tau,
+          logS_vec, gamma_at_knots, censored_idx, exceed_idx,
+          qRW_vec, dRW_vec):
+
+    X_star = (R_vec ** phi_vec) * g(Z_vec)
+    X      = qRW_vec
+    dX     = dRW_vec
+
+    # log censored likelihood of y on censored sites
+    censored_ll = scipy.stats.norm.logcdf((X[censored_idx] - X_star[censored_idx])/tau)
+    # log censored likelihood of y on exceedance sites
+    exceed_ll   = scipy.stats.norm.logpdf(X[exceed_idx], loc = X_star[exceed_idx], scale = tau) \
+                    + np.log(dCGP(Y[exceed_idx], p, u_vec[exceed_idx], scale_vec[exceed_idx], shape_vec[exceed_idx])) \
+                    - np.log(dX[exceed_idx])
+    
+    # log likelihood of S
+    S_ll = scipy.stats.levy.logpdf(np.exp(logS_vec),  scale = gamma_at_knots) + logS_vec
+
+    # log conditional likelihood of Z
+    Z_ll = scipy.stats.multivariate_normal.logpdf(Z_vec, mean = None, cov = K)
+
+    return (np.sum(censored_ll),np.sum(exceed_ll), np.sum(S_ll), np.sum(Z_ll))
 # %%
 # imputation of missing values
 #   returns (Z_miss, Y_miss)
