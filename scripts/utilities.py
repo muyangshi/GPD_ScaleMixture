@@ -15,7 +15,7 @@ import os
 required_files = [
     "RW_inte.py",
     "RW_inte_cpp.cpp",
-    "RW_inte.cpp.so",
+    "RW_inte_cpp.so",
     "qRW_NN_weights_and_biases.pkl",
     "qRW_NN_X_min.npy",
     "qRW_NN_X_max.npy"
@@ -474,9 +474,10 @@ def qRW_NN_2p(p_vec, phi_vec, gamma_vec, tau_vec):
     outputs             = np.full((len(p_vec),), fill_value=np.nan)
     condition_p         = (0.9  <= p_vec)     & (p_vec <= 0.999)
     condition_phi       = (0.05 <= phi_vec)   & (phi_vec <= 0.95)
-    condition_gamma     = (0.05 <= gamma_vec) & (gamma_vec <= 0.95)    
-    condition_tau       = (0.05 <= tau_vec)   & (tau_vec <= 0.95)
+    condition_gamma     = (0.5  <= gamma_vec) & (gamma_vec <= 5)    
+    condition_tau       = (1 <= tau_vec)      & (tau_vec <= 100)
     condition           = condition_p & condition_phi & condition_gamma & condition_tau
+    print('Proportion interpolated:', np.mean(condition))
     outputs[condition]  = qRW_NN(p_vec[condition], phi_vec[condition], gamma_vec[condition], tau_vec[condition])
     outputs[~condition] = qRW(p_vec[~condition], phi_vec[~condition], gamma_vec[~condition], tau_vec[~condition])
     return outputs
