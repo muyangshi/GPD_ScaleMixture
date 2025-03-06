@@ -205,8 +205,8 @@ if unit_hypercube:
     X_train = (X_train - X_min)/(X_max - X_min)
     X_val   = (X_val - X_min)/(X_max - X_min)
 
-    np.save('X_min.npy', X_min)
-    np.save('X_max.npy', X_max)
+    np.save('qRW_NN_X_min.npy', X_min)
+    np.save('qRW_NN_X_max.npy', X_max)
 
 # %% Defining model
 
@@ -317,8 +317,10 @@ bestmodel.save(rf'./qRW_NN_{N}.keras')
 
 model_nn = keras.models.load_model(rf'qRW_NN_{N}.keras',
                                    custom_objects={"loss_fn": weighted_mse(alpha=ALPHA)})
-X_min    = np.load('X_min.npy')
-X_max    = np.load('X_max.npy')
+with open("qRW_nn_weights_and_biases.pkl",'wb') as f:
+    pickle.dump(model_nn.get_weights(), f, protocol=pickle.HIGHEST_PROTOCOL)
+X_min    = np.load('qRW_NN_X_min.npy')
+X_max    = np.load('qRW_NN_X_max.npy')
 
 def relu_np(x): 
     # np.maximum(x, 0, x) # changes x IN PLACE! faster than return x * (x > 0)
