@@ -17,6 +17,7 @@ run/*
 scripts/*.pickle
 *.png
 scripts/*.keras
+Scripts/*.pkl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
