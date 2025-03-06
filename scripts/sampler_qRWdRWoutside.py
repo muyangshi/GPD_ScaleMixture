@@ -1,18 +1,15 @@
 """
-March 26, 2024
-MCMC Sampler for GPD Scale Mixture Model
+MCMC Sampler for Spatial Extreme Model
 
-mpirun -n 24 --output-filename OUTPUTS python3 sampler.py > OUTPUT_COMBINED.txt 2>&1 &
-mpirun -n 24 python3 sampler.py > OUTPUT.txt 2>&1 &
+Date: March 05, 2025
+Author: Muyang Shi
 
-load data from the current directory, easier to use for coverage analysis
-
-March 5, 2025
-Use Neural Network to emulate qRW
-    Put dRW and qRW outside of the likelihood function, reduce the number of times they are involved
+Description:
+  The qRW and dRW calls are done *outside* the likelihood function to
+  let a neural net handle the qRW and reduce the number of dRW calls.
 """
 
-# %% imports ----------------------------------------------------------------------------------------------------------
+# %% IMPORTS ----------------------------------------------------------------------------------------------------------
 
 # base python -------------------------------------------------------------
 
@@ -82,8 +79,7 @@ except Exception as e:
         print('Setting start_iter to 1')
     start_iter = 1
 
-# %%
-# Load Dataset --------------------------------------------------------------------------------------------------------
+# %% LOAD DATASET -----------------------------------------------------------------------------------------------------
 
 # data
 
@@ -118,8 +114,8 @@ elevations         = np.array(r('elev'))
 stations           = np.array(r('stations')).T
 
 # this `u_vec` is the threshold, 
-# spatially varying but temporally constant
-# ie, each site has its own threshold
+# spatially varying but temporally constant, i.e., each site has its own threshold
+# estimated emprically using p = 0.95
 u_vec              = GP_estimates[:,0] 
 
 
@@ -129,15 +125,9 @@ u_vec              = GP_estimates[:,0]
 # missing indicator matrix
 
 miss_matrix = np.isnan(Y)
-miss_idx_1t = np.where(np.isnan(Y[:,rank]) == True)[0]
-obs_idx_1t  = np.where(np.isnan(Y[:,rank]) == False)[0]
-# Note:
-#   miss_idx_1t and obs_idx_1t stays the same throughout the entire MCMC
-#   they are part of the "dataset's attribute"
 
 
-# %%
-# Setup (Covariates and Constants) ------------------------------------------------------------------------------------
+# %% SETUP (COVARIATES and CONSTANTS) ---------------------------------------------------------------------------------
 
 # Ns, Nt
 
@@ -160,7 +150,7 @@ eff_range_rho    = 3 # effective range for rho
 
 # threshold probability and quantile
 
-p        = 0.9
+p        = 0.95
 u_matrix = np.full(shape = (Ns, Nt), fill_value = np.nanquantile(Y, p)) # threshold u on Y, i.e. p = Pr(Y <= u)
 u_vec    = u_matrix[:,rank]
 
@@ -338,8 +328,7 @@ delta = 0.0 # this is the delta in levy, stays 0
 alpha = 0.5 # alpha in the Stable, stays 0.5
 
 
-# %%
-# Estimate Parameters -------------------------------------------------------------------------------------------------
+# %% ESTIMATE PARAMETERS ----------------------------------------------------------------------------------------------
 
 if start_iter == 1 and from_simulation == False:
     # We estimate parameter's initial values to start the chains
@@ -454,16 +443,51 @@ if start_iter == 1 and from_simulation == False:
     # X_star = R^phi * g(Z)
     X_star = ((wendland_weight_matrix_S @ S_at_knots).T ** phi_vec).T * W
 
-else: # start_iter != 1
-    # We will continue with the last iteration from the traceplot
-    # handled in the Storage and Initialization section
-    pass
+    # X and dX calculated outside
+    
+    if size == 1:
+        # X
+        obs_idx              = np.where(~miss_matrix.reshape(-1, order = 'F'))[0]
 
-# %%
-# Load/Hardcode parameters --------------------------------------------------------------------------------------------
+        Y_stacked            = Y.reshape(-1, order = 'F')
+        u_matrix_stacked     = u_matrix.reshape(-1, order='F')
+        sigma_matrix_stacked = np.exp((C_logsigma.T @ Beta_logsigma)).T.reshape(-1, order = 'F')
+        xi_matrix_stacked    = (C_xi.T @ Beta_xi).T.reshape(-1, order = 'F')
+        
+        pY_stacked_obs       = pCGP(Y_stacked[obs_idx], p, u_matrix_stacked[obs_idx], sigma_matrix_stacked[obs_idx], xi_matrix_stacked[obs_idx])
+        X_stacked            = np.full((Ns*Nt,), fill_value = np.nan)
+        X_stacked[obs_idx]   = qRW_NN_2p(pY_stacked_obs,
+                                         np.tile(phi_vec, Nt)[obs_idx], 
+                                         np.tile(gamma_bar_vec, Nt)[obs_idx],
+                                         np.full((Ns*Nt,), tau)[obs_idx])
+        X_matrix             = X_stacked.reshape(Ns, Nt, order = 'F')
+        
+        # dX
+        dX_stacked          = np.full((Ns*Nt,), fill_value = np.nan)
+        dX_stacked[obs_idx] = dRW(X_stacked[obs_idx], np.tile(phi_vec, Nt)[obs_idx], np.tile(gamma_bar_vec, Nt)[obs_idx], np.full((Ns*Nt,), tau)[obs_idx])
+        dX_matrix           = dX_stacked.reshape(Ns, Nt, order = 'F')
+    
+    if size > 1:
+        # X
+        obs_idx_1t       = np.where(~miss_matrix[:,rank])[0]
+        pY_1t_obs        = pCGP(Y[obs_idx_1t, rank], p, u_vec[obs_idx_1t], sigma_vec[obs_idx_1t], xi_vec[obs_idx_1t])
+        X_1t             = np.full((Ns,), fill_value = np.nan)
+        X_1t[obs_idx_1t] = qRW_NN_2p(pY_1t_obs, phi_vec[obs_idx_1t], gamma_bar_vec[obs_idx_1t], np.full((Ns,), tau)[obs_idx_1t])
+        X_matrix         = comm.gather(X_1t, root = 0)
+        X_matrix         = np.array(X_matrix).T if rank == 0 else None
+        # X_matrix = comm.bcast(X_matrix, root = 0)
+
+        # dX
+        dX_1t             = np.full((Ns,), fill_value = np.nan)
+        dX_1t[obs_idx_1t] = dRW(X_1t[obs_idx_1t], phi_vec[obs_idx_1t], gamma_bar_vec[obs_idx_1t], np.full((Ns,), tau)[obs_idx_1t])
+        dX_matrix         = comm.gather(dX_1t, root = 0)
+        dX_matrix         = np.array(dX_matrix).T if rank == 0 else None
+        # dX_matrix = comm.bcast(dX_matrix, root = 0)
+
+# %% LOAD/HARDCODE PARAMETERS -----------------------------------------------------------------------------------------
 
 # True values as intials with the simulation
-if from_simulation == True:
+if start_iter == 1 and from_simulation == True:
 
     simulation_threshold = 60.0
     Beta_logsigma        = np.array([3.0, 0.0])
@@ -516,7 +540,32 @@ if from_simulation == True:
     X_star       = R_phi * W
     X_truth      = X_star + nuggets
 
-# %% Plot Parameter Surfaces --------------------------------------------------------------------------------------
+    # X and dX calculated outside
+    
+    # X
+    X_matrix = X_truth
+
+    # dX
+    if size == 1:
+        obs_idx             = np.where(~miss_matrix.reshape(-1, order='F'))[0]
+        dX_stacked          = np.full((Ns*Nt,), fill_value = np.nan)
+        dX_stacked[obs_idx] = dRW(X_matrix.reshape(-1, order='F')[obs_idx],
+                                  np.tile(phi_vec, Nt)[obs_idx],
+                                  np.tile(gamma_bar_vec, Nt)[obs_idx],
+                                  np.full((len(obs_idx),), tau))
+        dX_matrix           = dX_stacked.reshape((Ns,Nt), order='F')
+
+    if size > 1:
+        obs_idx_1t        = np.where(~miss_matrix[:,rank])[0]
+        dX_1t             = np.full((Ns,), fill_value = np.nan)
+        dX_1t[obs_idx_1t] = dRW(X_matrix[:,rank][obs_idx_1t],
+                                phi_vec[obs_idx_1t],
+                                gamma_bar_vec[obs_idx_1t],
+                                tau)
+        dX_matrix         = comm.gather(dX_1t, root = 0)
+        dX_matrix         = np.array(dX_matrix).T if rank == 0 else None
+
+# %% PLOT PARAMETER SURFACES --------------------------------------------------------------------------------------
 # Plot Parameter Surface
 if rank == 0 and start_iter == 1:
 
@@ -846,8 +895,7 @@ if rank == 0 and start_iter == 1:
     # plt.show()
     plt.close()
 
-# %%
-# Adaptive Update & Block Update Setup --------------------------------------------------------------------------------
+# %% ADAPTIVE UPDATE & BLOCK UPDATE SETUP -----------------------------------------------------------------------------
 
 # Block Update Specification --------------------------------------------------------------------------------------
 
@@ -1042,10 +1090,9 @@ if rank == 0:
     num_accepted['sigma_Beta_logsigma'] = 0
     num_accepted['sigma_Beta_xi']       = 0
 
-# %% 
-# Storage and Initialize ----------------------------------------------------------------------------------------------
+# %% STORAGE AND INITIALIZE -------------------------------------------------------------------------------------------
 
-# Storage
+# Storage ---------------------------------------------------------------------
 
 if start_iter == 1:
     loglik_trace              = np.full(shape = (n_iters, 1), fill_value = np.nan)               if rank == 0 else None # overall likelihood
@@ -1082,7 +1129,7 @@ else: # start_iter != 1, load from environment
     X_trace                   = np.load('X_trace.npy')                   if rank == 0 else None
     dX_trace                  = np.load('dX_trace.npy')                  if rank == 0 else None
 
-# Initialize Parameters for rank 0 worker only, other workers None
+# Initialize Parameters for rank 0 worker only, other workers bcast later -----
 
 if start_iter == 1:
     # Initialize at the truth/at other values
@@ -1098,7 +1145,9 @@ if start_iter == 1:
     Z_init                   = Z                   if rank == 0 else None
     gamma_k_vec_init         = gamma_k_vec         if rank == 0 else None
     # X_star_init              = X_star              if rank == 0 else None
-    # X_init                   = X                   if rank == 0 else None
+    X_init                   = X_matrix            if rank == 0 else None
+    dX_init                  = dX_matrix           if rank == 0 else None
+
     if rank == 0: # store initial value into first row of traceplot
         S_trace_log[0,:,:]             = S_matrix_init_log # matrix (k, Nt)
         phi_knots_trace[0,:]           = phi_knots_init
@@ -1112,7 +1161,9 @@ if start_iter == 1:
         Z_trace[0,:,:]                 = Z_init
         gamma_k_vec_trace[0,:]         = gamma_k_vec_init
         # X_star_trace[0,:,:]            = X_star_init
-        # X_trace[0,:,:]                 = X_init
+        X_trace[0,:,:]                 = X_init
+        dX_trace[0,:,:]                = dX_init
+
 else: # start_iter != 1, load from last iter of saved traceplot
     last_iter                = start_iter - 1
     S_matrix_init_log        = S_trace_log[last_iter,:,:]             if rank == 0 else None
@@ -1127,46 +1178,48 @@ else: # start_iter != 1, load from last iter of saved traceplot
     Z_init                   = Z_trace[last_iter,:,:]                 if rank == 0 else None
     gamma_k_vec_init         = gamma_k_vec_trace[last_iter,:]         if rank == 0 else None
     # X_star_init              = X_star_trace[last_iter,:,:]            if rank == 0 else None
-    # X_init                   = X_trace[last_iter,:,:]                 if rank == 0 else None
+    X_init                   = X_trace[last_iter,:,:]                 if rank == 0 else None
+    dX_init                  = dX_trace[last_iter,:,:]                if rank == 0 else None
 
 # Set Current Values using broadcast from worker 0
 
 ## Marginal Model -------------------------------------------------------------------------------------------------
-## ---- GPD covariate coefficients --> GPD surface ----
+
+## GPD covariate coefficients --> GPD surface ---------------------------------
 Beta_logsigma_current = comm.bcast(Beta_logsigma_init, root = 0)
 Beta_xi_current       = comm.bcast(Beta_xi_init, root = 0)
 Scale_vec_current     = np.exp((C_logsigma.T @ Beta_logsigma_current).T)[:,rank]
 Shape_vec_current     = ((C_xi.T @ Beta_xi_current).T)[:,rank]
 
-## ---- GPD covariate coefficients prior variance ----
+## GPD covariate coefficients prior variance ----------------------------------
 sigma_Beta_logsigma_current = comm.bcast(sigma_Beta_logsigma_init, root = 0)
-sigma_Beta_xi_current      = comm.bcast(sigma_Beta_xi_init, root = 0)
+sigma_Beta_xi_current       = comm.bcast(sigma_Beta_xi_init, root = 0)
 
 ## Dependence Model ---------------------------------------------------------------------------------------------------
 
-## ---- S Stable ----
+## S Stable -------------------------------------------------------------------
 # note: directly comm.scatter an numpy nd array along an axis is tricky,
 #       hence we first "redundantly" broadcast an entire S_matrix then split
 S_matrix_init_log = comm.bcast(S_matrix_init_log, root = 0) # matrix (k, Nt)
 S_current_log     = np.array(S_matrix_init_log[:,rank]) # vector (k,)
 R_vec_current     = wendland_weight_matrix_S @ np.exp(S_current_log)
 
-## ---- gamma ----
+## gamma ----------------------------------------------------------------------
 gamma_k_vec_current = comm.bcast(gamma_k_vec_init, root = 0)
 gamma_bar_vec_current      = np.sum(np.multiply(wendland_weight_matrix_S, gamma_k_vec_current)**(alpha),
                                 axis = 1)**(1/alpha)
 
-## ---- Z ----
+## Z --------------------------------------------------------------------------
 
 Z_matrix_init = comm.bcast(Z_init, root = 0)    # matrix (Ns, Nt)
 Z_1t_current = np.array(Z_matrix_init[:,rank]) # vector (Ns,)
 
-## ---- phi ----
+## phi ------------------------------------------------------------------------
 
 phi_knots_current = comm.bcast(phi_knots_init, root = 0)
 phi_vec_current   = gaussian_weight_matrix_phi @ phi_knots_current
 
-## ---- range_vec (length_scale) ----
+## range_vec (length_scale) ---------------------------------------------------
 
 range_knots_current = comm.bcast(range_knots_init, root = 0)
 range_vec_current   = gaussian_weight_matrix_rho @ range_knots_current
@@ -1174,32 +1227,61 @@ K_current           = ns_cov(range_vec = range_vec_current,
                              sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = "matern")
 cholesky_matrix_current = scipy.linalg.cholesky(K_current, lower = False)
 
-## ---- Nugget standard deviation: tau ----
+## Nugget standard deviation: tau ---------------------------------------------
 
 tau_current = comm.bcast(tau_init, root = 0)
 
-## ---- X_star ----
+## X_star ---------------------------------------------------------------------
 
 X_star_1t_current = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
 
-## ---- Y (Ns, Nt) ----
+## X (Ns, Nt) -----------------------------------------------------------------
+
+X_matrix_init = comm.bcast(X_init, root = 0) # (Ns, Nt)
+X_1t_current  = X_matrix_init[:,rank]        # (Ns,)
+
+## dX (Ns, Nt) ----------------------------------------------------------------
+
+dX_matrix_init = comm.bcast(dX_init, root = 0) # (Ns, Nt)
+dX_1t_current  = dX_matrix_init[:,rank]        # (Ns,)
+
+## Y (Ns, Nt) -----------------------------------------------------------------
 
 Y_matrix_init = comm.bcast(Y_matrix_init, root = 0) # (Ns, Nt)
 Y_1t_current  = Y_matrix_init[:,rank]               # (Ns,)
 
-# ---- initial imputation ----
+# initial imputation ----------------------------------------------------------
+# Note:
+#   miss_idx_1t and obs_idx_1t STAYS THE SAME throughout the entire MCMC
+#   they are part of the "dataset's attribute"
+miss_idx_1t = np.where(miss_matrix[:,rank])[0]
+obs_idx_1t  = np.where(~miss_matrix[:,rank])[0]
+
 if start_iter == 1:
-    X_1t_imputed = X_star_1t_current[miss_idx_1t] + \
-                    scipy.stats.norm.rvs(loc = 0, scale = tau_current, size = len(miss_idx_1t), random_state = random_generator)
-    Y_1t_imputed = qCGP(pRW(X_1t_imputed, phi_vec_current[miss_idx_1t], gamma_bar_vec_current[miss_idx_1t], tau_current),
-                        p, u_vec[miss_idx_1t], Scale_vec_current[miss_idx_1t], Shape_vec_current[miss_idx_1t])
-    Y_1t_current[miss_idx_1t] = Y_1t_imputed
+    if len(miss_idx_1t) > 0:
+        X_1t_imputed  = X_star_1t_current[miss_idx_1t] + \
+                        scipy.stats.norm.rvs(loc = 0, scale = tau_current, size = len(miss_idx_1t), random_state = random_generator)
+        dX_1t_imputed = dRW(X_1t_imputed, phi_vec_current[miss_idx_1t], gamma_bar_vec_current[miss_idx_1t], tau_current)
+        Y_1t_imputed  = qCGP(pRW(X_1t_imputed, phi_vec_current[miss_idx_1t], gamma_bar_vec_current[miss_idx_1t], tau_current),
+                             p, u_vec[miss_idx_1t], Scale_vec_current[miss_idx_1t], Shape_vec_current[miss_idx_1t])
+        
+        X_1t_current[miss_idx_1t]  = X_1t_imputed
+        dX_1t_current[miss_idx_1t] = dX_1t_imputed
+        Y_1t_current[miss_idx_1t]  = Y_1t_imputed
+
+    assert 0 == len(np.where(np.isnan(X_1t_current))[0])
+    assert 0 == len(np.where(np.isnan(dX_1t_current))[0])
     assert 0 == len(np.where(np.isnan(Y_1t_current))[0])
 
-    Y_1t_gathered = comm.gather(Y_1t_current, root = 0)
-    if rank == 0: Y_trace[0, :, :] = np.array(Y_1t_gathered).T
+    X_1t_gathered  = comm.gather(X_1t_current,  root = 0)
+    dX_1t_gathered = comm.gather(dX_1t_current, root = 0)
+    Y_1t_gathered  = comm.gather(Y_1t_current,  root = 0)
+    if rank == 0: 
+        X_trace[0, :, :]  = np.array(X_1t_gathered).T
+        dX_trace[0, :, :] = np.array(dX_1t_gathered).T
+        Y_trace[0, :, :]  = np.array(Y_1t_gathered).T
 
-# ---- censor/exceedance index ----
+# censor/exceedance index -----------------------------------------------------
 
 # Note:
 #   The censor/exceedance index NEED TO CHANGE whenever we do imputation
@@ -1216,9 +1298,9 @@ exceed_idx_1t_current   = np.where(Y_1t_current  > u_vec)[0]
 
 
 
-"""
-Metropolis-Hasting Update Loop
-"""
+##################################
+# Metropolis-Hasting Update Loop #
+##################################
 
 
 

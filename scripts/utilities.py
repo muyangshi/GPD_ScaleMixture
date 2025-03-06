@@ -471,6 +471,22 @@ def qRW_NN(p_vec, phi_vec, gamma_vec, tau_vec):
     return np.exp(NN_forward_pass(inputs))
 
 def qRW_NN_2p(p_vec, phi_vec, gamma_vec, tau_vec):
+    p_vec     = np.atleast_1d(p_vec)
+    phi_vec   = np.atleast_1d(phi_vec)
+    gamma_vec = np.atleast_1d(gamma_vec)
+    tau_vec   = np.atleast_1d(tau_vec)
+
+    if not (len(p_vec) == len(phi_vec) == len(gamma_vec) == len(tau_vec)):
+        max_length = np.max([len(p_vec), len(phi_vec), len(gamma_vec), len(tau_vec)])
+        
+        if len(p_vec)     == 1: p_vec     = np.full(max_length, p_vec[0])
+        if len(phi_vec)   == 1: phi_vec   = np.full(max_length, phi_vec[0])
+        if len(gamma_vec) == 1: gamma_vec = np.full(max_length, gamma_vec[0])
+        if len(tau_vec)   == 1: tau_vec   = np.full(max_length, tau_vec[0])
+    
+    if not (len(p_vec) == len(phi_vec) == len(gamma_vec) == len(tau_vec)):
+        raise ValueError("Cannot broadcast with different lengths.")
+
     outputs             = np.full((len(p_vec),), fill_value=np.nan)
     condition_p         = (0.9  <= p_vec)     & (p_vec <= 0.999)
     condition_phi       = (0.05 <= phi_vec)   & (phi_vec <= 0.95)
@@ -480,7 +496,7 @@ def qRW_NN_2p(p_vec, phi_vec, gamma_vec, tau_vec):
     print('Proportion interpolated:', np.mean(condition))
     outputs[condition]  = qRW_NN(p_vec[condition], phi_vec[condition], gamma_vec[condition], tau_vec[condition])
     outputs[~condition] = qRW(p_vec[~condition], phi_vec[~condition], gamma_vec[~condition], tau_vec[~condition])
-    return outputs
+    return outputs.ravel()
 
 
 # %% Likelihood Not Simplified

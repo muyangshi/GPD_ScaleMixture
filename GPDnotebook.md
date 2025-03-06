@@ -33,11 +33,17 @@ Sampler:
   - [x] Put `qRW()` emulator into the sampler
     - put inside the `utilities.py`
     - `utilities.py` will now load `qRW_NN_weights_and_biases.pkl`, `qRW_NN_X_min.npy`, and `qRW_NN_X_max.npy`
+    - <mark>DON'T CHANGE PACKAGE's VERSION! LESSON LEARNED!!</mark>
   - [ ] in the sampler, reduce the number of times `qRW` and `dRW` are involved.
-    - [ ] Keep track of `X = qRW(...)` separately
-      - ideally, fewer calls to the predict function (make one big prediction instead of many small predictions)
-    - [ ] Keep track of `dX = dRW(...)` separately
-        - only necessary for the exceedance points
+    - [ ] Initialize `X` and `dX`
+      - [x] Only need to initialize the observed site-time.
+      - The missing site-time will be imputed during initial imputation
+        - [x] update X?
+        - [x] update dX?
+    - [ ] Keep track of `X = qRW(...)` and `dX = dRW(...)` separately outside the likelihood function
+      - ideally, fewer calls to the `qRW_NN_2p` predict function (make one big prediction instead of many small predictions)
+      - `dRW` is essentially only necessary for the exceedance points
+    - [ ] update them after imputation
   - [ ] in the sampler, reduce the $Z_t$ into block updates
   - [ ] Check sampler speed
   - [ ] we could even try updating $\gamma_k$ too?
