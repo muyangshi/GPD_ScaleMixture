@@ -3,10 +3,28 @@
 # grabbed and copied useful functions from Likun's model_sim.py, ns_cov.py
 # Require:
 #   - RW_inte.py, RW_inte_cpp.cpp & RW_inte.cpp.so
+#   - qRW_NN_weights_and_biases.pkl, qRW_NN_X_min.npy, qRW_NN_X_max.npy
 # March 5, 2025
 # Use Neural Network to emulate qRW
     # Put dRW and qRW outside of the likelihood function, reduce the number of times they are involved
 """
+# %% check dependencies
+
+import os
+
+required_files = [
+    "RW_inte.py",
+    "RW_inte_cpp.cpp",
+    "RW_inte.cpp.so",
+    "qRW_NN_weights_and_biases.pkl",
+    "qRW_NN_X_min.npy",
+    "qRW_NN_X_max.npy"
+]
+
+missing_files = [f for f in required_files if not os.path.exists(f)]
+if missing_files:
+    raise FileNotFoundError(f"Missing required files: {', '.join(missing_files)}. Please ensure all dependencies are available.")
+
 # %%
 # general imports and ubiquitous utilities
 import sys
@@ -14,8 +32,8 @@ import numpy as np
 import scipy
 import scipy.special as sc
 from scipy.spatial import distance
-import RW_inte
 import pickle
+import RW_inte
 
 norm_pareto = 'standard'
 
@@ -404,6 +422,65 @@ if norm_pareto == 'shifted':
     dRW = print('2D Integral No Implementation!' )
     pRW = print('2D Integral No Implementation!' )
     qRW = print('2D Integral No Implementation!' )
+
+# neural network emulators for distribution functions -----------------------------------------------------------------
+
+with open('qRW_NN_weights_and_biases.pkl', 'rb') as f:
+    weights_and_biases = pickle.load(f)
+w0, b0, w1, b1, w2, b2, w3, b3 = weights_and_biases
+
+qRW_NN_X_min = np.load('qRW_NN_X_min.npy', allow_pickle=True)
+qRW_NN_X_max = np.load('qRW_NN_X_max.npy', allow_pickle=True)
+
+def NN_forward_pass(X_scaled):
+        """
+        Applies a 4-layer MLP with tanh on hidden layers and linear on output:
+        1) Dense(512, tanh)
+        2) Dense(512, tanh)
+        3) Dense(512, tanh)
+        4) Dense(1, linear)
+
+        Parameters
+        ----------
+        X_scaled : (N, d) array, already min-max scaled
+        w0, b0   : weights, bias for layer 1
+        w1, b1   : for layer 2
+        w2, b2   : for layer 3
+        w3, b3   : for layer 4
+
+        Returns
+        -------
+        (N, ) array of predictions
+        """
+        # Layer 1
+        Z = X_scaled @ w0 + b0
+        Z = np.tanh(Z)
+        # Layer 2
+        Z = Z @ w1 + b1
+        Z = np.tanh(Z)
+        # Layer 3
+        Z = Z @ w2 + b2
+        Z = np.tanh(Z)
+        # Layer 4
+        Z = Z @ w3 + b3
+        return Z.ravel()
+
+def qRW_NN(p_vec, phi_vec, gamma_vec, tau_vec):
+    inputs = np.column_stack((p_vec, phi_vec, gamma_vec, tau_vec))
+    inputs = (inputs - qRW_NN_X_min) / (qRW_NN_X_max - qRW_NN_X_min)
+    return np.exp(NN_forward_pass(inputs))
+
+def qRW_NN_2p(p_vec, phi_vec, gamma_vec, tau_vec):
+    outputs             = np.full((len(p_vec),), fill_value=np.nan)
+    condition_p         = (0.9  <= p_vec)     & (p_vec <= 0.999)
+    condition_phi       = (0.05 <= phi_vec)   & (phi_vec <= 0.95)
+    condition_gamma     = (0.05 <= gamma_vec) & (gamma_vec <= 0.95)    
+    condition_tau       = (0.05 <= tau_vec)   & (tau_vec <= 0.95)
+    condition           = condition_p & condition_phi & condition_gamma & condition_tau
+    outputs[condition]  = qRW_NN(p_vec[condition], phi_vec[condition], gamma_vec[condition], tau_vec[condition])
+    outputs[~condition] = qRW(p_vec[~condition], phi_vec[~condition], gamma_vec[~condition], tau_vec[~condition])
+    return outputs
+
 
 # %% Likelihood Not Simplified
 

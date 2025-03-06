@@ -30,8 +30,10 @@ Logistics:
   - [ ] March 15 deadline for EVA contributed paper
 
 Sampler:
-  - [ ] Put `qRW()` emulator into the sampler
-    - [ ] in the sampler, reduce the number of times `qRW` and `dRW` are involved.
+  - [x] Put `qRW()` emulator into the sampler
+    - put inside the `utilities.py`
+    - `utilities.py` will now load `qRW_NN_weights_and_biases.pkl`, `qRW_NN_X_min.npy`, and `qRW_NN_X_max.npy`
+  - [ ] in the sampler, reduce the number of times `qRW` and `dRW` are involved.
     - [ ] Keep track of `X = qRW(...)` separately
       - ideally, fewer calls to the predict function (make one big prediction instead of many small predictions)
     - [ ] Keep track of `dX = dRW(...)` separately
