@@ -26,33 +26,73 @@
 
 ## Mar. 4 (Tuesday) Muyang/Likun/Ben
 
-Logistics:
+### Logistics:
   - [ ] March 15 deadline for EVA contributed paper
 
-Sampler:
+### Sampler:
   - [x] Put `qRW()` emulator into the sampler
     - put inside the `utilities.py`
     - `utilities.py` will now load `qRW_NN_weights_and_biases.pkl`, `qRW_NN_X_min.npy`, and `qRW_NN_X_max.npy`
     - <mark>DON'T CHANGE PACKAGE's VERSION! LESSON LEARNED!!</mark>
-  - [ ] in the sampler, reduce the number of times `qRW` and `dRW` are involved.
-    - [ ] Initialize `X` and `dX`
-      - [x] Only need to initialize the observed site-time.
-      - The missing site-time will be imputed during initial imputation
-        - [x] update X?
-        - [x] update dX?
-    - [ ] Keep track of `X = qRW(...)` and `dX = dRW(...)` separately outside the likelihood function
-      - ideally, fewer calls to the `qRW_NN_2p` predict function (make one big prediction instead of many small predictions)
-      - `dRW` is essentially only necessary for the exceedance points
-    - [ ] update them after imputation
+  - [x] Initialize `X` and `dX`
+    - [x] Only need to initialize the observed site-time.
+    - The missing site-time will be imputed during initial imputation
+      - [x] update X?
+      - [x] update dX?
+  - [x] Keep track of `X = qRW(...)` and `dX = dRW(...)` separately outside the likelihood function
+    - ideally, fewer calls to the `qRW_NN_2p` predict function (make one big prediction instead of many small predictions)
+    - `dRW` is essentially only necessary for the exceedance points
+    - swap the `ll_1t(...)` to `ll_1t_qRWdRWout(...)` in 
+      - [x] pre-update llik_1t_current
+      - [x] $S_t$
+      - [x] $\gamma_k$
+        - Update X
+        - Update dX
+      - [x] $Z_t$
+      - [x] $\phi$
+        - Update X
+        - Update dX
+      - [x] $\rho$
+      - [x] $\tau$
+        - Update X
+        - Update dX
+      - [x] $\sigma_{GPD}$
+        - Update X
+        - Update dX
+      - [x] $\xi_{GPD}$
+        - Update X
+        - Update dX
+      - [x] imputation
+        - Update X
+        - Update dX
+      - [x] post iteration detail likelihood
+  - [x] Check sampler speed
+    - 50 sites 60 time replicates. 1 second per iter.
+  - [ ] `dRW(...)` only keep track for
+    - the observed exceedance
+    - the missing (because they could be switching between exceedance and censored)
+    - no need to calculated observed censored, because we will never use their `dRW` so we can keep their `dRW` as `np.nan`
   - [ ] in the sampler, reduce the $Z_t$ into block updates
   - [ ] Check sampler speed
   - [ ] we could even try updating $\gamma_k$ too?
+  - <mark>discuss</mark> when updating $\sigma$ and $\xi$, we might need to add a check such that the current $Y$ is not impossible? Or limit the shape parameter to be larger than 0?
+    - `dCGP(Y, p, u, sigma, xi) == 0`
+    - may not be necesary, because there is a part of the likelihood being `+ np.log(dCGP)`, which will be `-np.inf` if Y not possible.
+  - <mark>discuss</mark> No acceptance because ratio is inf
+    - `r = np.exp(llik_proposal - llik_current)`, `if np.isfinite(r) and r >= random_generator.uniform():`
+    - ![alt text](image-62.png)
+    - `if r == np.inf and np.isfinite(llik_proposal)`: accept?
+```
+if not np.isfinite(r) and llik_proposal > llik_current and np.isfinite(llik_proposal):
+  num_accepted[key] += 1
+  phi_accepted       = True
+```
 
-Emulation:
+### Emulation:
   - dRW
     - [ ] emulate `dRW` if necessary
   - qRW
-    - [ ] the emulator output must not be too large for the `tanh` to work right because it output between [-1, 1]
+    - [ ] <mark>Question</mark> The emulator output must not be too large for the `tanh` to work right because it output between [-1, 1]
 
 ## Feb. 25 (Tuesday) Muyang/Likun/Ben
 
