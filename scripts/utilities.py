@@ -493,7 +493,10 @@ def qRW_NN_2p(p_vec, phi_vec, gamma_vec, tau_vec):
     condition_gamma     = (0.5  <= gamma_vec) & (gamma_vec <= 5)    
     condition_tau       = (1 <= tau_vec)      & (tau_vec <= 100)
     condition           = condition_p & condition_phi & condition_gamma & condition_tau
-    print('Proportion interpolated:', np.mean(condition))
+
+    if np.mean(condition) < 0.9:
+        print('Proportion interpolated:', np.mean(condition))
+
     outputs[condition]  = qRW_NN(p_vec[condition], phi_vec[condition], gamma_vec[condition], tau_vec[condition])
     outputs[~condition] = qRW(p_vec[~condition], phi_vec[~condition], gamma_vec[~condition], tau_vec[~condition])
     return outputs.ravel()
@@ -623,7 +626,7 @@ def impute_ZY_1t(p, u_vec, scale_vec, shape_vec,
                   p,
                   u_vec[miss_idx], scale_vec[miss_idx], shape_vec[miss_idx])
     
-    return(Z_miss, Y_miss)
+    return(Z_miss, X_miss, Y_miss)
 
 # %% Likelihood
 # Likelihood
