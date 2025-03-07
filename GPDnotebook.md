@@ -78,10 +78,23 @@
   - <mark>discuss</mark> when updating $\sigma$ and $\xi$, we might need to add a check such that the current $Y$ is not impossible? Or limit the shape parameter to be larger than 0?
     - `dCGP(Y, p, u, sigma, xi) == 0`
     - may not be necesary, because there is a part of the likelihood being `+ np.log(dCGP)`, which will be `-np.inf` if Y not possible.
+
+### Convergence:
   - <mark>discuss</mark> No acceptance because ratio is inf
     - `r = np.exp(llik_proposal - llik_current)`, `if np.isfinite(r) and r >= random_generator.uniform():`
     - ![alt text](image-62.png)
     - `if r == np.inf and np.isfinite(llik_proposal)`: accept?
+  - Chain (involving `qRW` terms) becomes stagnant after 400 iters?
+  - Chain that update $\phi$ alone is fine
+    - ![alt text](image-63.png)
+  - Chaint hat update $\phi$ and $\tau$ alone is fine
+    - ![alt text](image-64.png)
+    - ![alt text](image-65.png)
+  - Chain that update $\phi$, $\tau$ and $\rho$ also fine.
+    - ![alt text](image-66.png)
+    - ![alt text](image-67.png)
+    - ![alt text](image-68.png)
+  - Chain that update $\phi$, $\tau$, $\rho$, and $S_t$
 ```
 if not np.isfinite(r) and llik_proposal > llik_current and np.isfinite(llik_proposal):
   num_accepted[key] += 1
