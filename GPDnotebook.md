@@ -15,13 +15,6 @@
     - might want to try WITH imputation?
   - [Alpine allocation](https://colostate.sharepoint.com/sites/Division_Research_Computing_and_Cyberinfrastructure/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT%2FAlpine%20Project%20Allocation%20Request%20Process%2Epdf&parent=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT&p=true&ga=1)
 
-
-- (By December) Speed up
-  - Keep track of `X_star` and, at least, `X` separately (outside) as this will save the number of times we do `qRW`
-  - pull the calculation of `X_star` and `X` outside of `ll_1t` function (use as argument)
-  - make dedicated section to calculate `X_star` and `X` after each update
-  - Ben: using block update on the $Z_t$ could reduce nontrivial runtime
-
 # Meetings
 
 ## Mar. 4 (Tuesday) Muyang/Likun/Ben
@@ -68,12 +61,13 @@
       - [x] post iteration detail likelihood
   - [x] Check sampler speed
     - 50 sites 60 time replicates. 1 second per iter.
-  - [ ] `dRW(...)` only keep track for
-    - the observed exceedance
-    - the missing (because they could be switching between exceedance and censored)
-    - no need to calculated observed censored, because we will never use their `dRW` so we can keep their `dRW` as `np.nan`
   - [x] in the sampler, reduce the $Z_t$ into block updates
     - No need, because when updating $Z_t$`[obs_idx_1t]`, there is no `qRW` nor `dRW` calculation.
+  - [x] `dRW(...)` only keep track for
+    - the observed-exceedance and the missing (because they could be switching between exceedance and censored) `miss_idx_1t`
+    - no need to calculated observed censored, because we will never use their `dRW` so we can keep their `dRW` as `np.nan`
+    - i.e., we need the union of `miss_idx_1t` and `exceed_idx_1t`. 
+      - `miss_union_exceed_idx_1t_current = np.union1d(exceed_idx_1t_current, miss_idx_1t)`
   - [ ] Check sampler speed
   - [ ] we could even try updating $\gamma_k$ too?
 
@@ -112,6 +106,11 @@
   - With the fix, after adding $\beta_{\xi}$, the chain also mix.
     - mixing for the marginal parameters are bad (for the $\beta$), they don't change, but I think that's OK for now. For real dataset, it will change? (e.g <mark>modify the proposal covariance matrix $\Sigma_0$</mark>)
   - Have the $Z_t$ be running, but it should be okay.
+    - ![alt text](image-78.png)
+    - ![alt text](image-79.png)
+    - ![alt text](image-80.png)
+    - ![alt text](image-81.png)
+    - ![alt text](image-82.png)
 ```
 if not np.isfinite(r) and llik_proposal > llik_current and np.isfinite(llik_proposal):
   num_accepted[key] += 1
