@@ -78,6 +78,7 @@
   - <mark>discuss</mark> when updating $\sigma$ and $\xi$, we might need to add a check such that the current $Y$ is not impossible? Or limit the shape parameter to be larger than 0?
     - `dCGP(Y, p, u, sigma, xi) == 0`
     - may not be necesary, because there is a part of the likelihood being `+ np.log(dCGP)`, which will be `-np.inf` if Y not possible.
+    - NECESSARY! SEE REASONING BELOW!
 
 ### Convergence:
   - <mark>discuss</mark> No acceptance because ratio is inf
@@ -94,7 +95,21 @@
     - ![alt text](image-66.png)
     - ![alt text](image-67.png)
     - ![alt text](image-68.png)
-  - Chain that update $\phi$, $\tau$, $\rho$, and $S_t$
+  - Chain that update $\phi$, $\tau$, $\rho$, and $S_t$ also appears to be fine.
+    - ![alt text](image-69.png)
+    - ![alt text](image-70.png)
+    - ![alt text](image-71.png)
+    - ![alt text](image-72.png)
+  - Chain that update $\phi$, $\tau$, $\rho$, $S_t$ and adding $\beta_{\sigma}$ obliterate the update
+    - ![alt text](image-74.png)
+    - ![alt text](image-75.png)
+    - Comes back to the point of when updating $\sigma$ and $\xi$, we need to check such that $`dCGP(Y_1t_current, u_vec, sigma_proposal and/or xi proposal)` needs to be > 0. Otherwise, we might deal with the case that `dCGP(..) = 0` and `pCGP(..) = 1`, and `qRW` will try to predict that `p = 1` and then sometimes when that update get accepted, it will break the udpate.
+    - After adding the check, it starts mixing:
+      - ![alt text](image-73.png)
+      - ![alt text](image-76.png)
+      - ![alt text](image-77.png)
+  - With the fix, after adding $\beta_{\xi}$, the chain also mix.
+    - mixing for the marginal parameters are bad (for the $\beta$), they don't change, but I think that's OK for now. For real dataset, it will change? (e.g <mark>modify the proposal covariance matrix $\Sigma_0$</mark>)
 ```
 if not np.isfinite(r) and llik_proposal > llik_current and np.isfinite(llik_proposal):
   num_accepted[key] += 1

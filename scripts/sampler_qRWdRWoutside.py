@@ -55,8 +55,8 @@ if rank == 0: state_map = gpd.read_file('./cb_2018_us_state_20m/cb_2018_us_state
 # MCMC chain setup --------------------------------------------------------
 
 from_simulation = True
-if norm_pareto == 'shifted':  n_iters = 10000
-if norm_pareto == 'standard': n_iters = 10000
+if norm_pareto == 'shifted':  n_iters = 3000
+if norm_pareto == 'standard': n_iters = 3000
 
 # Random number generator
 random_generator = np.random.RandomState((rank+1)*7)
@@ -1349,7 +1349,6 @@ for iter in range(start_iter, n_iters):
         S_proposal_log[change_idx] = S_current_log[change_idx] + np.sqrt(sigma_m_sq_St[i]) * random_generator.normal(0.0, 1.0, size = 1)
 
         R_vec_proposal             = wendland_weight_matrix_S @ np.exp(S_proposal_log)
-        # X_star_1t_proposal         = (R_vec_proposal ** phi_vec_current) * g(Z_1t_current)
 
         # Data Likelihood -----------------------------------------------------------------------------------------
 
@@ -1364,27 +1363,18 @@ for iter in range(start_iter, n_iters):
                                           S_proposal_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
                                           X_1t_current, dX_1t_current)
 
-        # Prior Density -------------------------------------------------------------------------------------------
-        
-        # Already included in the new likelihood function
-        # lprior_1t_current  = np.sum(scipy.stats.levy.logpdf(np.exp(S_current_log),  scale = gamma_k_vec) + S_current_log)
-        # lprior_1t_proposal = np.sum(scipy.stats.levy.logpdf(np.exp(S_proposal_log), scale = gamma_k_vec) + S_proposal_log)
-
         # Update --------------------------------------------------------------------------------------------------
-        # r = np.exp(llik_1t_proposal + lprior_1t_proposal - llik_1t_current - lprior_1t_current)
         r = np.exp(llik_1t_proposal - llik_1t_current)
         u = random_generator.uniform()
         if np.isfinite(r) and r >= u:
             num_accepted_St[i] += 1
             S_current_log       = S_proposal_log.copy()
             R_vec_current       = wendland_weight_matrix_S @ np.exp(S_current_log)
-            # X_star_1t_current   = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
             llik_1t_current     = llik_1t_proposal
         if not np.isfinite(r) and llik_1t_proposal > llik_1t_current and np.isfinite(llik_1t_proposal):
             num_accepted_St[i] += 1
             S_current_log       = S_proposal_log.copy()
             R_vec_current       = wendland_weight_matrix_S @ np.exp(S_current_log)
-            # X_star_1t_current   = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
             llik_1t_current     = llik_1t_proposal
 
     # Save --------------------------------------------------------------------------------------------------------
@@ -1471,42 +1461,44 @@ for iter in range(start_iter, n_iters):
     ####                 Update Zt                         ####
     ###########################################################
     
-    # if rank == 0: print('iter:', iter, 'Update Zt')
+    # # if rank == 0: print('iter:', iter, 'Update Zt')
     
-    # for i in range(Ns):
-    for i in obs_idx_1t: # only update the observed sites
-        # propose new Zt at site i  -------------------------------------------------------------------------------
-        idx                = np.array([i])
-        Z_1t_proposal      = Z_1t_current.copy()
-        Z_1t_proposal[idx] = Z_1t_current[idx] + np.sqrt(sigma_m_sq_Zt[i]) * random_generator.normal(0.0, 1.0, size = 1)
-        # X_star_1t_proposal = (R_vec_current ** phi_vec_current) * g(Z_1t_proposal)
+    # # for i in range(Ns):
+    # for i in obs_idx_1t: # only update the observed sites
+    #     # propose new Zt at site i  -------------------------------------------------------------------------------
+    #     idx                = np.array([i])
+    #     Z_1t_proposal      = Z_1t_current.copy()
+    #     Z_1t_proposal[idx] = Z_1t_current[idx] + np.sqrt(sigma_m_sq_Zt[i]) * random_generator.normal(0.0, 1.0, size = 1)
 
-        # Data Likelihood -----------------------------------------------------------------------------------------
+    #     # Data Likelihood -----------------------------------------------------------------------------------------
 
-        # # "Full" version, X and dX are calculated within the likelihood function
-        # llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-        #                          R_vec_current, Z_1t_proposal, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
-        #                          S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current)
+    #     # # "Full" version, X and dX are calculated within the likelihood function
+    #     # llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+    #     #                          R_vec_current, Z_1t_proposal, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
+    #     #                          S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current)
 
-        # optimized version, X and dX are not calculated within the likelihood function
-        llik_1t_proposal = ll_1t_qRWdRWout(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                           R_vec_current, Z_1t_proposal, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
-                                           S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
-                                           X_1t_current, dX_1t_current)
+    #     # optimized version, X and dX are not calculated within the likelihood function
+    #     llik_1t_proposal = ll_1t_qRWdRWout(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+    #                                        R_vec_current, Z_1t_proposal, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
+    #                                        S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
+    #                                        X_1t_current, dX_1t_current)
 
-        # Update --------------------------------------------------------------------------------------------------
-        r = np.exp(llik_1t_proposal - llik_1t_current)
-        if np.isfinite(r) and r >= random_generator.uniform():
-            num_accepted_Zt[i] += 1
-            Z_1t_current      = Z_1t_proposal.copy()
-            # X_star_1t_current = (R_vec_current ** phi_vec_current) * g(Z_1t_current)
-            llik_1t_current   = llik_1t_proposal
+    #     # Update --------------------------------------------------------------------------------------------------
+    #     r = np.exp(llik_1t_proposal - llik_1t_current)
+    #     if np.isfinite(r) and r >= random_generator.uniform():
+    #         num_accepted_Zt[i] += 1
+    #         Z_1t_current      = Z_1t_proposal.copy()
+    #         llik_1t_current   = llik_1t_proposal
+    #     if not np.isfinite(r) and llik_1t_proposal > llik_1t_current and np.isfinite(llik_1t_proposal):
+    #         num_accepted_Zt[i] += 1
+    #         Z_1t_current      = Z_1t_proposal.copy()
+    #         llik_1t_current   = llik_1t_proposal
 
-    # Save --------------------------------------------------------------------------------------------------------
-    Z_1t_current_gathered = comm.gather(Z_1t_current, root = 0)
-    if rank == 0: Z_trace[iter,:,:]  = np.vstack(Z_1t_current_gathered).T
+    # # Save --------------------------------------------------------------------------------------------------------
+    # Z_1t_current_gathered = comm.gather(Z_1t_current, root = 0)
+    # if rank == 0: Z_trace[iter,:,:]  = np.vstack(Z_1t_current_gathered).T
 
-    comm.Barrier()
+    # comm.Barrier()
 
     # %% Update phi ------------------------------------------------------------------------------------------------
     ############################################################
@@ -1723,6 +1715,8 @@ for iter in range(start_iter, n_iters):
     # Data Likelihood ---------------------------------------------------------------------------------------------
     if np.any(Scale_vec_proposal <= 0):
         llik_1t_proposal = -np.inf
+    elif np.any(dCGP(Y_1t_current, p, u_vec, Scale_vec_proposal, Shape_vec_current) == 0):
+        llik_1t_proposal = -np.inf
     else:
         # # "full" version as X and dX are calculated within the likelihood function
         # llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_proposal, Shape_vec_current,
@@ -1795,6 +1789,8 @@ for iter in range(start_iter, n_iters):
     # Data Likelihood ---------------------------------------------------------------------------------------------
     
     if np.any(Shape_vec_proposal <= -1) or np.any(Shape_vec_proposal >= 1):
+        llik_1t_proposal = -np.inf
+    elif np.any(dCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_proposal) == 0):
         llik_1t_proposal = -np.inf
     else:
         # # "full" version as X and dX are calculated within the likelihood function
