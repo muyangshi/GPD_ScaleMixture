@@ -10,6 +10,9 @@ Decouple phi and rho knots
 
 20241031
 output placed in the current folder, easier to use for coverage analysis
+
+20250310
+changed to Ns = 625, Nt = 600 to test running speed
 """
 
 # %%
@@ -21,11 +24,11 @@ import sys
 import os
 import multiprocessing
 from pathlib import Path
-os.environ["OMP_NUM_THREADS"] = "1"        # export OMP_NUM_THREADS=1
-os.environ["OPENBLAS_NUM_THREADS"] = "1"   # export OPENBLAS_NUM_THREADS=1
-os.environ["MKL_NUM_THREADS"] = "1"        # export MKL_NUM_THREADS=1
+os.environ["OMP_NUM_THREADS"]        = "1"        # export OMP_NUM_THREADS=1
+os.environ["OPENBLAS_NUM_THREADS"]   = "1"   # export OPENBLAS_NUM_THREADS=1
+os.environ["MKL_NUM_THREADS"]        = "1"        # export MKL_NUM_THREADS=1
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
-os.environ["NUMEXPR_NUM_THREADS"] = "1"    # export NUMEXPR_NUM_THREADS=1
+os.environ["NUMEXPR_NUM_THREADS"]    = "1"    # export NUMEXPR_NUM_THREADS=1
 
 # packages ----------------------------------------------------------------
 
@@ -47,7 +50,7 @@ print('link function:', norm_pareto, 'Pareto')
 
 # setup -------------------------------------------------------------------
 
-n_processes = 4
+n_processes = 4 if multiprocessing.cpu_count() < 64 else 12
 
 try:
     data_seed = int(sys.argv[1])
@@ -72,9 +75,10 @@ def my_floor(a, precision=0):
 
 np.random.seed(data_seed)
 
-Nt       = 60 # number of time replicates
-Ns       = 50 # number of sites/stations
-Time     = np.linspace(-Nt/2, Nt/2-1, Nt)/np.std(np.linspace(-Nt/2, Nt/2-1, Nt), ddof=1)
+Nt       = 300 # number of time replicates
+Ns       = 625 # number of sites/stations
+Time_unscaled = np.linspace(-Nt/2, Nt/2-1, Nt)
+Time     = (Time_unscaled - np.mean(Time_unscaled))/np.std(Time_unscaled, ddof=1)
 
 # Knots
 
@@ -107,15 +111,15 @@ simulation_threshold = 60.0
 
 # sigma
 
-Beta_logsigma = np.array([3.0, 0.0])
+Beta_logsigma = np.array([3.0, 0.1])
 
 # xi
 
-Beta_ksi      = np.array([0.1, 0.0])
+Beta_ksi      = np.array([0.1, 0.05])
 
 # censoring probability
 
-p = 0.9
+p = 0.95
 
 # save
 
