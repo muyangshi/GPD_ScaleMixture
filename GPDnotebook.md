@@ -131,11 +131,22 @@ if not np.isfinite(r) and llik_proposal > llik_current and np.isfinite(llik_prop
     - And it worked!
   - `pgrep -lf sampler_qRWdRWoutside.py` lists the PIDs, since now htop will be slow.
     - `kill 1605855` will TERM the `mpirun`
+  - A portion of 0.76 is interpolated. Still callling `qRW` quite many times
+    - [ ] Figure out which dimension is extraplating
+      - is it the $p$? because $\bar{\gamma}$ is well inside the range, and $\phi$ shouldn't be too bad, either.
+  - 600 seconds per 1 iteration, 5 times the oversubscribe
+    - could be faster because Chien-Chung using 128 cores
 ### Emulation:
   - dRW
-    - [ ] emulate `dRW` if necessary
+    - [-] emulate `dRW` if necessary; seems not necessary
   - qRW
     - [ ] <mark>Question</mark> The emulator output must not be too large for the `tanh` to work right because it output between [-1, 1]
+    - [ ] See if we can further train on [0.9, 0.99999], and interpolate within [0.9, 0.9999]
+      - oversampling the large $p$ regsion:
+        - [ ] simply/naively increase the emulation bound to 0.99999, change nothing else; see how the emulator perform.
+        - [x] exponentially more design points toward 1 using
+          - $p_{min} + (p_{max} - p_{min}) * \dfrac{1 - \exp(-\beta * u)}{1 - \exp(-\beta)}$
+          - ![alt text](image-83.png)
 
 ## Feb. 25 (Tuesday) Muyang/Likun/Ben
 

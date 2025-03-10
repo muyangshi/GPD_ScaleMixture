@@ -494,8 +494,12 @@ def qRW_NN_2p(p_vec, phi_vec, gamma_vec, tau_vec):
     condition_tau       = (1 <= tau_vec)      & (tau_vec <= 100)
     condition           = condition_p & condition_phi & condition_gamma & condition_tau
 
-    if np.mean(condition) < 0.9:
-        print('Proportion interpolated:', np.mean(condition))
+    if np.mean(condition) < 0.99:
+        print('Proportion interpolated:',       np.mean(condition))
+        print('Proportion p interpolated:',     np.mean(condition_p))
+        print('Proportion phi interpolated:',   np.mean(condition_phi))
+        print('Proportion gamma interpolated:', np.mean(condition_gamma))
+        print('Proportion tau interpolated:',   np.mean(condition_tau))
 
     outputs[condition]  = qRW_NN(p_vec[condition], phi_vec[condition], gamma_vec[condition], tau_vec[condition])
     outputs[~condition] = qRW(p_vec[~condition], phi_vec[~condition], gamma_vec[~condition], tau_vec[~condition])
