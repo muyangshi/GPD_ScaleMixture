@@ -90,7 +90,7 @@ except Exception as e:
 #     datafolder = '../data/realdata/'
 #     datafile   = 'JJA_precip_nonimputed.RData'
 if from_simulation == True: 
-    datafolder = './simulated_seed-2345_t-60_s-50_phi-nonstatsc2_rho-nonstat_tau-10.0/'
+    datafolder = './simulated_seed-2345_t-300_s-625_phi-nonstatsc2_rho-nonstat_tau-10.0/'
     datafile   = 'simulated_data.RData'
 if from_simulation == False: 
     datafolder = './realdata/'
@@ -133,8 +133,8 @@ miss_matrix = np.isnan(Y)
 
 Ns = Y.shape[0] # number of sites/stations
 Nt = Y.shape[1] # number of time replicates
-start_year = 1949
-end_year   = 2023
+start_year = -Nt/2
+end_year   = Nt/2-1
 all_years  = np.linspace(start_year, end_year, Nt)
 Time       = (all_years - np.mean(all_years))/np.std(all_years, ddof=1) # delta degress of freedom, to match the n-1 in R
 Time       = Time[0:Nt] # if there is any truncation specified above
@@ -150,7 +150,7 @@ eff_range_rho    = 3 # effective range for rho
 
 # threshold probability and quantile
 
-p        = 0.9
+p        = 0.95
 u_matrix = np.full(shape = (Ns, Nt), fill_value = np.nanquantile(Y, p)) # threshold u on Y, i.e. p = Pr(Y <= u)
 u_vec    = u_matrix[:,rank]
 
@@ -490,8 +490,8 @@ if start_iter == 1 and from_simulation == False:
 if start_iter == 1 and from_simulation == True:
 
     simulation_threshold = 60.0
-    Beta_logsigma        = np.array([3.0, 0.0])
-    Beta_xi              = np.array([0.1, 0.0])
+    Beta_logsigma        = np.array([3.0, 0.1])
+    Beta_xi              = np.array([0.1, 0.05])
     range_at_knots       = np.sqrt(0.3*knots_x_rho + 0.4*knots_y_rho)/2
     phi_at_knots         = 0.65 - np.sqrt((knots_x_phi-5.1)**2/5 + (knots_y_phi-5.3)**2/4)/11.6
     gamma_k_vec          = np.repeat(0.5, k_S)
@@ -1767,7 +1767,7 @@ for iter in range(start_iter, n_iters):
         llik_current  = np.sum(llik_1t_current_gathered)  + np.sum(lprior_Beta_logsigma_current)
         llik_proposal = np.sum(llik_1t_proposal_gathered) + np.sum(lprior_Beta_logsigma_proposal)
         
-        print('GPD sigma update', 'llik_proposal:', llik_proposal, 'llik_current:', llik_current)
+        # print('GPD sigma update', 'llik_proposal:', llik_proposal, 'llik_current:', llik_current)
 
         r = np.exp(llik_proposal - llik_current)
         if np.isfinite(r) and r >= random_generator.uniform():
@@ -1849,7 +1849,7 @@ for iter in range(start_iter, n_iters):
         llik_current  = np.sum(llik_1t_current_gathered)  + np.sum(lprior_Beta_xi_current)
         llik_proposal = np.sum(llik_1t_proposal_gathered) + np.sum(lprior_Beta_xi_proposal)
 
-        print('GPD xi update', 'llik_proposal:', llik_proposal, 'llik_current:', llik_current)
+        # print('GPD xi update', 'llik_proposal:', llik_proposal, 'llik_current:', llik_current)
 
         r = np.exp(llik_proposal - llik_current)
         if np.isfinite(r) and r >= random_generator.uniform():
