@@ -17,6 +17,8 @@
 
 # Meetings
 
+## Mar. 11 (Tuesday) Muyang/Likun/Ben
+
 ## Mar. 4 (Tuesday) Muyang/Likun/Ben
 
 ### Logistics:
@@ -68,7 +70,11 @@
     - no need to calculated observed censored, because we will never use their `dRW` so we can keep their `dRW` as `np.nan`
     - i.e., we need the union of `miss_idx_1t` and `exceed_idx_1t`. 
       - `miss_union_exceed_idx_1t_current = np.union1d(exceed_idx_1t_current, miss_idx_1t)`
-  - [ ] Check sampler speed
+  - [x] Check sampler speed
+    - ~3 hours to finish the full `dRW` version on (Ns, Nt) = 50x60 dataset
+    - 1.4 sec per iter using full `dRW`
+    - 1.33 sec per iter using reduced `dRW`
+    - misspiggy is also being occupied.
   - [ ] we could even try updating $\gamma_k$ too?
 
 ### Convergence:
@@ -117,6 +123,14 @@ if not np.isfinite(r) and llik_proposal > llik_current and np.isfinite(llik_prop
   phi_accepted       = True
 ```
 
+### Coverage Analysis
+- simulate one bigger dataset
+  - Tried $Ns = 625, Nt = 600$ and got error `ORTE_ERROR_LOG: The system limit on number of pipes a process can open was reached in file odls_default_module.c at line 642` on misspiggy
+  - Still the same issue with $Nt = 300$
+    - Try `ulimit -n 65535` to increase file descriptor limit temporarily, before running `mpirun -n <Nt> --oversubscribe ...`
+    - And it worked!
+  - `pgrep -lf sampler_qRWdRWoutside.py` lists the PIDs, since now htop will be slow.
+    - `kill 1605855` will TERM the `mpirun`
 ### Emulation:
   - dRW
     - [ ] emulate `dRW` if necessary
