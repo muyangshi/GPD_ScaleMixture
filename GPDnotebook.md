@@ -19,11 +19,20 @@
 
 ## Mar. 11 (Tuesday) Muyang/Likun/Ben
 
+### Logistics:
+- [x] Send Ben a draft email to JRSSB
+- Register EVA
+  - use the same grant number from Ben
+
 ### Sampler:
 - [ ] Block update $Z_t$
+  - [ ] cholesky decomposition of $K$ used for likelihood
+    - calculated once and not changed until update $\rho$/$K$.
+  - [ ] Normal likelihood using cholesky of $K$
   
 ### Coverage:
 - [ ] Regenerate/validate small dataset with $p = 0.95$, check marginal surface
+  - Ben said it's good enough
 
 ## Mar. 4 (Tuesday) Muyang/Likun/Ben
 
@@ -146,7 +155,7 @@ if not np.isfinite(r) and llik_proposal > llik_current and np.isfinite(llik_prop
     - could be faster because Chien-Chung using 128 cores
     - after changing to $p \in [0.95, 0.9995]$, roughly 590 seconds per 1 iter (5 times the oversubscribe)
       - [ ] Updating $Z_t$ actually takes up a lot of time, we need block update.
-        - <mark> 9 of the 10 minutes are spent on $Z_t$! </mark>
+        - <mark> almost 9.5 of the 10 minutes are spent on $Z_t$! </mark>
         - Try block size of 10 on small dataset (regenerate with p = 0.95, also check the marginal surface!)
         - Try block size of 10 on bigger dataset
 ### Emulation:
