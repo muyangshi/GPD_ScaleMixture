@@ -488,10 +488,10 @@ def qRW_NN_2p(p_vec, phi_vec, gamma_vec, tau_vec):
         raise ValueError("Cannot broadcast with different lengths.")
 
     outputs             = np.full((len(p_vec),), fill_value=np.nan)
-    condition_p         = (0.9  <= p_vec)     & (p_vec <= 0.999)
-    condition_phi       = (0.05 <= phi_vec)   & (phi_vec <= 0.95)
-    condition_gamma     = (0.5  <= gamma_vec) & (gamma_vec <= 5)    
-    condition_tau       = (1 <= tau_vec)      & (tau_vec <= 100)
+    condition_p         = (0.95  <= p_vec)     & (p_vec <= 0.9995)
+    condition_phi       = (0.05 <= phi_vec)    & (phi_vec <= 0.95)
+    condition_gamma     = (0.5  <= gamma_vec)  & (gamma_vec <= 5)    
+    condition_tau       = (1 <= tau_vec)       & (tau_vec <= 100)
     condition           = condition_p & condition_phi & condition_gamma & condition_tau
 
     if np.mean(condition) < 0.99:

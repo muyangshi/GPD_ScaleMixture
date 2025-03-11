@@ -19,6 +19,12 @@
 
 ## Mar. 11 (Tuesday) Muyang/Likun/Ben
 
+### Sampler:
+- [ ] Block update $Z_t$
+  
+### Coverage:
+- [ ] Regenerate/validate small dataset with $p = 0.95$, check marginal surface
+
 ## Mar. 4 (Tuesday) Muyang/Likun/Ben
 
 ### Logistics:
@@ -130,23 +136,39 @@ if not np.isfinite(r) and llik_proposal > llik_current and np.isfinite(llik_prop
     - Try `ulimit -n 65535` to increase file descriptor limit temporarily, before running `mpirun -n <Nt> --oversubscribe ...`
     - And it worked!
   - `pgrep -lf sampler_qRWdRWoutside.py` lists the PIDs, since now htop will be slow.
-    - `kill 1605855` will TERM the `mpirun`
+    - `<PID> mpirun`
+    - `kill <PID>` will TERM the `mpirun` (e.g. `kill 1678386`)
   - A portion of 0.76 is interpolated. Still callling `qRW` quite many times
-    - [ ] Figure out which dimension is extraplating
+    - [x] Figure out which dimension is extraplating
       - is it the $p$? because $\bar{\gamma}$ is well inside the range, and $\phi$ shouldn't be too bad, either.
+      - [x] re-run the big sampler with the new utitlities.py to see who is extrapolating (after the qRW design points finish)
   - 600 seconds per 1 iteration, 5 times the oversubscribe
     - could be faster because Chien-Chung using 128 cores
+    - after changing to $p \in [0.95, 0.9995]$, roughly 590 seconds per 1 iter (5 times the oversubscribe)
+      - [ ] Updating $Z_t$ actually takes up a lot of time, we need block update.
+        - <mark> 9 of the 10 minutes are spent on $Z_t$! </mark>
+        - Try block size of 10 on small dataset (regenerate with p = 0.95, also check the marginal surface!)
+        - Try block size of 10 on bigger dataset
 ### Emulation:
   - dRW
     - [-] emulate `dRW` if necessary; seems not necessary
   - qRW
     - [ ] <mark>Question</mark> The emulator output must not be too large for the `tanh` to work right because it output between [-1, 1]
-    - [ ] See if we can further train on [0.9, 0.99999], and interpolate within [0.9, 0.9999]
-      - oversampling the large $p$ regsion:
+    - [x] See if we can further train on [0.9, 0.99999], and interpolate within [0.9, 0.9999]
+      - oversampling the large $p$ region:
         - [ ] simply/naively increase the emulation bound to 0.99999, change nothing else; see how the emulator perform.
         - [x] exponentially more design points toward 1 using
           - $p_{min} + (p_{max} - p_{min}) * \dfrac{1 - \exp(-\beta * u)}{1 - \exp(-\beta)}$
-          - ![alt text](image-83.png)
+          - ![alt text](image-84.png)
+          - In range $p \in [0.95, 0.9999]$:
+          - ![alt text](image-85.png)
+          - ![alt text](image-86.png)
+          - ![alt text](image-87.png)
+          - ![alt text](image-91.png)
+          - In range $p \in [0.95, 0.9995]$:
+          - ![alt text](image-88.png)
+          - ![alt text](image-89.png)
+          - ![alt text](image-90.png)
 
 ## Feb. 25 (Tuesday) Muyang/Likun/Ben
 

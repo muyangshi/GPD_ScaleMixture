@@ -1340,7 +1340,7 @@ for iter in range(start_iter, n_iters):
     #### ----- Update St ----- Parallelized Across Nt time ####
     ###########################################################
     
-    # if rank == 0: print('iter:', iter, 'Update St')
+    if rank == 0: print('iter:', iter, 'Update St')
     
     for i in range(k_S):
         # propose new Stable St at knot i (No need truncation now?) -----------------------------------------------
@@ -1389,7 +1389,7 @@ for iter in range(start_iter, n_iters):
     ####                 Update gamma_k                    ####
     ###########################################################
     
-    # # if rank == 0: print('iter:', iter, 'Update gamma_k_vec')
+    # if rank == 0: print('iter:', iter, 'Update gamma_k_vec')
     
     # for i in range(k_S):
     #     # propose new gamma at knot i ---------------------------------------------------------------------------------
@@ -1467,7 +1467,7 @@ for iter in range(start_iter, n_iters):
     ####                 Update Zt                         ####
     ###########################################################
     
-    # if rank == 0: print('iter:', iter, 'Update Zt')
+    if rank == 0: print('iter:', iter, 'Update Zt')
     
     # for i in range(Ns):
     for i in obs_idx_1t: # only update the observed sites
@@ -1511,7 +1511,7 @@ for iter in range(start_iter, n_iters):
     ####                 Update phi                         ####
     ############################################################
     
-    # if rank == 0: print('iter:', iter, 'Update phi')
+    if rank == 0: print('iter:', iter, 'Update phi')
     
     for key in phi_block_idx_dict.keys():
         # Propose new phi_block at the change_indices -------------------------------------------------------------
@@ -1586,7 +1586,7 @@ for iter in range(start_iter, n_iters):
     ####                 Update rho                         ####
     ############################################################
     
-    # if rank == 0: print('iter:', iter, 'Update rho')
+    if rank == 0: print('iter:', iter, 'Update rho')
     
     for key in range_block_idx_dict.keys():
         # Propose new range_block at the change_indices -----------------------------------------------------------
@@ -1647,7 +1647,7 @@ for iter in range(start_iter, n_iters):
     ####                 Update tau                         ####
     ############################################################
     
-    # if rank == 0: print('iter:', iter, 'Update tau')
+    if rank == 0: print('iter:', iter, 'Update tau')
     
     # Propose new tau ---------------------------------------------------------------------------------------------
     if rank == 0:
@@ -1717,7 +1717,7 @@ for iter in range(start_iter, n_iters):
     ####                 Update GPD sigma                   ####
     ############################################################
     
-    # if rank == 0: print('iter:', iter, 'Update GPD sigma')
+    if rank == 0: print('iter:', iter, 'Update GPD sigma')
     
     # Propose new Beta's for logsigma ---------------------------------------------------------------------------------
     if rank == 0:
@@ -1798,7 +1798,7 @@ for iter in range(start_iter, n_iters):
     ####                 Update GPD xi                      ####
     ############################################################
     
-    # if rank == 0: print('iter:', iter, 'Update GPD xi')
+    if rank == 0: print('iter:', iter, 'Update GPD xi')
     
     # propose new Beta's for xi ---------------------------------------------------------------------------------------
     if rank == 0:
@@ -1880,7 +1880,7 @@ for iter in range(start_iter, n_iters):
     ####       Update Regularization (sigma_Beta_xx)        ####
     ############################################################
 
-    # if rank == 0: print('iter:', iter, 'Update Regularization (sigma_Beta_xx)')
+    if rank == 0: print('iter:', iter, 'Update Regularization (sigma_Beta_xx)')
 
     # sigma_Beta_logsigma ---------------------------------------------------------------------------------------------
     if rank == 0:
@@ -1942,7 +1942,7 @@ for iter in range(start_iter, n_iters):
     #### ----- Imputation of (Z_miss, Y_miss)  -----                  ####
     ######################################################################
     
-    # if rank == 0: print('iter:', iter, 'Imputation of (Z_miss, Y_miss)')
+    if rank == 0: print('iter:', iter, 'Imputation of (Z_miss, Y_miss)')
 
     if len(miss_idx_1t) > 0:
 
