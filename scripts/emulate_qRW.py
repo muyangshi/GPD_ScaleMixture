@@ -334,7 +334,7 @@ bestmodel.save(rf'./qRW_NN_{N}.keras')
 
 model_nn = keras.models.load_model(rf'qRW_NN_{N}.keras',
                                    custom_objects={"loss_fn": weighted_mse(alpha=ALPHA)})
-with open("qRW_nn_weights_and_biases.pkl",'wb') as f:
+with open("qRW_NN_weights_and_biases.pkl",'wb') as f:
     pickle.dump(model_nn.get_weights(), f, protocol=pickle.HIGHEST_PROTOCOL)
 X_min    = np.load('qRW_NN_X_min.npy')
 X_max    = np.load('qRW_NN_X_max.npy')
@@ -398,10 +398,10 @@ def qRW_NN_2p(X, weights = Ws, biases = bs, activations = acts):
 
     # X is a 2D array of shape (N, 4) of (p, phi, gamma, tau)
     # use the columns of X to determine where to use NN where to use qRW
-    condition_p      = (0.9  <= X[:,0]) & (X[:,0] <= 0.999)
-    condition_phi    = (0.05 <= X[:,1]) & (X[:,1] <= 0.95)
-    conditiona_gamma = (0.5  <= X[:,2]) & (X[:,2] <= 5)
-    conditiona_tau   = (1    <= X[:,3]) & (X[:,3] <= 100)
+    condition_p      = (0.95  <= X[:,0]) & (X[:,0] <= 0.9995)
+    condition_phi    = (0.05 <= X[:,1])  & (X[:,1] <= 0.95)
+    conditiona_gamma = (0.5  <= X[:,2])  & (X[:,2] <= 5)
+    conditiona_tau   = (1    <= X[:,3])  & (X[:,3] <= 100)
     combined_condition = condition_p & condition_phi & conditiona_gamma & conditiona_tau
 
     emulate_idx   = np.where(combined_condition)[0]
@@ -489,7 +489,7 @@ plt.close()
 
 # Goodness of Fit plot in reduced range ---------------------------------------
 
-idx = np.where(X_val[:,0] <= 0.999)[0]
+idx = np.where(X_val[:,0] <= 0.9995)[0]
 
 fig, ax = plt.subplots()
 ax.set_aspect('equal', 'datalim')
