@@ -948,7 +948,7 @@ if start_iter == 1: # initialize the proposal scalar variance and covariance
     
     S_log_cov               = pc.S_log_cov               if pc.S_log_cov               is not None else np.tile(0.05*np.eye(k_S)[:,:,None], reps = (1,1,Nt))
     Z_cov                   = pc.Z_cov                   if pc.Z_cov                   is not None else np.tile(0.01*np.eye(Ns)[:,:,None],reps = (1,1,Nt))
-    gamma_k_cov               = pc.gamma_k_cov               if pc.gamma_k_cov               is not None else 0.1*np.eye(k_S)
+    gamma_k_cov             = pc.gamma_k_cov             if pc.gamma_k_cov             is not None else 0.1*np.eye(k_S)
     tau_var                 = pc.tau_var                 if pc.tau_var                 is not None else 1
     sigma_Beta_logsigma_var = pc.sigma_Beta_logsigma_var if pc.sigma_Beta_logsigma_var is not None else 1
     sigma_Beta_xi_var       = pc.sigma_Beta_xi_var       if pc.sigma_Beta_xi_var       is not None else 1
@@ -1226,6 +1226,7 @@ range_vec_current   = gaussian_weight_matrix_rho @ range_knots_current
 K_current           = ns_cov(range_vec = range_vec_current,
                              sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = "matern")
 cholesky_matrix_current = scipy.linalg.cholesky(K_current, lower = False)
+MVN_frozen_current      = scipy.stats.multivariate_normal(mean = None, cov = K_current)
 
 ## Nugget standard deviation: tau ---------------------------------------------
 
@@ -1327,7 +1328,7 @@ if rank == 0:
 llik_1t_current = ll_1t_qRWdRWout(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                   R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
                                   S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
-                                  X_1t_current, dX_1t_current)
+                                  X_1t_current, dX_1t_current, MVN_frozen_current)
 
 if np.isfinite(llik_1t_current):
     llik_1t_current_gathered = comm.gather(llik_1t_current, root = 0)
@@ -1362,7 +1363,7 @@ for iter in range(start_iter, n_iters):
         llik_1t_proposal = ll_1t_qRWdRWout(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                           R_vec_proposal, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
                                           S_proposal_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
-                                          X_1t_current, dX_1t_current)
+                                          X_1t_current, dX_1t_current, MVN_frozen_current)
 
         # Update --------------------------------------------------------------------------------------------------
         r = np.exp(llik_1t_proposal - llik_1t_current)
@@ -1427,7 +1428,7 @@ for iter in range(start_iter, n_iters):
     #         llik_1t_proposal = ll_1t_qRWdRWout(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
     #                                            R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_proposal, tau_current,
     #                                            S_current_log, gamma_k_vec_proposal, censored_idx_1t_current, exceed_idx_1t_current,
-    #                                            X_1t_proposal, dX_1t_proposal)
+    #                                            X_1t_proposal, dX_1t_proposal, MVN_frozen_current)
 
     #     # Update --------------------------------------------------------------------------------------------------
     #     gamma_accepted = False
@@ -1487,7 +1488,7 @@ for iter in range(start_iter, n_iters):
         llik_1t_proposal = ll_1t_qRWdRWout(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                            R_vec_current, Z_1t_proposal, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
                                            S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
-                                           X_1t_current, dX_1t_current)
+                                           X_1t_current, dX_1t_current, MVN_frozen_current)
 
         # Update --------------------------------------------------------------------------------------------------
         r = np.exp(llik_1t_proposal - llik_1t_current)
@@ -1546,7 +1547,7 @@ for iter in range(start_iter, n_iters):
             llik_1t_proposal = ll_1t_qRWdRWout(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                                R_vec_current, Z_1t_current, K_current, phi_vec_proposal, gamma_bar_vec_current, tau_current,
                                                S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
-                                               X_1t_proposal, dX_1t_proposal)
+                                               X_1t_proposal, dX_1t_proposal, MVN_frozen_current)
 
         # Update --------------------------------------------------------------------------------------------------
         phi_accepted = False
@@ -1605,7 +1606,8 @@ for iter in range(start_iter, n_iters):
             range_vec_proposal = gaussian_weight_matrix_rho @ range_knots_proposal
             K_proposal = ns_cov(range_vec = range_vec_proposal,
                                 sigsq_vec = sigsq_vec, coords = sites_xy, kappa = nu, cov_model = "matern")
-            
+            MVN_frozen_proposal = scipy.stats.multivariate_normal(mean = None, cov = K_proposal)
+
             # # "full" version as X and dX are calculated within the likelihood function
             # llik_1t_proposal = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
             #                          R_vec_current, Z_1t_current, K_proposal, phi_vec_current, gamma_bar_vec_current, tau_current,
@@ -1615,7 +1617,7 @@ for iter in range(start_iter, n_iters):
             llik_1t_proposal = ll_1t_qRWdRWout(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                                R_vec_current, Z_1t_current, K_proposal, phi_vec_current, gamma_bar_vec_current, tau_current,
                                                S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
-                                               X_1t_current, dX_1t_current)
+                                               X_1t_current, dX_1t_current, MVN_frozen_proposal)
 
         # Update --------------------------------------------------------------------------------------------------
         range_accepted = False
@@ -1637,6 +1639,7 @@ for iter in range(start_iter, n_iters):
             range_knots_current = range_knots_proposal.copy()
             K_current           = K_proposal.copy()
             llik_1t_current     = llik_1t_proposal
+            MVN_frozen_current  = scipy.stats.multivariate_normal(mean = None, cov = K_current)
 
     # Save --------------------------------------------------------------------------------------------------------
     if rank == 0: range_knots_trace[iter,:] = range_knots_current.copy()
@@ -1677,7 +1680,7 @@ for iter in range(start_iter, n_iters):
         llik_1t_proposal = ll_1t_qRWdRWout(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                            R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_proposal,
                                            S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
-                                           X_1t_proposal, dX_1t_proposal)
+                                           X_1t_proposal, dX_1t_proposal, MVN_frozen_current)
 
     # Update ------------------------------------------------------------------------------------------------------
     tau_accepted = False
@@ -1751,7 +1754,7 @@ for iter in range(start_iter, n_iters):
         llik_1t_proposal = ll_1t_qRWdRWout(Y_1t_current, p, u_vec, Scale_vec_proposal, Shape_vec_current,
                                            R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
                                            S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
-                                           X_1t_proposal, dX_1t_proposal)
+                                           X_1t_proposal, dX_1t_proposal, MVN_frozen_current)
 
     # Update ------------------------------------------------------------------------------------------------------
     Beta_logsigma_accepted = False
@@ -1833,7 +1836,7 @@ for iter in range(start_iter, n_iters):
         llik_1t_proposal = ll_1t_qRWdRWout(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_proposal,
                                         R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
                                         S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
-                                        X_1t_proposal, dX_1t_proposal)
+                                        X_1t_proposal, dX_1t_proposal, MVN_frozen_current)
 
     # Update ------------------------------------------------------------------------------------------------------
     Beta_xi_accepted = False
@@ -1966,7 +1969,7 @@ for iter in range(start_iter, n_iters):
         llik_1t_current = ll_1t_qRWdRWout(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current, 
                                           R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current, 
                                           S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
-                                          X_1t_current, dX_1t_current)
+                                          X_1t_current, dX_1t_current, MVN_frozen_current)
 
         # update censoring
         censored_idx_1t_current = np.where(Y_1t_current <= u_vec)[0]
@@ -2003,7 +2006,7 @@ for iter in range(start_iter, n_iters):
     censored_ll_1t, exceed_ll_1t, S_ll_1t, D_gauss_ll_1t = ll_1t_qRWdRWout_detail(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
                                                                                   R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
                                                                                   S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
-                                                                                  X_1t_current, dX_1t_current)
+                                                                                  X_1t_current, dX_1t_current, MVN_frozen_current)
     
     censored_ll_gathered = comm.gather(censored_ll_1t, root = 0)
     exceed_ll_gathered   = comm.gather(exceed_ll_1t,   root = 0)

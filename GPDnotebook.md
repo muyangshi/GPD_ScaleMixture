@@ -21,14 +21,20 @@
 
 ### Logistics:
 - [x] Send Ben a draft email to JRSSB
-- Register EVA
+- [ ] Register EVA
   - use the same grant number from Ben
 
 ### Sampler:
 - [ ] Block update $Z_t$
+- Make each multivariate_normal logpdf evalutaiton faster
   - [ ] cholesky decomposition of $K$ used for likelihood
     - calculated once and not changed until update $\rho$/$K$.
-  - [ ] Normal likelihood using cholesky of $K$
+    - Google "Normal likelihood using cholesky of covariance function
+  - [x] Frozen RV for $Z_t$
+    - `a = [scipy.stats.multivariate_normal.logpdf(tmp_vec, mean = None, cov = np.diag(tmp_vec))for i in range(10)]` took 0.3 seconds
+    - `frozen_mvn = scipy.stats.multivariate_normal(mean = None, cov = np.diag(tmp_vec)); b = [frozen_mvn.logpdf(tmp_vec) for i in range(10000)]` also took 0.3 seconds. 
+    - 1000 times the difference
+    - PID 1699711
   
 ### Coverage:
 - [ ] Regenerate/validate small dataset with $p = 0.95$, check marginal surface
