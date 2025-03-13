@@ -1347,7 +1347,7 @@ if np.isfinite(llik_1t_current):
     if rank == 0: loglik_trace[0, 0] = np.sum(llik_1t_current_gathered)
 else: print('initial likelihood non finite', 'rank:', rank)
 
-if np.any(dCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current) == 0):
+if np.any(dCGP(Y_1t_current[exceed_idx_1t_current], p, u_vec[exceed_idx_1t_current], Scale_vec_current[exceed_idx_1t_current], Shape_vec_current[exceed_idx_1t_current]) == 0):
     print('initial Y not possible', 'rank:', rank)
 
 for iter in range(start_iter, n_iters+1):
@@ -1785,7 +1785,7 @@ for iter in range(start_iter, n_iters+1):
     # Data Likelihood ---------------------------------------------------------------------------------------------
     if np.any(Scale_vec_proposal <= 0):
         llik_1t_proposal = -np.inf
-    elif np.any(dCGP(Y_1t_current, p, u_vec, Scale_vec_proposal, Shape_vec_current) == 0):
+    elif np.any(dCGP(Y_1t_current[exceed_idx_1t_current], p, u_vec[exceed_idx_1t_current], Scale_vec_proposal[exceed_idx_1t_current], Shape_vec_current[exceed_idx_1t_current]) == 0):
         llik_1t_proposal = -np.inf
     else:
         # # "full" version as X and dX are calculated within the likelihood function
@@ -1867,7 +1867,7 @@ for iter in range(start_iter, n_iters+1):
     
     if np.any(Shape_vec_proposal <= -1) or np.any(Shape_vec_proposal >= 1):
         llik_1t_proposal = -np.inf
-    elif np.any(dCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_proposal) == 0):
+    elif np.any(dCGP(Y_1t_current[exceed_idx_1t_current], p, u_vec[exceed_idx_1t_current], Scale_vec_current[exceed_idx_1t_current], Shape_vec_proposal[exceed_idx_1t_current]) == 0):
         llik_1t_proposal = -np.inf
     else:
         # # "full" version as X and dX are calculated within the likelihood function

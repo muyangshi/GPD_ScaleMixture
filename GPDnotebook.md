@@ -32,7 +32,7 @@
   - changed the adaptive tunings
   - blocks of size 10
 - Make each multivariate_normal logpdf evalutaiton faster
-  - [ ] cholesky decomposition of $K$ used for likelihood
+  - [-] cholesky decomposition of $K$ used for likelihood
     - calculated once and not changed until update $\rho$/$K$.
     - Google "Normal likelihood using cholesky of covariance function
   - [x] Frozen RV for $Z_t$
@@ -51,7 +51,11 @@
   - ![alt text](image-95.png)
   - ![alt text](image-96.png)
   - ![alt text](image-97.png)
-  - [ ] try using posterior to re-run the medium chain
+- <mark> BUG </mark> on $\sigma$ and $\xi$ not mixing:
+  - We should only be checking if the exceedance $(Y-u)$ is out of support of $GP(0, \sigma, \xi)$, i.e. if `dCGP(Y, p, u, sigma, xi) == 0` for the `exceed_idx`
+  - The density for the censored will always be zero, because `dCGP(Y=u, p, u, sigma, xi) = 0`
+  - ![alt text](IMG_6661-1.jpg)
+- [x] try using posterior to re-run the medium chain
 
 ### Coverage:
 - [x] Regenerate/validate small dataset with $p = 0.95$, check marginal surface
