@@ -1034,9 +1034,9 @@ if start_iter == 1: # initialize the proposal scalar variance and covariance
         Sigma_0_Zt[block_key] = Z_cov[:,:,rank][Z_block_idx_dict[block_key],:][:,Z_block_idx_dict[block_key]]
 
     phi_cov                 = pc.phi_cov           if pc.phi_cov           is not None else 1e-5 * np.identity(k_phi)
-    range_cov               = pc.range_cov         if pc.range_cov         is not None else 0.5  * np.identity(k_rho)
-    Beta_logsigma_cov       = pc.Beta_logsigma_cov if pc.Beta_logsigma_cov is not None else 1e-6 * np.identity(Beta_logsigma_m)
-    Beta_xi_cov             = pc.Beta_xi_cov       if pc.Beta_xi_cov       is not None else 1e-7 * np.identity(Beta_xi_m)
+    range_cov               = pc.range_cov         if pc.range_cov         is not None else 1e-1 * np.identity(k_rho)
+    Beta_logsigma_cov       = pc.Beta_logsigma_cov if pc.Beta_logsigma_cov is not None else 1e-8 * np.identity(Beta_logsigma_m)
+    Beta_xi_cov             = pc.Beta_xi_cov       if pc.Beta_xi_cov       is not None else 1e-8 * np.identity(Beta_xi_m)
 
     if rank == 0:
         Sigma_0 = {}
@@ -1346,6 +1346,9 @@ if np.isfinite(llik_1t_current):
     llik_1t_current_gathered = comm.gather(llik_1t_current, root = 0)
     if rank == 0: loglik_trace[0, 0] = np.sum(llik_1t_current_gathered)
 else: print('initial likelihood non finite', 'rank:', rank)
+
+if np.any(dCGP(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current) == 0):
+    print('initial Y not possible', 'rank:', rank)
 
 for iter in range(start_iter, n_iters+1):
     # %% Update St ------------------------------------------------------------------------------------------------
