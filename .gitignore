@@ -10,7 +10,6 @@ data/*
 *.RData
 *.pages
 cb_2018_us_state_20m/*
-proposal_cov.py
 *.pdf
 *.npy
 run/*

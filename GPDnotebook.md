@@ -45,6 +45,12 @@
   - `misspiggy`: numpy._core._exceptions._ArrayMemoryError: Unable to allocate 14.0 GiB for an array with shape (10000, 625, 300) and data type float64
 - With both block updating $Z_t$ and `frozen_rv`, speed is roughly 16 seconds per iter without oversubscribing on $N_s = 625, N_t = 60$
 - The convergence/mixing isn't great at all for the $\phi, \rho, \tau$ and GPD parameters.
+  - ![alt text](image-92.png)
+  - ![alt text](image-93.png)
+  - ![alt text](image-94.png)
+  - ![alt text](image-95.png)
+  - ![alt text](image-96.png)
+  - ![alt text](image-97.png)
   - [ ] try using posterior to re-run the medium chain
 
 ### Coverage:
