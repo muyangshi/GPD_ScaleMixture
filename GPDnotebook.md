@@ -17,11 +17,14 @@
 
 # Meetings
 
+## Mar. 18 (Tuesday) Muyang/Likun/Ben
+
 ## Mar. 11 (Tuesday) Muyang/Likun/Ben
 
 ### Logistics:
 - [x] Send Ben a draft email to JRSSB
-- [ ] Register EVA
+  - [x] I have contacted the JRSSB at JRSSSB.editorialoffice@paeditorial.co.uk and CC'ed Ben, Likun, and Mark. There doesn't seems to be a record. Check if Ben got a cc'ed email.
+- [x] Register EVA
   - use the same grant number from Ben
 
 ### Sampler:
@@ -40,15 +43,25 @@
     - reduced $Z_t$ update time from 9.5 minutes to 5.5 minutes.
 - RAM usage
   - `misspiggy`: numpy._core._exceptions._ArrayMemoryError: Unable to allocate 14.0 GiB for an array with shape (10000, 625, 300) and data type float64
-  
+- With both block updating $Z_t$ and `frozen_rv`, speed is roughly 16 seconds per iter without oversubscribing on $N_s = 625, N_t = 60$
+- The convergence/mixing isn't great at all for the $\phi, \rho, \tau$ and GPD parameters.
+  - [ ] try using posterior to re-run the medium chain
+
 ### Coverage:
 - [x] Regenerate/validate small dataset with $p = 0.95$, check marginal surface
   - Ben said it's good enough
+- If the convergence is fixed
+  - [ ] get a large version running $N_s = 625, N_t = 300$
+  - [ ] Use the posterior to re-run, check convergence
+  - [ ] set up the coverage analysis structure
+
+### Emulation:
+- [ ] try 100 epoch with larger batch_size on qRW
 
 ## Mar. 4 (Tuesday) Muyang/Likun/Ben
 
 ### Logistics:
-  - [ ] March 15 deadline for EVA contributed paper
+  - [x] March 15 deadline for EVA contributed paper
 
 ### Sampler:
   - [x] Put `qRW()` emulator into the sampler

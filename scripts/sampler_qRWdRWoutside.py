@@ -102,7 +102,7 @@ Z_block_idx_size     = 10
 # data
 
 if from_simulation == True: 
-    datafolder = './simulated_seed-2345_t-60_s-50_phi-nonstatsc2_rho-nonstat_tau-10.0/'
+    datafolder = './simulated_seed-2345_t-60_s-625_phi-nonstatsc2_rho-nonstat_tau-10.0/'
     datafile   = 'simulated_data.RData'
 if from_simulation == False: 
     datafolder = './realdata/'
