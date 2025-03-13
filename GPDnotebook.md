@@ -25,7 +25,9 @@
   - use the same grant number from Ben
 
 ### Sampler:
-- [ ] Block update $Z_t$
+- [x] Block update $Z_t$
+  - changed the adaptive tunings
+  - blocks of size 10
 - Make each multivariate_normal logpdf evalutaiton faster
   - [ ] cholesky decomposition of $K$ used for likelihood
     - calculated once and not changed until update $\rho$/$K$.
@@ -34,10 +36,13 @@
     - `a = [scipy.stats.multivariate_normal.logpdf(tmp_vec, mean = None, cov = np.diag(tmp_vec))for i in range(10)]` took 0.3 seconds
     - `frozen_mvn = scipy.stats.multivariate_normal(mean = None, cov = np.diag(tmp_vec)); b = [frozen_mvn.logpdf(tmp_vec) for i in range(10000)]` also took 0.3 seconds. 
     - 1000 times the difference
-    - PID 1699711
+    - PID 1713612
+    - reduced $Z_t$ update time from 9.5 minutes to 5.5 minutes.
+- RAM usage
+  - `misspiggy`: numpy._core._exceptions._ArrayMemoryError: Unable to allocate 14.0 GiB for an array with shape (10000, 625, 300) and data type float64
   
 ### Coverage:
-- [ ] Regenerate/validate small dataset with $p = 0.95$, check marginal surface
+- [x] Regenerate/validate small dataset with $p = 0.95$, check marginal surface
   - Ben said it's good enough
 
 ## Mar. 4 (Tuesday) Muyang/Likun/Ben
