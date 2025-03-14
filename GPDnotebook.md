@@ -56,6 +56,14 @@
   - The density for the censored will always be zero, because `dCGP(Y=u, p, u, sigma, xi) = 0`
   - ![alt text](IMG_6661-1.jpg)
 - [x] try using posterior to re-run the medium chain
+  - no idea why the mixing is still bad.
+    - ![alt text](image-98.png)
+    - ![alt text](image-99.png)
+    - ![alt text](image-100.png)
+    - ![alt text](image-101.png)
+    - ![alt text](image-102.png)
+    - ![alt text](image-103.png)
+  - [ ] re-run with reduced Z block size now from 10 to 6
 
 ### Coverage:
 - [x] Regenerate/validate small dataset with $p = 0.95$, check marginal surface

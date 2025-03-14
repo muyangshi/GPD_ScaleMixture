@@ -15,6 +15,7 @@ cb_2018_us_state_20m/*
 run/*
 scripts/*.pickle
 *.png
+*.jpg
 scripts/*.keras
 Scripts/*.pkl
 
