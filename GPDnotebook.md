@@ -19,6 +19,22 @@
 
 ## Mar. 18 (Tuesday) Muyang/Likun/Ben
 
+### Sampler
+
+
+### Bad mixing
+Ben: 
+- [ ] no block for $Z_t$ check mixing
+- [ ] block the exceedance $Z_t$ together, the censored $Z_t$ together
+
+Other thoughts:
+- [ ] re-run with true `qRW` to see what's wrong
+- [ ] start from different starting values see if the cahin will mix
+- [ ] investigate each $t$, see what site time combination is causing the issue
+
+### Emulation:
+- [ ] try 100 epoch with larger batch_size on qRW
+
 ## Mar. 11 (Tuesday) Muyang/Likun/Ben
 
 ### Logistics:
@@ -63,18 +79,23 @@
     - ![alt text](image-101.png)
     - ![alt text](image-102.png)
     - ![alt text](image-103.png)
-  - [ ] re-run with reduced Z block size now from 10 to 6
+  - [x] re-run with reduced Z block size now from 10 to 6
+    - same bad mixing.
+- Bad mixing
+  - [-] re-run with true `qRW` to see what's wrong
+  - [-] start from different starting values see if the cahin will mix
+  - [-] investigate each $t$, see what site time combination is causing the issue
 
 ### Coverage:
 - [x] Regenerate/validate small dataset with $p = 0.95$, check marginal surface
   - Ben said it's good enough
 - If the convergence is fixed
-  - [ ] get a large version running $N_s = 625, N_t = 300$
-  - [ ] Use the posterior to re-run, check convergence
-  - [ ] set up the coverage analysis structure
+  - [-] get a large version running $N_s = 625, N_t = 300$
+  - [-] Use the posterior to re-run, check convergence
+  - [-] set up the coverage analysis structure
 
 ### Emulation:
-- [ ] try 100 epoch with larger batch_size on qRW
+- [-] try 100 epoch with larger batch_size on qRW
 
 ## Mar. 4 (Tuesday) Muyang/Likun/Ben
 

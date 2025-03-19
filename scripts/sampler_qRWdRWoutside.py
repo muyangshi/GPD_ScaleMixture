@@ -95,7 +95,7 @@ adapt_size      = 25
 
 phi_block_idx_size   = 4
 range_block_idx_size = 4
-Z_block_idx_size     = 10
+Z_block_idx_size     = 1
 
 # %% LOAD DATASET -----------------------------------------------------------------------------------------------------
 

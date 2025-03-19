@@ -52,7 +52,7 @@ phi_cov                 = loaded_data['phi_cov']
 range_cov               = loaded_data['range_cov']
 Beta_logsigma_cov       = loaded_data['Beta_logsigma_cov']
 Beta_xi_cov             = loaded_data['Beta_xi_cov']
-tau_var                 = loaded_data['tau_cov'].item()
-sigma_Beta_logsigma_var = loaded_data['sigma_Beta_logsigma_cov'].item()
-sigma_Beta_xi_var       = loaded_data['sigma_Beta_xi_cov'].item()
+tau_var                 = loaded_data['tau_cov'].item() if loaded_data['tau_cov'] is not None else None
+sigma_Beta_logsigma_var = loaded_data['sigma_Beta_logsigma_cov'].item() if loaded_data['sigma_Beta_logsigma_cov'] is not None else None
+sigma_Beta_xi_var       = loaded_data['sigma_Beta_xi_cov'].item() if loaded_data['sigma_Beta_xi_cov'] is not None else None
 # %%
