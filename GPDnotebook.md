@@ -17,19 +17,22 @@
 
 # Meetings
 
+## Mar. 25 (Tuesday)
+
+- Ben back to office
+
 ## Mar. 18 (Tuesday) Muyang/Likun/Ben
-
-### Sampler
-
 
 ### Bad mixing
 Ben: 
-- [ ] no block for $Z_t$ check mixing
+- [x] no block for $Z_t$ check mixing
+  - mixing is still bad. See misspiggy `/chain_small/results_medium/Znoblock`
 - [ ] block the exceedance $Z_t$ together, the censored $Z_t$ together
 
 Other thoughts:
 - [ ] re-run with true `qRW` to see what's wrong
 - [ ] start from different starting values see if the cahin will mix
+  - started from `phi_at_knots = [0.5] * k_phi`
 - [ ] investigate each $t$, see what site time combination is causing the issue
 
 ### Emulation:

@@ -577,6 +577,8 @@ if start_iter == 1 and from_simulation == True:
         dX_matrix         = comm.gather(dX_1t, root = 0)
         dX_matrix         = np.array(dX_matrix).T if rank == 0 else None
 
+    phi_at_knots = [0.5] * k_phi
+
 # %% PLOT PARAMETER SURFACES --------------------------------------------------------------------------------------
 # Plot Parameter Surface
 if rank == 0 and start_iter == 1:
