@@ -20,6 +20,7 @@
 ## Mar. 25 (Tuesday)
 
 - Ben back to office
+- Skipped meeting
 
 ## Mar. 18 (Tuesday) Muyang/Likun/Ben
 
@@ -28,11 +29,15 @@ Ben:
 - [x] no block for $Z_t$ check mixing
   - mixing is still bad. See misspiggy `/chain_small/results_medium/Znoblock`
 - [ ] block the exceedance $Z_t$ together, the censored $Z_t$ together
+  - worry about this later, as the chain does not mix even when blocksize = 1
 
 Other thoughts:
-- [ ] re-run with true `qRW` to see what's wrong
-- [ ] start from different starting values see if the cahin will mix
-  - started from `phi_at_knots = [0.5] * k_phi`
+- [ ] re-run with true `qRW` to see if it mix
+- [x] start from different starting values see if the chain will mix
+  - started from `phi_at_knots = np.array([0.5] * k_phi)`
+  - Truth: ![alt text](image-105.png)
+  - Stagnant and wrong: ![alt text](image-104.png)
+- If we update $\phi$ along on this bigger dataset, will it mix?
 - [ ] investigate each $t$, see what site time combination is causing the issue
 
 ### Emulation:
