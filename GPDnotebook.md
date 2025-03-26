@@ -36,9 +36,22 @@ Other thoughts:
 - [x] start from different starting values see if the chain will mix
   - started from `phi_at_knots = np.array([0.5] * k_phi)`
   - Truth: ![alt text](image-105.png)
+```
+color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+for i, phi in enumerate(phi_at_knots):
+    color = color_cycle[i % len(color_cycle)]
+    plt.hlines(y = phi, xmin = 0, xmax = 10, color=color, label = rf'knot{i}')
+    plt.text(10.1, phi, f'k{i}', va='center', ha='left', fontsize=9, color=color)
+plt.legend()
+plt.show() 
+```
   - Stagnant and wrong: ![alt text](image-104.png)
 - If we update $\phi$ along on this bigger dataset, will it mix?
-- [ ] investigate each $t$, see what site time combination is causing the issue
+  - this is bad mixing, right?![alt text](image-106.png)
+  - Starting at 0.5, it **is** able to recover the correct values
+  - ![alt text](image-107.png)
+  - is it still bad mixing? or just very precise...?
+  - [ ] Then, which combination break the updating to correct value?
 
 ### Emulation:
 - [ ] try 100 epoch with larger batch_size on qRW
