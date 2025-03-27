@@ -49,7 +49,7 @@ plt.show()
 ```
   - Stagnant and wrong: ![alt text](image-104.png)
 - If we update $\phi$ along on this bigger dataset, will it mix?
-  - this is bad mixing, right?![alt text](image-106.png)
+  - this is bad mixing, right?! But it is correct?![alt text](image-106.png)
   - Starting at 0.5, it **is** able to recover the correct values
   - ![alt text](image-107.png)
   - is it still bad mixing? or just very precise...?
@@ -57,8 +57,14 @@ plt.show()
     - [x] $\phi$ and $\rho$ is okay
       - ![alt text](image-108.png)
       - ![alt text](image-109.png)
-    - [ ] $\phi$, $\rho$, $\tau$
+    - [x] $\phi$, $\rho$, $\tau$
+      - ![alt text](image-112.png)
+      - ![alt text](image-111.png)
+      - ![alt text](image-110.png)
+    - [ ] $\phi$, $\rho$, $\tau$, $S$
+    - [ ] $\phi$, $\rho$, $\tau$, $S$, $Z$
   - [ ] keep track of the acceptance rate?
+    - to see if the $\hat{r}$ is constantly below $r_{opt}$ so the adaptive tuning keeps shrinking the proposal scalar variance $\sigma_m$
 
 ### Emulation:
 - [ ] try 100 epoch with larger batch_size on qRW
