@@ -17,6 +17,8 @@
 
 # Meetings
 
+## April 1 (Tuesday)
+
 ## Mar. 25 (Tuesday)
 
 - Ben back to office
@@ -52,6 +54,11 @@ plt.show()
   - ![alt text](image-107.png)
   - is it still bad mixing? or just very precise...?
   - [ ] Then, which combination break the updating to correct value?
+    - [x] $\phi$ and $\rho$ is okay
+      - ![alt text](image-108.png)
+      - ![alt text](image-109.png)
+    - [ ] $\phi$, $\rho$, $\tau$
+  - [ ] keep track of the acceptance rate?
 
 ### Emulation:
 - [ ] try 100 epoch with larger batch_size on qRW
