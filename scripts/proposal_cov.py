@@ -5,7 +5,7 @@ This file defines:
     - S_log_cov, Z_cov are covariance matrices, but will take diagonal as sigma_m
   Proposal Covariance Matrix used to initialize the Sigma_0:
     - phi_cov
-    - range_cov
+    - rho_cov
     - Beta_marginal_cov
 
 Note: 
@@ -22,7 +22,7 @@ file_names = [
     'Z_cov', 
     'gamma_k_cov', 
     'phi_cov', 
-    'range_cov', 
+    'rho_cov', 
     'Beta_logsigma_cov', 
     'Beta_xi_cov',
 
@@ -49,7 +49,7 @@ S_log_cov               = loaded_data['S_log_cov']
 Z_cov                   = loaded_data['Z_cov']
 gamma_k_cov             = loaded_data['gamma_k_cov']
 phi_cov                 = loaded_data['phi_cov']
-range_cov               = loaded_data['range_cov']
+rho_cov               = loaded_data['rho_cov']
 Beta_logsigma_cov       = loaded_data['Beta_logsigma_cov']
 Beta_xi_cov             = loaded_data['Beta_xi_cov']
 tau_var                 = loaded_data['tau_cov'].item() if loaded_data['tau_cov'] is not None else None
