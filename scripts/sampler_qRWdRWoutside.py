@@ -101,12 +101,12 @@ Z_block_idx_size   = 10
 
 # Debug settings
 
-UPDATE_S              = False
+UPDATE_S              = True
 UPDATE_Z              = False
 UPDATE_phi            = True
 UPDATE_rho            = True
 UPDATE_gamma_k        = False
-UPDATE_tau            = False
+UPDATE_tau            = True
 UPDATE_GPD_sigma      = False
 UPDATE_GPD_xi         = False
 UPDATE_Regularization = False
@@ -1123,6 +1123,30 @@ else: # start_iter != 1
         if rank == 0:
             with open('Sigma_0.pkl', 'rb') as file: Sigma_0 = pickle.load(file)
 
+# Adaptive Update track history ---------------------------------------------------------------------------------------
+
+if start_iter == 1:
+    N_ADAPTS                    = n_iters // ADAPT_SIZE                                               if rank == 0 else None
+    r_hat_S_history             = np.full((N_ADAPTS, Nt, k_S),                   fill_value = np.nan) if rank == 0 else None
+    r_hat_Z_history             = np.full((N_ADAPTS, Nt, len(Z_block_idx_dict)), fill_value = np.nan) if rank == 0 else None
+    r_hat_phi_history           = np.full((N_ADAPTS, len(phi_block_idx_dict)),   fill_value = np.nan) if rank == 0 else None
+    r_hat_rho_history           = np.full((N_ADAPTS, len(rho_block_idx_dict)),   fill_value = np.nan) if rank == 0 else None
+    r_hat_gamma_k_history       = np.full((N_ADAPTS, k_S),                       fill_value = np.nan) if rank == 0 else None
+    r_hat_tau_history           = np.full((N_ADAPTS, 1),                         fill_value = np.nan) if rank == 0 else None
+    r_hat_Beta_logsigma_history = np.full((N_ADAPTS, 1),                         fill_value = np.nan) if rank == 0 else None
+    r_hat_Beta_xi_history       = np.full((N_ADAPTS, 1),                         fill_value = np.nan) if rank == 0 else None
+    r_hat_sigma_Beta_history    = np.full((N_ADAPTS, 2),                         fill_value = np.nan) if rank == 0 else None
+else: # start_iter != 1
+    r_hat_S_history             = np.load('r_hat_S_history.npy')                 if rank == 0 else None
+    r_hat_Z_history             = np.load('r_hat_Z_history.npy')                 if rank == 0 else None
+    r_hat_phi_history           = np.load('r_hat_phi_history.npy')               if rank == 0 else None
+    r_hat_rho_history           = np.load('r_hat_rho_history.npy')               if rank == 0 else None
+    r_hat_gamma_k_history       = np.load('r_hat_gamma_k_history.npy')           if rank == 0 else None
+    r_hat_tau_history           = np.load('r_hat_tau_history.npy')               if rank == 0 else None
+    r_hat_Beta_logsigma_history = np.load('r_hat_Beta_logsigma_history.npy')     if rank == 0 else None
+    r_hat_Beta_xi_history       = np.load('r_hat_Beta_xi_history.npy')           if rank == 0 else None
+    r_hat_sigma_Beta_history    = np.load('r_hat_sigma_Beta_history.npy')        if rank == 0 else None
+
 # %% STORAGE AND INITIALIZE -------------------------------------------------------------------------------------------
 
 # Storage ---------------------------------------------------------------------
@@ -1200,7 +1224,7 @@ else: # start_iter != 1, load from last iter of saved traceplot
     last_iter                = start_iter - 1
     S_matrix_init_log        = S_trace_log[last_iter,:,:]             if rank == 0 else None
     phi_knots_init           = phi_knots_trace[last_iter,:]           if rank == 0 else None
-    rho_knots_init           = rho_knots_trace[last_iter,:]         if rank == 0 else None
+    rho_knots_init           = rho_knots_trace[last_iter,:]           if rank == 0 else None
     Beta_logsigma_init       = Beta_logsigma_trace[last_iter,:]       if rank == 0 else None
     Beta_xi_init             = Beta_xi_trace[last_iter,:]             if rank == 0 else None
     sigma_Beta_logsigma_init = sigma_Beta_logsigma_trace[last_iter,0] if rank == 0 else None # must be value, can't be array([value])
@@ -2128,17 +2152,24 @@ for iter in range(start_iter, n_iters+1):
         # St ------------------------------------------------------------------
         
         if UPDATE_S and norm_pareto == 'standard':
+            
+            r_hat_St = np.full(k_S, np.nan)
+            
             for i in range(k_S):
                 r_hat              = num_accepted_St[i]/ADAPT_SIZE
                 num_accepted_St[i] = 0
+                r_hat_St[i]        = r_hat
                 log_sigma_m_sq_hat = np.log(sigma_m_sq_St[i]) + gamma2 * (r_hat - R_OPT)
                 sigma_m_sq_St[i]   = np.exp(log_sigma_m_sq_hat)
             comm.Barrier()
             sigma_m_sq_St_list     = comm.gather(sigma_m_sq_St, root = 0)
+            r_hat_St_list          = comm.gather(r_hat_St,      root = 0) # a list of Nt elements, each element is a np.array of length k_S
 
         # Zt ------------------------------------------------------------------
 
         if UPDATE_Z:
+
+            r_hat_Zt = np.full(len(Z_block_idx_dict.keys()), np.nan)
 
             Z_trace_1t = np.zeros(ADAPT_SIZE * Ns, dtype=np.float64)
             if rank == 0:
@@ -2149,10 +2180,11 @@ for iter in range(start_iter, n_iters+1):
             comm.Scatter(sendbuf, Z_trace_1t, root = 0)
             Z_trace_1t = Z_trace_1t.reshape((ADAPT_SIZE, Ns))
 
-            for block_key in Z_block_idx_dict.keys():
+            for i, block_key in enumerate(Z_block_idx_dict.keys()):
                 # acceptance ratio
                 r_hat                      = num_accepted_Zt[block_key] / ADAPT_SIZE
                 num_accepted_Zt[block_key] = 0
+                r_hat_Zt[i]                = r_hat
                 # scalar
                 log_sigma_m_sq_hat         = np.log(sigma_m_sq_Zt[block_key]) + gamma2 * (r_hat - R_OPT)
                 sigma_m_sq_Zt[block_key]   = np.exp(log_sigma_m_sq_hat)
@@ -2164,6 +2196,7 @@ for iter in range(start_iter, n_iters+1):
             comm.Barrier()
             sigma_m_sq_Zt_list = comm.gather(sigma_m_sq_Zt, root = 0)
             Sigma_0_Zt_list    = comm.gather(Sigma_0_Zt,    root = 0)
+            r_hat_Zt_list      = comm.gather(r_hat_Zt,      root = 0) # a list of Nt elements, each element is a dictionary of length len(Z_block_idx_dict.keys())
 
             # for i in range(Ns):
             #     r_hat              = num_accepted_Zt[i]/ADAPT_SIZE
@@ -2176,24 +2209,30 @@ for iter in range(start_iter, n_iters+1):
         # gamma_k -------------------------------------------------------------
 
         if UPDATE_gamma_k:
-
             if rank == 0:
+
+                r_hat_gamma_k = np.full(k_S, np.nan)
+
                 for i in range(k_S):
                     r_hat                             = num_accepted['gamma_k_vec'][i]/ADAPT_SIZE
                     num_accepted['gamma_k_vec'][i]    = 0
+                    r_hat_gamma_k[i]                  = r_hat
                     log_sigma_m_sq_hat                = np.log(sigma_m_sq['gamma_k_vec'][i]) + gamma2 * (r_hat - R_OPT)
                     sigma_m_sq['gamma_k_vec'][i]      = np.exp(log_sigma_m_sq_hat)
 
         # phi -----------------------------------------------------------------
 
         if UPDATE_phi:
-
             if rank == 0:
-                for key in phi_block_idx_dict.keys():
+
+                r_hat_phi = np.full(len(phi_block_idx_dict.keys()), np.nan)
+
+                for i, key in enumerate(phi_block_idx_dict.keys()):
                     start_idx          = phi_block_idx_dict[key][0]
                     end_idx            = phi_block_idx_dict[key][-1]+1
                     r_hat              = num_accepted[key]/ADAPT_SIZE
                     num_accepted[key]  = 0
+                    r_hat_phi[i]       = r_hat
                     log_sigma_m_sq_hat = np.log(sigma_m_sq[key]) + gamma2 * (r_hat - R_OPT)
                     sigma_m_sq[key]    = np.exp(log_sigma_m_sq_hat)
                     Sigma_0_hat        = np.array(np.cov(phi_knots_trace[iter-ADAPT_SIZE+1:iter+1, start_idx:end_idx].T))
@@ -2202,13 +2241,16 @@ for iter in range(start_iter, n_iters+1):
         # rho ---------------------------------------------------------------
 
         if UPDATE_rho:
-
             if rank == 0:
-                for key in rho_block_idx_dict.keys():
+
+                r_hat_rho = np.full(len(rho_block_idx_dict.keys()), np.nan)
+
+                for i, key in enumerate(rho_block_idx_dict.keys()):
                     start_idx          = rho_block_idx_dict[key][0]
                     end_idx            = rho_block_idx_dict[key][-1]+1
                     r_hat              = num_accepted[key]/ADAPT_SIZE
                     num_accepted[key]  = 0
+                    r_hat_rho[i]       = r_hat
                     log_sigma_m_sq_hat = np.log(sigma_m_sq[key]) + gamma2 * (r_hat - R_OPT)
                     sigma_m_sq[key]    = np.exp(log_sigma_m_sq_hat)
                     Sigma_0_hat        = np.array(np.cov(rho_knots_trace[iter-ADAPT_SIZE+1:iter+1, start_idx:end_idx].T))
@@ -2217,17 +2259,18 @@ for iter in range(start_iter, n_iters+1):
         # tau -----------------------------------------------------------------
 
         if UPDATE_tau:
-
             if rank == 0:
+
                 r_hat               = num_accepted['tau']/ADAPT_SIZE
                 num_accepted['tau'] = 0
                 log_sigma_m_sq_hat  = np.log(sigma_m_sq['tau']) + gamma2 * (r_hat - R_OPT)
                 sigma_m_sq['tau']   = np.exp(log_sigma_m_sq_hat)
 
+                r_hat_tau           = r_hat
+
         # GPD log(sigma) ------------------------------------------------------
 
         if UPDATE_GPD_sigma:
-
             if rank == 0:
                 r_hat                         = num_accepted['Beta_logsigma']/ADAPT_SIZE
                 num_accepted['Beta_logsigma'] = 0
@@ -2236,10 +2279,11 @@ for iter in range(start_iter, n_iters+1):
                 Sigma_0_hat                   = np.array(np.cov(Beta_logsigma_trace[iter-ADAPT_SIZE+1:iter+1].T))
                 Sigma_0['Beta_logsigma']      = Sigma_0['Beta_logsigma'] + gamma1 * (Sigma_0_hat - Sigma_0['Beta_logsigma'])
         
+                r_hat_Beta_logsigma           = r_hat
+
         # GPD xi --------------------------------------------------------------
 
         if UPDATE_GPD_xi:
-
             if rank == 0:
                 r_hat                   = num_accepted['Beta_xi']/ADAPT_SIZE
                 num_accepted['Beta_xi'] = 0
@@ -2247,6 +2291,9 @@ for iter in range(start_iter, n_iters+1):
                 sigma_m_sq['Beta_xi']   = np.exp(log_sigma_m_sq_hat)
                 Sigma_0_hat             = np.array(np.cov(Beta_xi_trace[iter-ADAPT_SIZE+1:iter+1].T))
                 Sigma_0['Beta_xi']      = Sigma_0['Beta_xi'] + gamma1 * (Sigma_0_hat - Sigma_0['Beta_xi'])
+
+                r_hat_Beta_xi           = r_hat
+
         # Regularization ------------------------------------------------------
 
         if UPDATE_Regularization:
@@ -2259,6 +2306,8 @@ for iter in range(start_iter, n_iters+1):
                 log_sigma_m_sq_hat                  = np.log(sigma_m_sq['sigma_Beta_logsigma']) + gamma2 * (r_hat - R_OPT)
                 sigma_m_sq['sigma_Beta_logsigma']   = np.exp(log_sigma_m_sq_hat)
             
+                r_hat_sigma_Beta_logsigma           = r_hat
+
             # Regularization on Beta_xi 
 
             if rank == 0:
@@ -2266,7 +2315,23 @@ for iter in range(start_iter, n_iters+1):
                 num_accepted['sigma_Beta_xi'] = 0
                 log_sigma_m_sq_hat            = np.log(sigma_m_sq['sigma_Beta_xi']) + gamma2 * (r_hat - R_OPT)
                 sigma_m_sq['sigma_Beta_xi']   = np.exp(log_sigma_m_sq_hat)
+
+                r_hat_sigma_Beta_xi           = r_hat
         
+        # Tracking r_hat history ----------------------------------------------
+
+        if rank == 0:
+            adapt_idx = (iter // ADAPT_SIZE) - 1
+            if UPDATE_S:              r_hat_S_history[adapt_idx,:,:]           = np.array(r_hat_St_list)
+            if UPDATE_Z:              r_hat_Z_history[adapt_idx,:,:]           = np.array(r_hat_Zt_list)
+            if UPDATE_phi:            r_hat_phi_history[adapt_idx,:]           = r_hat_phi
+            if UPDATE_rho:            r_hat_rho_history[adapt_idx,:]           = r_hat_rho
+            if UPDATE_gamma_k:        r_hat_gamma_k_history[adapt_idx,:]       = r_hat_gamma_k
+            if UPDATE_tau:            r_hat_tau_history[adapt_idx,:]           = r_hat_tau
+            if UPDATE_GPD_sigma:      r_hat_Beta_logsigma_history[adapt_idx,:] = r_hat_Beta_logsigma
+            if UPDATE_GPD_xi:         r_hat_Beta_xi_history[adapt_idx,:]       = r_hat_Beta_xi
+            if UPDATE_Regularization: r_hat_sigma_Beta_history[adapt_idx,:]    = np.array([r_hat_sigma_Beta_logsigma, r_hat_sigma_Beta_xi])
+
     comm.Barrier()
 
     # %% Midway Printing, Drawings, and Savings -----------------------------------------------------------------------
@@ -2283,6 +2348,8 @@ for iter in range(start_iter, n_iters+1):
 
             # Saving ----------------------------------------------------------------------------------------------
             
+            # Save traceplots -------------------------------------------------
+
             np.save('loglik_trace',              loglik_trace)
             np.save('loglik_detail_trace',       loglik_detail_trace)
             np.save('X_trace',                   X_trace)
@@ -2290,7 +2357,7 @@ for iter in range(start_iter, n_iters+1):
             if UPDATE_S:         np.save('S_trace_log',         S_trace_log)
             if UPDATE_Z:         np.save('Z_trace',             Z_trace)
             if UPDATE_phi:       np.save('phi_knots_trace',     phi_knots_trace)
-            if UPDATE_rho:       np.save('rho_knots_trace',   rho_knots_trace)
+            if UPDATE_rho:       np.save('rho_knots_trace',     rho_knots_trace)
             if UPDATE_tau:       np.save('tau_trace',           tau_trace)
             if UPDATE_gamma_k:   np.save('gamma_k_vec_trace',   gamma_k_vec_trace)
             if UPDATE_GPD_sigma: np.save('Beta_logsigma_trace', Beta_logsigma_trace)
@@ -2298,7 +2365,18 @@ for iter in range(start_iter, n_iters+1):
             if UPDATE_Regularization: 
                 np.save('sigma_Beta_logsigma_trace', sigma_Beta_logsigma_trace)
                 np.save('sigma_Beta_xi_trace',       sigma_Beta_xi_trace)
+            
+            # Save Adaptive tuning history ------------------------------------
 
+            if UPDATE_S:              np.save('r_hat_S_history',             r_hat_S_history)
+            if UPDATE_Z:              np.save('r_hat_Z_history',             r_hat_Z_history)
+            if UPDATE_phi:            np.save('r_hat_phi_history',           r_hat_phi_history)
+            if UPDATE_rho:            np.save('r_hat_rho_history',           r_hat_rho_history)
+            if UPDATE_tau:            np.save('r_hat_tau_history',           r_hat_tau_history)
+            if UPDATE_gamma_k:        np.save('r_hat_gamma_k_history',       r_hat_gamma_k_history)
+            if UPDATE_GPD_sigma:      np.save('r_hat_Beta_logsigma_history', r_hat_Beta_logsigma_history)
+            if UPDATE_GPD_xi:         np.save('r_hat_Beta_xi_history',       r_hat_Beta_xi_history)
+            if UPDATE_Regularization: np.save('r_hat_sigma_Beta_history',    r_hat_sigma_Beta_history)
 
             with open('iter.pkl', 'wb')               as file: pickle.dump(iter, file)
             if UPDATE_phi or UPDATE_rho or UPDATE_gamma_k or UPDATE_tau or UPDATE_GPD_sigma or UPDATE_GPD_xi or UPDATE_Regularization:
@@ -2313,8 +2391,11 @@ for iter in range(start_iter, n_iters+1):
 
             # Drawing ---------------------------------------------------------------------------------------------
 
+            adapt_idx = (iter // ADAPT_SIZE) - 1
+            xs        = np.arange(iter)
+            xs_r_hat  = np.arange(adapt_idx + 1)
+
             # ---- thinning ----
-            xs       = np.arange(iter)
             xs_thin  = xs[0::THIN] # index 1, 11, 21, ...
             xs_thin2 = np.arange(len(xs_thin)) # index 1, 2, 3, ...
             loglik_trace_thin              = loglik_trace[0:iter:THIN,:]
@@ -2365,7 +2446,22 @@ for iter in range(start_iter, n_iters+1):
                     plt.savefig('MCMC:trace_St'+str(t)+'.pdf')
                     plt.close()
 
-            # ---- Z_t ---- (some randomly selected subset)
+                    # r_hat
+                    plt.subplots()
+                    for i in range(k_S):
+                        plt.plot(xs_r_hat, r_hat_S_history[:adapt_idx+1,t,i], label='k'+str(i))
+                        plt.annotate('k'+str(i), xy=(xs_r_hat[-1], r_hat_S_history[:adapt_idx+1,t,i][-1]))
+                    plt.axhline(R_OPT, color='red', linestyle='--', label='R_OPT')
+                    plt.title(rf'Adaptation $\hat{{r}}$ for $S_{t}$')
+                    plt.xlabel('Adapt Step')
+                    plt.ylabel('Acceptance Rate')
+                    plt.ylim(0, 1)
+                    plt.legend(loc='upper left', fontsize='small', ncol=2)
+                    plt.tight_layout()
+                    plt.savefig(f'MCMC:adapt_r_hat_S_t{t}.pdf')
+                    plt.close()
+
+            # ---- Z_t ---- (some randomly selected sites on each plot)
             if UPDATE_Z:
                 for t in range(Nt):
                     selection = np.random.choice(np.arange(Ns), size = 10, replace = False)
@@ -2378,7 +2474,21 @@ for iter in range(start_iter, n_iters+1):
                     plt.ylabel('Zt')
                     plt.savefig('MCMC:trace_Zt'+str(t)+'.pdf')
                     plt.close()
-            
+
+                    # r_hat
+                    plt.subplots()
+                    for block in range(r_hat_Z_history.shape[2]):
+                        plt.plot(xs_r_hat, r_hat_Z_history[:adapt_idx+1, t, block], label=f'block {block}')
+                    plt.axhline(R_OPT, color='red', linestyle='--', label='R_OPT')
+                    plt.title(rf'Adaptation $\hat{{r}}$ for $Z_{t}$')
+                    plt.xlabel('Adapt Step')
+                    plt.ylabel('Acceptance Rate')
+                    plt.ylim(0, 1)
+                    plt.legend(loc='best', fontsize='small', ncol=2)
+                    plt.tight_layout()
+                    plt.savefig(f'MCMC:adapt_r_hat_Z_t{t}.pdf')
+                    plt.close()
+
             # ---- gamma ----
             if UPDATE_gamma_k:
                 plt.subplots()
@@ -2390,6 +2500,21 @@ for iter in range(start_iter, n_iters+1):
                 plt.ylabel('gamma_k_vec')
                 plt.legend(loc = 'upper left')
                 plt.savefig('MCMC:trace_gamma.pdf')
+                plt.close()
+
+                # r_hat
+                plt.subplots()
+                for i in range(k_S):
+                    plt.plot(xs_r_hat, r_hat_gamma_k_history[:adapt_idx+1,i], label='k'+str(i))
+                    plt.annotate('k'+str(i), xy=(xs_r_hat[-1], r_hat_gamma_k_history[:adapt_idx+1,i][-1]))
+                plt.axhline(R_OPT, color='red', linestyle='--', label='R_OPT')
+                plt.title(rf'Adaptation $\hat{{r}}$ for $\gamma_k$')
+                plt.xlabel('Adapt Step')
+                plt.ylabel('Acceptance Rate')
+                plt.ylim(0, 1)
+                plt.legend(loc='upper left', fontsize='small', ncol=2)
+                plt.tight_layout()
+                plt.savefig(f'MCMC:adapt_r_hat_gamma_k.pdf')
                 plt.close()
 
             # ---- phi ----
@@ -2405,6 +2530,21 @@ for iter in range(start_iter, n_iters+1):
                 plt.savefig('MCMC:trace_phi.pdf')
                 plt.close()
 
+                # r_hat
+                plt.subplots()
+                for i in range(len(phi_block_idx_dict.keys())):
+                    plt.plot(xs_r_hat, r_hat_phi_history[:adapt_idx+1,i], label='block'+str(i))
+                    plt.annotate('block'+str(i), xy=(xs_r_hat[-1], r_hat_phi_history[:adapt_idx+1,i][-1]))
+                plt.axhline(R_OPT, color='red', linestyle='--', label='R_OPT')
+                plt.title(rf'Adaptation $\hat{{r}}$ for $\phi$')
+                plt.xlabel('Adapt Step')
+                plt.ylabel('Acceptance Rate')
+                plt.ylim(0, 1)
+                plt.legend(loc='upper left', fontsize='small', ncol=2)
+                plt.tight_layout()
+                plt.savefig(f'MCMC:adapt_r_hat_phi.pdf')
+                plt.close()
+
             # ---- rho ----
             if UPDATE_rho:
                 plt.subplots()
@@ -2418,6 +2558,21 @@ for iter in range(start_iter, n_iters+1):
                 plt.savefig('MCMC:trace_rho.pdf')
                 plt.close()
 
+                # r_hat
+                plt.subplots()
+                for i in range(len(rho_block_idx_dict.keys())):
+                    plt.plot(xs_r_hat, r_hat_rho_history[:adapt_idx+1,i], label='block'+str(i))
+                    plt.annotate('block'+str(i), xy=(xs_r_hat[-1], r_hat_rho_history[:adapt_idx+1,i][-1]))
+                plt.axhline(R_OPT, color='red', linestyle='--', label='R_OPT')
+                plt.title(rf'Adaptation $\hat{{r}}$ for $\rho$')
+                plt.xlabel('Adapt Step')
+                plt.ylabel('Acceptance Rate')
+                plt.ylim(0, 1)
+                plt.legend(loc='upper left', fontsize='small', ncol=2)
+                plt.tight_layout()
+                plt.savefig(f'MCMC:adapt_r_hat_rho.pdf')
+                plt.close()
+
             # ---- tau ----
             if UPDATE_tau:
                 plt.subplots()
@@ -2427,6 +2582,19 @@ for iter in range(start_iter, n_iters+1):
                 plt.ylabel('tau')
                 plt.legend(loc='upper left')
                 plt.savefig('MCMC:trace_tau.pdf')
+                plt.close()
+                
+                # r_hat
+                plt.subplots()
+                plt.plot(xs_r_hat, r_hat_tau_history[:adapt_idx+1], label = 'r_hat')
+                plt.axhline(R_OPT, color='red', linestyle='--', label='R_OPT')
+                plt.title(rf'Adaptation $\hat{{r}}$ for $\tau$')
+                plt.xlabel('Adapt Step')
+                plt.ylabel('Acceptance Rate')
+                plt.ylim(0, 1)
+                plt.legend(loc='upper left', fontsize='small', ncol=2)
+                plt.tight_layout()
+                plt.savefig(f'MCMC:adapt_r_hat_tau.pdf')
                 plt.close()
 
             # ---- Beta_logsigma ----
@@ -2439,6 +2607,19 @@ for iter in range(start_iter, n_iters+1):
                 plt.savefig('MCMC:trace_Beta_logsigma.pdf')
                 plt.close()
 
+                # r_hat
+                plt.subplots()
+                plt.plot(xs_r_hat, r_hat_Beta_logsigma_history[:adapt_idx+1], label = 'r_hat')
+                plt.axhline(R_OPT, color='red', linestyle='--', label='R_OPT')
+                plt.title(rf'Adaptation $\hat{{r}}$ for $\beta \log(\sigma)$')
+                plt.xlabel('Adapt Step')
+                plt.ylabel('Acceptance Rate')
+                plt.ylim(0, 1)
+                plt.legend(loc='upper left', fontsize='small', ncol=2)
+                plt.tight_layout()
+                plt.savefig(f'MCMC:adapt_r_hat_Beta_logsigma.pdf')
+                plt.close()
+
             # ---- Beta_xi ----
             if UPDATE_GPD_xi:
                 plt.subplots()
@@ -2447,6 +2628,19 @@ for iter in range(start_iter, n_iters+1):
                 plt.xlabel('iter thinned by '+str(THIN))
                 plt.ylabel('Beta_xi')
                 plt.savefig('MCMC:trace_Beta_xi.pdf')
+                plt.close()
+
+                # r_hat
+                plt.subplots()
+                plt.plot(xs_r_hat, r_hat_Beta_xi_history[:adapt_idx+1], label = 'r_hat')
+                plt.axhline(R_OPT, color='red', linestyle='--', label='R_OPT')
+                plt.title(rf'Adaptation $\hat{{r}}$ for $\beta \xi$')
+                plt.xlabel('Adapt Step')
+                plt.ylabel('Acceptance Rate')
+                plt.ylim(0, 1)
+                plt.legend(loc='upper left', fontsize='small', ncol=2)
+                plt.tight_layout()
+                plt.savefig(f'MCMC:adapt_r_hat_Beta_xi.pdf')
                 plt.close()
 
             # ---- regularization ----
@@ -2461,6 +2655,19 @@ for iter in range(start_iter, n_iters+1):
                 plt.ylabel('regularization')
                 plt.legend(loc = 'upper left')
                 plt.savefig('MCMC:trace_regularization.pdf')
+                plt.close()
+
+                # r_hat
+                plt.subplots()
+                plt.plot(xs_r_hat, r_hat_sigma_Beta_history[:adapt_idx+1,:], label = ['r_hat_sigma_Beta_logsigma', 'r_hat_sigma_Beta_xi'])
+                plt.axhline(R_OPT, color='red', linestyle='--', label='R_OPT')
+                plt.title(rf'Adaptation $\hat{{r}}$ for regularization')
+                plt.xlabel('Adapt Step')
+                plt.ylabel('Acceptance Rate')
+                plt.ylim(0, 1)
+                plt.legend(loc='upper left', fontsize='small', ncol=2)
+                plt.tight_layout()
+                plt.savefig(f'MCMC:adapt_r_hat_regularization.pdf')
                 plt.close()
 
         if iter == n_iters:
