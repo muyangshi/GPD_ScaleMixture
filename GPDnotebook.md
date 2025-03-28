@@ -63,8 +63,13 @@ plt.show()
       - ![alt text](image-110.png)
     - [ ] $\phi$, $\rho$, $\tau$, $S$
     - [ ] $\phi$, $\rho$, $\tau$, $S$, $Z$
-  - [ ] keep track of the acceptance rate?
+  - [x] keep track of the acceptance rate?
     - to see if the $\hat{r}$ is constantly below $r_{opt}$ so the adaptive tuning keeps shrinking the proposal scalar variance $\sigma_m$
+    - when updating $\phi$ and $\rho$
+      - acceptance rate is good for $\rho$
+      - acceptance rate constanly below $r_{opt}$ so the proposal scalar variance keeps shrinking.
+      - ![alt text](image-113.png)
+      - ![alt text](image-114.png)
 
 ### Emulation:
 - [ ] try 100 epoch with larger batch_size on qRW
