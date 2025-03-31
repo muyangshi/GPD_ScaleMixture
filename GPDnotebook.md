@@ -62,7 +62,18 @@ plt.show()
       - ![alt text](image-111.png)
       - ![alt text](image-110.png)
     - [ ] $\phi$, $\rho$, $\tau$, $S$
+      - convergence certainly <mark>takes longer</mark>
+      - ![alt text](image-115.png)
+      - ![alt text](image-116.png)
+      - ![alt text](image-117.png)
+      - [x] Try not using block update on $\phi$ and $\rho$
+        - this plus additional iterations helps $\phi$ converges to the true value
+        - ![alt text](image-118.png)
+        - ![alt text](image-120.png)
+        - ![alt text](image-119.png)
+        - ![alt text](image-121.png)
     - [ ] $\phi$, $\rho$, $\tau$, $S$, $Z$
+    - [ ] $\phi$, $\rho$, $\tau$, $S$, $Z$, GPD
   - [x] keep track of the acceptance rate?
     - to see if the $\hat{r}$ is constantly below $r_{opt}$ so the adaptive tuning keeps shrinking the proposal scalar variance $\sigma_m$
     - when updating $\phi$ and $\rho$
