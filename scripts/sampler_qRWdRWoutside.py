@@ -79,7 +79,7 @@ except Exception as e:
 # Manual MCMC chain settings --------------------------------------------------
 
 from_simulation = True
-n_iters         = 5000
+n_iters         = 10000
 SAVE_SIZE       = 50   # we are not saving the counters, so this must be a multiple of ADAPT_SIZE!
 THIN            = 10   # print to console every `THIN` iterations
 
@@ -95,14 +95,14 @@ assert SAVE_SIZE % ADAPT_SIZE == 0 # SAVE_SIZE must be a multiple of ADAPT_SIZE
 
 # Block Update Specification
 
-phi_block_idx_size = 4
-rho_block_idx_size = 4
+phi_block_idx_size = 1
+rho_block_idx_size = 1
 Z_block_idx_size   = 10
 
 # Debug settings
 
 UPDATE_S              = True
-UPDATE_Z              = False
+UPDATE_Z              = True
 UPDATE_phi            = True
 UPDATE_rho            = True
 UPDATE_gamma_k        = False
@@ -1052,7 +1052,7 @@ if start_iter == 1: # initialize the proposal scalar variance and covariance
         Sigma_0_Zt[block_key] = Z_cov[:,:,rank][Z_block_idx_dict[block_key],:][:,Z_block_idx_dict[block_key]]
 
     phi_cov                 = pc.phi_cov           if pc.phi_cov           is not None else 1e-5 * np.identity(k_phi)
-    rho_cov               = pc.rho_cov         if pc.rho_cov         is not None else 1e-1 * np.identity(k_rho)
+    rho_cov                 = pc.rho_cov           if pc.rho_cov           is not None else 1e-1 * np.identity(k_rho)
     Beta_logsigma_cov       = pc.Beta_logsigma_cov if pc.Beta_logsigma_cov is not None else 1e-8 * np.identity(Beta_logsigma_m)
     Beta_xi_cov             = pc.Beta_xi_cov       if pc.Beta_xi_cov       is not None else 1e-8 * np.identity(Beta_xi_m)
 
@@ -1077,7 +1077,7 @@ if start_iter == 1: # initialize the proposal scalar variance and covariance
 
         # marginal Y
         Sigma_0['Beta_logsigma'] = Beta_logsigma_cov
-        Sigma_0['Beta_xi']      = Beta_xi_cov
+        Sigma_0['Beta_xi']       = Beta_xi_cov
 
     # Checking dimensions -----------------------------------------------------------------------------------------
 

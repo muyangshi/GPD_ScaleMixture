@@ -73,6 +73,12 @@ plt.show()
         - ![alt text](image-119.png)
         - ![alt text](image-121.png)
     - [ ] $\phi$, $\rho$, $\tau$, $S$, $Z$
+      - no block on $\phi$ and $\rho$ alone certainly helps, doesn't seem to be sufficient ($Z$ block_size = 10)
+      - ![alt text](image-123.png)
+      - ![alt text](image-124.png)
+      - ![alt text](image-125.png)
+      - ![alt text](image-122.png)
+      - ![alt text](image-126.png)
     - [ ] $\phi$, $\rho$, $\tau$, $S$, $Z$, GPD
   - [x] keep track of the acceptance rate?
     - to see if the $\hat{r}$ is constantly below $r_{opt}$ so the adaptive tuning keeps shrinking the proposal scalar variance $\sigma_m$
