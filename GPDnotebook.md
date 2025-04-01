@@ -2,14 +2,8 @@
 
 ## TODOs
 
-- (December and January; now it needs February too) emulation
-  - Directly emulate the likelihood
-    - Ben and Likun think this will work better
-  - Can we use Emily's work on Variational Bayes Nerual Framework?
-    - Likun & Ben: No, because the dimensionality of our parameter space is too large
-
-
 - (On Hold until emulator) Start Coverage Analysis
+  - setup Alpine environment
   - estimated to take 10 months for a chain of 500 sites, cores oversubscribed by 10
   - without imputation
     - might want to try WITH imputation?
@@ -18,6 +12,12 @@
 # Meetings
 
 ## April 1 (Tuesday)
+
+Metropolis-adjusted Langevin algorithm
+
+Sampler:
+- $\phi$, $\rho$, $\tau$, $S$, $Z$
+- $\phi$, $\rho$, $\tau$, $S$, $Z$, $\sigma$, $\xi$
 
 ## Mar. 25 (Tuesday)
 
@@ -53,7 +53,7 @@ plt.show()
   - Starting at 0.5, it **is** able to recover the correct values
   - ![alt text](image-107.png)
   - is it still bad mixing? or just very precise...?
-  - [ ] Then, which combination break the updating to correct value?
+  - Then, which combination break the updating to correct value?
     - [x] $\phi$ and $\rho$ is okay
       - ![alt text](image-108.png)
       - ![alt text](image-109.png)
@@ -61,7 +61,7 @@ plt.show()
       - ![alt text](image-112.png)
       - ![alt text](image-111.png)
       - ![alt text](image-110.png)
-    - [ ] $\phi$, $\rho$, $\tau$, $S$
+    - [x] $\phi$, $\rho$, $\tau$, $S$
       - convergence certainly <mark>takes longer</mark>
       - ![alt text](image-115.png)
       - ![alt text](image-116.png)
@@ -79,6 +79,8 @@ plt.show()
       - ![alt text](image-125.png)
       - ![alt text](image-122.png)
       - ![alt text](image-126.png)
+      - [ ] reduce $Z$ block size to 1, if this works, consider smarter ways to block the $Z_t$'s.
+        - it looks like reducing block size of all helps. Need more time. If this does work, figure out other ways to block the $Z$
     - [ ] $\phi$, $\rho$, $\tau$, $S$, $Z$, GPD
   - [x] keep track of the acceptance rate?
     - to see if the $\hat{r}$ is constantly below $r_{opt}$ so the adaptive tuning keeps shrinking the proposal scalar variance $\sigma_m$
@@ -1437,3 +1439,14 @@ $$
   \end{align*}
   $$
 
+---
+
+
+### Metropolis-adjusted Langevin algorithm
+
+$$
+\begin{align*}
+\dfrac{\partial l}{\partial Z_t} &= \dfrac{1}{l} \cdot \dfrac{\partial \Phi((F^{-1}_X(p) - R^\phi g(Z_t))/\tau)}{\partial Z_t} \\
+&= \dfrac{1}{l} \cdot \phi_D((F^{-1}_X(p) - R^\phi g(Z_t))/\tau) \cdot \dfrac{\partial (F^{-1}_X(p) - R^\phi g(Z_t))/\tau}{\partial Z_t} \\
+\end{align*}
+$$
