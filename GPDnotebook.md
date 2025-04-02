@@ -4,7 +4,7 @@
 
 - (On Hold until emulator) Start Coverage Analysis
   - setup Alpine environment
-  - estimated to take 10 months for a chain of 500 sites, cores oversubscribed by 10
+  - estimated to take 10 months for a chain of 500 sites, cores oversubscribed by 10 using true `qRW`
   - without imputation
     - might want to try WITH imputation?
   - [Alpine allocation](https://colostate.sharepoint.com/sites/Division_Research_Computing_and_Cyberinfrastructure/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT%2FAlpine%20Project%20Allocation%20Request%20Process%2Epdf&parent=%2Fsites%2FDivision%5FResearch%5FComputing%5Fand%5FCyberinfrastructure%2FShared%20Documents%2FGeneral%2FPUBLIC%2DWEB%2DCONTENT&p=true&ga=1)
@@ -14,9 +14,17 @@
 ## April 1 (Tuesday)
 
 Metropolis-adjusted Langevin algorithm
+- take the derivative of the log likelihood with respect to $Z$
 
 Sampler:
 - $\phi$, $\rho$, $\tau$, $S$, $Z$
+  - reducing $Z$ block size to 1 helps with mixing, but still having hard time to mix/converge to true value when start $\phi$ all from 0.5
+    - ![alt text](image-127.png)
+    - ![alt text](image-128.png)
+    - ![alt text](image-129.png)
+    - ![alt text](image-130.png)
+    - ![alt text](image-131.png)
+  - [ ] try starting $\phi$ from true value, is the mixing better?
 - $\phi$, $\rho$, $\tau$, $S$, $Z$, $\sigma$, $\xi$
 
 ## Mar. 25 (Tuesday)
@@ -1444,9 +1452,26 @@ $$
 
 ### Metropolis-adjusted Langevin algorithm
 
+#### Derivative with respect to $Z_t$
+- censored:
 $$
 \begin{align*}
-\dfrac{\partial l}{\partial Z_t} &= \dfrac{1}{l} \cdot \dfrac{\partial \Phi((F^{-1}_X(p) - R^\phi g(Z_t))/\tau)}{\partial Z_t} \\
-&= \dfrac{1}{l} \cdot \phi_D((F^{-1}_X(p) - R^\phi g(Z_t))/\tau) \cdot \dfrac{\partial (F^{-1}_X(p) - R^\phi g(Z_t))/\tau}{\partial Z_t} \\
+\dfrac{\partial \log \Phi((F_{X_t}^{-1}(p) - R^\phi g(Z_t))/\tau)}{\partial Z_t} &= \dfrac{1}{\Phi((F_{X_t}^{-1}(p) - R^\phi g(Z_t))/\tau)} \cdot \dfrac{\partial \Phi((F^{-1}_{X_t}(p) - R^\phi g(Z_t))/\tau)}{\partial Z_t} \\
+\text{(chain rule)} &= \dfrac{1}{\Phi((F_{X_t}^{-1}(p) - R^\phi g(Z_t))/\tau)} \cdot \varphi((F^{-1}_{X_t}(p) - R^\phi g(Z_t))/\tau) \cdot \dfrac{\partial (F^{-1}_{X_t}(p) - R^\phi g(Z_t))/\tau}{\partial Z_t} \\
+&= \dfrac{1}{\Phi((F_{X_t}^{-1}(p) - R^\phi g(Z_t))/\tau)} \cdot \varphi((F^{-1}_{X_t}(p) - R^\phi g(Z_t))/\tau) \cdot (-\dfrac{1}{\tau} \cdot \dfrac{\partial R^\phi g(Z_t)}{\partial Z_t}) \\
+\left(\text{Type I: }g(Z_t) = \dfrac{1}{1-\Phi(Z_t)}\right)&= \dfrac{1}{\Phi((F_{X_t}^{-1}(p) - R^\phi g(Z_t))/\tau)} \cdot \varphi((F^{-1}_{X_t}(p) - R^\phi g(Z_t))/\tau) \cdot (-\dfrac{1}{\tau} \cdot R^\phi \cdot \dfrac{\varphi(Z)}{(1-\Phi(Z))^2}) \\
+&= -\dfrac{R^\phi}{\tau}\cdot \dfrac{\varphi((F^{-1}_{X_t}(p) - R^\phi g(Z_t))/\tau)}{\Phi((F_{X_t}^{-1}(p) - R^\phi g(Z_t))/\tau)} \cdot \dfrac{\varphi(Z_t)}{(1-\Phi(Z_t))^2}
+\end{align*}
+$$
+- exceedance:
+$$
+\begin{align*}
+\dfrac{\partial \log \left(\varphi(X_t \mid X_t^*, \tau) \dfrac{f_Y(Y_t)}{f_X(X_t)} \right)}{\partial Z_t} &= \dfrac{\partial \log\varphi(X_t \mid X_t^*, \tau)}{\partial Z_t} + \dfrac{\partial \log f_Y(Y_t)}{\partial Z_t} - \dfrac{\partial \log f_X(X)}{\partial Z_t} \\
+\left(f_Y(Y_t) \text{ is constant w.r.t. } Z_t \right)&= \textcolor{yellow}{\dfrac{\partial \log\varphi(X_t \mid X_t^*, \tau)}{\partial Z_t}} - \textcolor{orange}{\dfrac{\partial \log f_X(X)}{\partial Z_t}} \\
+\textcolor{yellow}{\dfrac{\partial \log\varphi(X_t \mid X_t^*, \tau)}{\partial Z_t}}
+&= \dfrac{\partial \left(-\dfrac{1}{2}\log(2\pi\tau^2) - \dfrac{(X_t - X_t^*)^2}{2\tau^2} \right)}{\partial Z_t}\\
+&= \dfrac{\partial \left(-\dfrac{1}{2}\log(2\pi\tau^2) - \dfrac{(X_t - X_t^*)^2}{2\tau^2} \right)}{\partial X_t^*} \cdot \dfrac{\partial X_t^*}{\partial Z_t} \\
+&= \dfrac{X_t - X_t^*}{\tau^2} \cdot R^\phi \dfrac{\varphi(Z_t)}{(1-\Phi(Z_t))^2} \\
+\textcolor{orange}{\dfrac{\partial \log f_X(X)}{\partial Z_t}} &= 
 \end{align*}
 $$
