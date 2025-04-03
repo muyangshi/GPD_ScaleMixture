@@ -1472,6 +1472,13 @@ $$
 &= \dfrac{\partial \left(-\dfrac{1}{2}\log(2\pi\tau^2) - \dfrac{(X_t - X_t^*)^2}{2\tau^2} \right)}{\partial Z_t}\\
 &= \dfrac{\partial \left(-\dfrac{1}{2}\log(2\pi\tau^2) - \dfrac{(X_t - X_t^*)^2}{2\tau^2} \right)}{\partial X_t^*} \cdot \dfrac{\partial X_t^*}{\partial Z_t} \\
 &= \dfrac{X_t - X_t^*}{\tau^2} \cdot R^\phi \dfrac{\varphi(Z_t)}{(1-\Phi(Z_t))^2} \\
-\textcolor{orange}{\dfrac{\partial \log f_X(X)}{\partial Z_t}} &= 
+\textcolor{orange}{\dfrac{\partial \log f_X(X_t)}{\partial Z_t}} &= \dfrac{1}{f_X(X_t)} \cdot \dfrac{\partial f_X(X_t)}{\partial Z_t} \\
+&= \dfrac{1}{f_X(X_t)}\cdot \dfrac{\partial f_X(X_t)}{\partial X_t} \cdot \dfrac{\partial X_t}{\partial Z_t} \\
+&= \dfrac{1}{f_X(X_t)}\cdot \dfrac{\partial}{\partial X_t} \left(\sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \int_0^\infty \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right) \varphi(X_t - t)dt \right) \cdot \dfrac{\partial X_t}{\partial Z_t} \\
+\text{(move inside)} &= \dfrac{1}{f_X(X_t)}\cdot \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \left(\int_0^\infty \dfrac{\partial}{\partial X_t} \left[ \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right) \varphi(X_t - t) \right) dt \right] \cdot \dfrac{\partial X_t}{\partial Z_t} \\
+&= \dfrac{1}{f_X(X_t)}\cdot \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \left(\int_0^\infty  \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)  \dfrac{\partial}{\partial X_t} \left[\varphi(X_t - t)\right] dt \right) \cdot \dfrac{\partial X_t}{\partial Z_t} \\
+&= \dfrac{1}{f_X(X_t)}\cdot \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \left(\int_0^\infty  \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)  (-(X_t - t)) \varphi(X_t - t) dt \right) \cdot \dfrac{\partial X_t}{\partial Z_t} \\
+&= -\dfrac{\int_0^\infty (X_t - t) \cdot \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right) \varphi(X_t - t) dt}{f_X(X_t)} \cdot R^\phi \dfrac{\varphi(Z_t)}{(1 - \Phi(Z_t))^2} \\
+&= -\left\{ X_t - \dfrac{1}{f_X(X_t)} \int_0^\infty t \cdot \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right) \varphi(X_t - t) dt\right\} \cdot R^\phi \dfrac{\varphi(Z_t)}{(1 - \Phi(Z_t))^2}
 \end{align*}
 $$
