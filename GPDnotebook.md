@@ -11,10 +11,19 @@
 
 # Meetings
 
+## April 8 (Tuesday)
+
+Paper/slides
+
+- [ ] Page 4: "... $\phi = 0$ gives <mark>AI</mark> ..." should it be AD?
+
 ## April 1 (Tuesday)
 
 Metropolis-adjusted Langevin algorithm
-- take the derivative of the log likelihood with respect to $Z$
+- [x] take the derivative of the log likelihood with respect to $Z$
+- [ ] implement the derivative `dRWdZ` in cpp and add to python `utilities.py`
+- [ ] implement MALA into the sampler for $Z$
+- [ ] add a way to extend the traceplot size if they are already full
 
 Sampler:
 - $\phi$, $\rho$, $\tau$, $S$, $Z$
@@ -24,6 +33,12 @@ Sampler:
     - ![alt text](image-129.png)
     - ![alt text](image-130.png)
     - ![alt text](image-131.png)
+  - Maybe it's just taking a longer time?
+    - ![alt text](image-133.png)
+    - ![alt text](image-134.png)
+    - ![alt text](image-132.png)
+    - ![alt text](image-135.png)
+    - ![alt text](image-136.png)
   - [ ] try starting $\phi$ from true value, is the mixing better?
 - $\phi$, $\rho$, $\tau$, $S$, $Z$, $\sigma$, $\xi$
 

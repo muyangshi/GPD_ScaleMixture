@@ -97,7 +97,7 @@ assert SAVE_SIZE % ADAPT_SIZE == 0 # SAVE_SIZE must be a multiple of ADAPT_SIZE
 
 phi_block_idx_size = 1
 rho_block_idx_size = 1
-Z_block_idx_size   = 10
+Z_block_idx_size   = 1
 
 # Debug settings
 
@@ -955,6 +955,34 @@ for i in range(0, Ns, Z_block_idx_size):
     end_index   = min(i + Z_block_idx_size, Ns)
     key         = f"Z_block_idx_{i//Z_block_idx_size+1}"
     Z_block_idx_dict[key] = lst[start_index:end_index]
+
+# Z_block_idx_dict = {}
+# lst = list(range(Ns))
+
+# # Assuming you have these two sets/lists:
+# exceed_indices = set([...])   # your exceed index list
+# censored_indices = set([...]) # your censored index list
+
+# # Split into two separate lists to keep them apart
+# exceed_list = [i for i in lst if i in exceed_indices]
+# censored_list = [i for i in lst if i in censored_indices]
+
+# # Helper to chunk a list into blocks
+# def create_blocks(input_list, block_size, prefix, start_key=1):
+#     blocks = {}
+#     block_num = start_key
+#     for i in range(0, len(input_list), block_size):
+#         blocks[f"{prefix}_{block_num}"] = input_list[i:i + block_size]
+#         block_num += 1
+#     return blocks, block_num
+
+# # Block the exceed and censored lists separately
+# Z_block_idx_dict_exceed, next_key = create_blocks(exceed_list, Z_block_idx_size, "Z_block_idx")
+# Z_block_idx_dict_censored, _ = create_blocks(censored_list, Z_block_idx_size, "Z_block_idx", start_key=next_key)
+
+# # Merge the dictionaries
+# Z_block_idx_dict = {**Z_block_idx_dict_exceed, **Z_block_idx_dict_censored}
+
 
 # Adaptive Update: Counter --------------------------------------------------------------------------------------------
 
