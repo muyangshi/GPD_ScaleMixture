@@ -112,6 +112,17 @@ UPDATE_GPD_xi         = False
 UPDATE_Regularization = False
 UPDATE_Imputation     = False
 
+# helper functions ------------------------------------------------------------
+def extend_trace(trace, new_n_iters):
+    old_n_iters = trace.shape[0] - 1  # since shape[0] = old_n_iters + 1
+    assert not np.any(np.isnan(trace)), "Trace array contains NaNs; double-check last save state."
+    
+    new_shape = (new_n_iters + 1,) + trace.shape[1:]
+    extended_trace = np.full(new_shape, np.nan)
+    extended_trace[:old_n_iters + 1] = trace
+
+    return extended_trace
+
 
 # %% LOAD DATASET -----------------------------------------------------------------------------------------------------
 
@@ -1196,23 +1207,42 @@ if start_iter == 1:
     X_trace                   = np.full(shape = (n_iters+1, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
     dX_trace                  = np.full(shape = (n_iters+1, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
 else: # start_iter != 1, load from environment
-    loglik_trace              = np.load('loglik_trace.npy')              if rank == 0 else None
-    loglik_detail_trace       = np.load('loglik_detail_trace.npy')       if rank == 0 else None
-    S_trace_log               = np.load('S_trace_log.npy')               if rank == 0 else None
-    phi_knots_trace           = np.load('phi_knots_trace.npy')           if rank == 0 else None
-    rho_knots_trace           = np.load('rho_knots_trace.npy')           if rank == 0 else None
-    Beta_logsigma_trace       = np.load('Beta_logsigma_trace.npy')       if rank == 0 else None
-    Beta_xi_trace             = np.load('Beta_xi_trace.npy')             if rank == 0 else None
-    sigma_Beta_logsigma_trace = np.load('sigma_Beta_logsigma_trace.npy') if rank == 0 else None
-    sigma_Beta_xi_trace       = np.load('sigma_Beta_xi_trace.npy')       if rank == 0 else None
-    Y_trace                   = np.load('Y_trace.npy')                   if rank == 0 else None
-    tau_trace                 = np.load('tau_trace.npy')                 if rank == 0 else None
-    Z_trace                   = np.load('Z_trace.npy')                   if rank == 0 else None
-    gamma_k_vec_trace         = np.load('gamma_k_vec_trace.npy')         if rank == 0 else None
-    # X_star_trace              = np.load('X_star_trace.npy')              if rank == 0 else None
-    X_trace                   = np.load('X_trace.npy')                   if rank == 0 else None
-    dX_trace                  = np.load('dX_trace.npy')                  if rank == 0 else None
-
+    # check if we need to extend the trace
+    if n_iters <= loglik_trace.shape[0] - 1:
+        # no need to extend the trace
+        loglik_trace              = np.load('loglik_trace.npy')              if rank == 0 else None
+        loglik_detail_trace       = np.load('loglik_detail_trace.npy')       if rank == 0 else None
+        S_trace_log               = np.load('S_trace_log.npy')               if rank == 0 else None
+        phi_knots_trace           = np.load('phi_knots_trace.npy')           if rank == 0 else None
+        rho_knots_trace           = np.load('rho_knots_trace.npy')           if rank == 0 else None
+        Beta_logsigma_trace       = np.load('Beta_logsigma_trace.npy')       if rank == 0 else None
+        Beta_xi_trace             = np.load('Beta_xi_trace.npy')             if rank == 0 else None
+        sigma_Beta_logsigma_trace = np.load('sigma_Beta_logsigma_trace.npy') if rank == 0 else None
+        sigma_Beta_xi_trace       = np.load('sigma_Beta_xi_trace.npy')       if rank == 0 else None
+        Y_trace                   = np.load('Y_trace.npy')                   if rank == 0 else None
+        tau_trace                 = np.load('tau_trace.npy')                 if rank == 0 else None
+        Z_trace                   = np.load('Z_trace.npy')                   if rank == 0 else None
+        gamma_k_vec_trace         = np.load('gamma_k_vec_trace.npy')         if rank == 0 else None
+        # X_star_trace              = np.load('X_star_trace.npy')              if rank == 0 else None
+        X_trace                   = np.load('X_trace.npy')                   if rank == 0 else None
+        dX_trace                  = np.load('dX_trace.npy')                  if rank == 0 else None
+    else:
+        loglik_trace              = extend_trace(loglik_trace, n_iters)              if rank == 0 else None
+        loglik_detail_trace       = extend_trace(loglik_detail_trace, n_iters)       if rank == 0 else None
+        S_trace_log               = extend_trace(S_trace_log, n_iters)               if rank == 0 else None
+        phi_knots_trace           = extend_trace(phi_knots_trace, n_iters)           if rank == 0 else None
+        rho_knots_trace           = extend_trace(rho_knots_trace, n_iters)           if rank == 0 else None
+        Beta_logsigma_trace       = extend_trace(Beta_logsigma_trace, n_iters)       if rank == 0 else None
+        Beta_xi_trace             = extend_trace(Beta_xi_trace, n_iters)             if rank == 0 else None
+        sigma_Beta_logsigma_trace = extend_trace(sigma_Beta_logsigma_trace, n_iters) if rank == 0 else None
+        sigma_Beta_xi_trace       = extend_trace(sigma_Beta_xi_trace, n_iters)       if rank == 0 else None
+        Y_trace                   = extend_trace(Y_trace, n_iters)                   if rank == 0 else None
+        tau_trace                 = extend_trace(tau_trace, n_iters)                 if rank == 0 else None
+        Z_trace                   = extend_trace(Z_trace, n_iters)                   if rank == 0 else None
+        gamma_k_vec_trace         = extend_trace(gamma_k_vec_trace, n_iters)         if rank == 0 else None
+        # X_star_trace              = extend_trace(X_star_trace, n_iters)              if rank == 0 else None
+        X_trace                   = extend_trace(X_trace, n_iters)                   if rank == 0 else None
+        dX_trace                  = extend_trace(dX_trace, n_iters)                  if rank == 0 else None
 # Initialize Parameters for rank 0 worker only, other workers bcast later -----
 
 if start_iter == 1:
