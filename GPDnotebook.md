@@ -15,7 +15,15 @@
 
 Paper/slides
 
-- [ ] Page 4: "... $\phi = 0$ gives <mark>AI</mark> ..." should it be AD?
+- [ ] derive $\partial l /\partial \phi$. 
+- [ ] Do MALA 
+  - for $\phi$
+  - for blocked $Z$
+- [ ] Ben's Paper
+- [ ] Emulate `dRW`
+
+- [x] Page 4: "... $\phi = 0$ gives <mark>AI</mark> ..." should it be AD?
+  - yes it should
 
 ## April 1 (Tuesday)
 
@@ -1493,6 +1501,8 @@ $$
 \text{(move inside)} &= \dfrac{1}{f_X(X_t)}\cdot \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \left(\int_0^\infty \dfrac{\partial}{\partial X_t} \left[ \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right) \varphi(X_t - t) \right) dt \right] \cdot \dfrac{\partial X_t}{\partial Z_t} \\
 &= \dfrac{1}{f_X(X_t)}\cdot \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \left(\int_0^\infty  \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)  \dfrac{\partial}{\partial X_t} \left[\varphi(X_t - t)\right] dt \right) \cdot \dfrac{\partial X_t}{\partial Z_t} \\
 &= \dfrac{1}{f_X(X_t)}\cdot \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \left(\int_0^\infty  \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)  (-(X_t - t)) \varphi(X_t - t) dt \right) \cdot \dfrac{\partial X_t}{\partial Z_t} \\
+&= \dfrac{1}{f_X(X_t)}\cdot \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \left(\int_0^\infty  \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)  (-(X_t - t)) \varphi(X_t - t) dt \right) \cdot \dfrac{\partial (X_t^* + \epsilon)}{\partial Z_t} \\
+&= \dfrac{1}{f_X(X_t)}\cdot \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \left(\int_0^\infty  \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)  (-(X_t - t)) \varphi(X_t - t) dt \right) \cdot \dfrac{\partial X_t^*}{\partial Z_t} \\
 &= -\dfrac{\int_0^\infty (X_t - t) \cdot \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right) \varphi(X_t - t) dt}{f_X(X_t)} \cdot R^\phi \dfrac{\varphi(Z_t)}{(1 - \Phi(Z_t))^2} \\
 &= -\left\{ X_t - \dfrac{1}{f_X(X_t)} \int_0^\infty t \cdot \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right) \varphi(X_t - t) dt\right\} \cdot R^\phi \dfrac{\varphi(Z_t)}{(1 - \Phi(Z_t))^2}
 \end{align*}
