@@ -11,17 +11,30 @@
 
 # Meetings
 
-## April 8 (Tuesday)
+## April 15
 
-Paper/slides
+## April 8 (Tuesday) Muyang/Likun/Ben
 
-- [ ] derive $\partial l /\partial \phi$. 
-- [ ] Do MALA 
-  - for $\phi$
-  - for blocked $Z$
-- [ ] Ben's Paper
-- [ ] Emulate `dRW`
+### Sampler
 
+MALA:
+- Ben: MALA could slightly help with mixing of univariate-ly proposed parameters; MALA mostly helps the mixing of block-updated parameters (like $Z_t$, eventually)
+- [ ] derive $\dfrac{\partial \log L}{\partial \phi}$
+- [ ] Block $Z_t$ in some better way (exceedance versus censored), apply MALA
+
+Likelihood-free MCMC with Amortized Approximate Ratio Estimators
+
+Emulate `dRW`
+
+### Chain
+
+- [ ] keep running the $\phi, \rho, \tau, S, Z$ chain to ~20,000 iterations
+  - [ ] test the extend trace snippet
+  - [ ] see if the chain eventually converge to the correct value
+    - if it does, following experiment could start at the true $\phi$ values
+- [ ] run $\phi, \rho, \tau, S, Z, \sigma, \xi$ chain
+
+### Paper/slides
 - [x] Page 4: "... $\phi = 0$ gives <mark>AI</mark> ..." should it be AD?
   - yes it should
 
@@ -29,9 +42,9 @@ Paper/slides
 
 Metropolis-adjusted Langevin algorithm
 - [x] take the derivative of the log likelihood with respect to $Z$
-- [ ] implement the derivative `dRWdZ` in cpp and add to python `utilities.py`
-- [ ] implement MALA into the sampler for $Z$
-- [ ] add a way to extend the traceplot size if they are already full
+- [-] implement the derivative `dRWdZ` in cpp and add to python `utilities.py`
+- [-] implement MALA into the sampler for $Z$
+- [x] add a way to extend the traceplot size if they are already full
 
 Sampler:
 - $\phi$, $\rho$, $\tau$, $S$, $Z$
@@ -47,7 +60,7 @@ Sampler:
     - ![alt text](image-132.png)
     - ![alt text](image-135.png)
     - ![alt text](image-136.png)
-  - [ ] try starting $\phi$ from true value, is the mixing better?
+  - [-] try starting $\phi$ from true value, is the mixing better?
 - $\phi$, $\rho$, $\tau$, $S$, $Z$, $\sigma$, $\xi$
 
 ## Mar. 25 (Tuesday)
@@ -1487,6 +1500,7 @@ $$
 \end{align*}
 $$
 - exceedance:
+- <mark>Likun said the orange term is 0 because $X_t$ is constant w.r.t $Z_t$</mark>
 $$
 \begin{align*}
 \dfrac{\partial \log \left(\varphi(X_t \mid X_t^*, \tau) \dfrac{f_Y(Y_t)}{f_X(X_t)} \right)}{\partial Z_t} &= \dfrac{\partial \log\varphi(X_t \mid X_t^*, \tau)}{\partial Z_t} + \dfrac{\partial \log f_Y(Y_t)}{\partial Z_t} - \dfrac{\partial \log f_X(X)}{\partial Z_t} \\
@@ -1507,3 +1521,5 @@ $$
 &= -\left\{ X_t - \dfrac{1}{f_X(X_t)} \int_0^\infty t \cdot \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right) \varphi(X_t - t) dt\right\} \cdot R^\phi \dfrac{\varphi(Z_t)}{(1 - \Phi(Z_t))^2}
 \end{align*}
 $$
+
+#### Derivative with respect to $\phi$:
