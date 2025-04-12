@@ -79,7 +79,7 @@ except Exception as e:
 # Manual MCMC chain settings --------------------------------------------------
 
 from_simulation = True
-n_iters         = 10000
+n_iters         = 20000
 SAVE_SIZE       = 50   # we are not saving the counters, so this must be a multiple of ADAPT_SIZE!
 THIN            = 10   # print to console every `THIN` iterations
 
