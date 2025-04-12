@@ -369,7 +369,7 @@ alpha = 0.5 # alpha in the Stable, stays 0.5
 
 # %% ESTIMATE PARAMETERS ----------------------------------------------------------------------------------------------
 
-if start_iter == 1 and from_simulation == False:
+if from_simulation == False:
     # We estimate parameter's initial values to start the chains
 
     # Marginal Parameters - GP(sigma, xi) ------------------------------------
@@ -526,7 +526,7 @@ if start_iter == 1 and from_simulation == False:
 # %% LOAD/HARDCODE PARAMETERS -----------------------------------------------------------------------------------------
 
 # True values as intials with the simulation
-if start_iter == 1 and from_simulation == True:
+if from_simulation == True:
 
     simulation_threshold = 60.0
     Beta_logsigma        = np.array([3.0, 0.1])
@@ -1165,139 +1165,143 @@ else: # start_iter != 1
 # Adaptive Update track history ---------------------------------------------------------------------------------------
 
 if start_iter == 1:
-    N_ADAPTS                    = n_iters // ADAPT_SIZE                                               if rank == 0 else None
-    r_hat_S_history             = np.full((N_ADAPTS, Nt, k_S),                   fill_value = np.nan) if rank == 0 else None
-    r_hat_Z_history             = np.full((N_ADAPTS, Nt, len(Z_block_idx_dict)), fill_value = np.nan) if rank == 0 else None
-    r_hat_phi_history           = np.full((N_ADAPTS, len(phi_block_idx_dict)),   fill_value = np.nan) if rank == 0 else None
-    r_hat_rho_history           = np.full((N_ADAPTS, len(rho_block_idx_dict)),   fill_value = np.nan) if rank == 0 else None
-    r_hat_gamma_k_history       = np.full((N_ADAPTS, k_S),                       fill_value = np.nan) if rank == 0 else None
-    r_hat_tau_history           = np.full((N_ADAPTS, 1),                         fill_value = np.nan) if rank == 0 else None
-    r_hat_Beta_logsigma_history = np.full((N_ADAPTS, 1),                         fill_value = np.nan) if rank == 0 else None
-    r_hat_Beta_xi_history       = np.full((N_ADAPTS, 1),                         fill_value = np.nan) if rank == 0 else None
-    r_hat_sigma_Beta_history    = np.full((N_ADAPTS, 2),                         fill_value = np.nan) if rank == 0 else None
+    N_ADAPTS = n_iters // ADAPT_SIZE if rank == 0 else None
+    if UPDATE_S:              r_hat_S_history             = np.full((N_ADAPTS, Nt, k_S),                   fill_value = np.nan) if rank == 0 else None
+    if UPDATE_Z:              r_hat_Z_history             = np.full((N_ADAPTS, Nt, len(Z_block_idx_dict)), fill_value = np.nan) if rank == 0 else None
+    if UPDATE_phi:            r_hat_phi_history           = np.full((N_ADAPTS, len(phi_block_idx_dict)),   fill_value = np.nan) if rank == 0 else None
+    if UPDATE_rho:            r_hat_rho_history           = np.full((N_ADAPTS, len(rho_block_idx_dict)),   fill_value = np.nan) if rank == 0 else None
+    if UPDATE_gamma_k:        r_hat_gamma_k_history       = np.full((N_ADAPTS, k_S),                       fill_value = np.nan) if rank == 0 else None
+    if UPDATE_tau:            r_hat_tau_history           = np.full((N_ADAPTS, 1),                         fill_value = np.nan) if rank == 0 else None
+    if UPDATE_GPD_sigma:      r_hat_Beta_logsigma_history = np.full((N_ADAPTS, 1),                         fill_value = np.nan) if rank == 0 else None
+    if UPDATE_GPD_xi:         r_hat_Beta_xi_history       = np.full((N_ADAPTS, 1),                         fill_value = np.nan) if rank == 0 else None
+    if UPDATE_Regularization: r_hat_sigma_Beta_history    = np.full((N_ADAPTS, 2),                         fill_value = np.nan) if rank == 0 else None
 else: # start_iter != 1
-    r_hat_S_history             = np.load('r_hat_S_history.npy')                 if rank == 0 else None
-    r_hat_Z_history             = np.load('r_hat_Z_history.npy')                 if rank == 0 else None
-    r_hat_phi_history           = np.load('r_hat_phi_history.npy')               if rank == 0 else None
-    r_hat_rho_history           = np.load('r_hat_rho_history.npy')               if rank == 0 else None
-    r_hat_gamma_k_history       = np.load('r_hat_gamma_k_history.npy')           if rank == 0 else None
-    r_hat_tau_history           = np.load('r_hat_tau_history.npy')               if rank == 0 else None
-    r_hat_Beta_logsigma_history = np.load('r_hat_Beta_logsigma_history.npy')     if rank == 0 else None
-    r_hat_Beta_xi_history       = np.load('r_hat_Beta_xi_history.npy')           if rank == 0 else None
-    r_hat_sigma_Beta_history    = np.load('r_hat_sigma_Beta_history.npy')        if rank == 0 else None
+    if UPDATE_S:              r_hat_S_history             = np.load('r_hat_S_history.npy')             if rank == 0 else None
+    if UPDATE_Z:              r_hat_Z_history             = np.load('r_hat_Z_history.npy')             if rank == 0 else None
+    if UPDATE_phi:            r_hat_phi_history           = np.load('r_hat_phi_history.npy')           if rank == 0 else None
+    if UPDATE_rho:            r_hat_rho_history           = np.load('r_hat_rho_history.npy')           if rank == 0 else None
+    if UPDATE_gamma_k:        r_hat_gamma_k_history       = np.load('r_hat_gamma_k_history.npy')       if rank == 0 else None
+    if UPDATE_tau:            r_hat_tau_history           = np.load('r_hat_tau_history.npy')           if rank == 0 else None
+    if UPDATE_GPD_sigma:      r_hat_Beta_logsigma_history = np.load('r_hat_Beta_logsigma_history.npy') if rank == 0 else None
+    if UPDATE_GPD_xi:         r_hat_Beta_xi_history       = np.load('r_hat_Beta_xi_history.npy')       if rank == 0 else None
+    if UPDATE_Regularization: r_hat_sigma_Beta_history    = np.load('r_hat_sigma_Beta_history.npy')    if rank == 0 else None
 
-# %% STORAGE AND INITIALIZE -------------------------------------------------------------------------------------------
-
-# Storage ---------------------------------------------------------------------
+# %% STORAGE ----------------------------------------------------------------------------------------------------------
 
 if start_iter == 1:
-    loglik_trace              = np.full(shape = (n_iters+1, 1), fill_value = np.nan)               if rank == 0 else None # overall likelihood
-    loglik_detail_trace       = np.full(shape = (n_iters+1, 4), fill_value = np.nan)               if rank == 0 else None # detail likelihood
-    S_trace_log               = np.full(shape = (n_iters+1, k_S, Nt), fill_value = np.nan)         if rank == 0 else None # log(S)
-    phi_knots_trace           = np.full(shape = (n_iters+1, k_phi), fill_value = np.nan)           if rank == 0 else None # phi_at_knots
-    rho_knots_trace           = np.full(shape = (n_iters+1, k_rho), fill_value = np.nan)           if rank == 0 else None # rho_at_knots
-    Beta_logsigma_trace       = np.full(shape = (n_iters+1, Beta_logsigma_m), fill_value = np.nan) if rank == 0 else None # logsigma Covariate Coefficients
-    Beta_xi_trace             = np.full(shape = (n_iters+1, Beta_xi_m), fill_value = np.nan)       if rank == 0 else None # xi Covariate Coefficients
-    sigma_Beta_logsigma_trace = np.full(shape = (n_iters+1, 1), fill_value = np.nan)               if rank == 0 else None # prior sd for beta_logsigma's
-    sigma_Beta_xi_trace       = np.full(shape = (n_iters+1, 1), fill_value = np.nan)               if rank == 0 else None # prior sd for beta_xi's
-    Y_trace                   = np.full(shape = (n_iters+1, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
-    tau_trace                 = np.full(shape = (n_iters+1, 1), fill_value = np.nan)               if rank == 0 else None
-    Z_trace                   = np.full(shape = (n_iters+1, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
-    gamma_k_vec_trace         = np.full(shape = (n_iters+1, k_S), fill_value = np.nan)             if rank == 0 else None
-    X_trace                   = np.full(shape = (n_iters+1, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
-    dX_trace                  = np.full(shape = (n_iters+1, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
+    loglik_trace              = np.full(shape = (n_iters+1, 1), fill_value = np.nan)                                         if rank == 0 else None # overall likelihood
+    loglik_detail_trace       = np.full(shape = (n_iters+1, 4), fill_value = np.nan)                                         if rank == 0 else None # detail likelihood
+    X_trace                   = np.full(shape = (n_iters+1, Ns, Nt), fill_value = np.nan)                                    if rank == 0 else None
+    dX_trace                  = np.full(shape = (n_iters+1, Ns, Nt), fill_value = np.nan)                                    if rank == 0 else None
+    if UPDATE_Imputation:     Y_trace                   = np.full(shape = (n_iters+1, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
+    if UPDATE_S:              S_trace_log               = np.full(shape = (n_iters+1, k_S, Nt), fill_value = np.nan)         if rank == 0 else None # log(S)
+    if UPDATE_phi:            phi_knots_trace           = np.full(shape = (n_iters+1, k_phi), fill_value = np.nan)           if rank == 0 else None # phi_at_knots
+    if UPDATE_rho:            rho_knots_trace           = np.full(shape = (n_iters+1, k_rho), fill_value = np.nan)           if rank == 0 else None # rho_at_knots
+    if UPDATE_GPD_sigma:      Beta_logsigma_trace       = np.full(shape = (n_iters+1, Beta_logsigma_m), fill_value = np.nan) if rank == 0 else None # logsigma Covariate Coefficients
+    if UPDATE_GPD_xi:         Beta_xi_trace             = np.full(shape = (n_iters+1, Beta_xi_m), fill_value = np.nan)       if rank == 0 else None # xi Covariate Coefficients
+    if UPDATE_Regularization: sigma_Beta_logsigma_trace = np.full(shape = (n_iters+1, 1), fill_value = np.nan)               if rank == 0 else None # prior sd for beta_logsigma's
+    if UPDATE_Regularization: sigma_Beta_xi_trace       = np.full(shape = (n_iters+1, 1), fill_value = np.nan)               if rank == 0 else None # prior sd for beta_xi's
+    if UPDATE_tau:            tau_trace                 = np.full(shape = (n_iters+1, 1), fill_value = np.nan)               if rank == 0 else None
+    if UPDATE_Z:              Z_trace                   = np.full(shape = (n_iters+1, Ns, Nt), fill_value = np.nan)          if rank == 0 else None
+    if UPDATE_gamma_k:        gamma_k_vec_trace         = np.full(shape = (n_iters+1, k_S), fill_value = np.nan)             if rank == 0 else None
 else: # start_iter != 1, load from environment
+    # load the trace from previous run
+    loglik_trace              = np.load('loglik_trace.npy')              if rank == 0 else None
+    loglik_detail_trace       = np.load('loglik_detail_trace.npy')       if rank == 0 else None
+    X_trace                   = np.load('X_trace.npy')                   if rank == 0 else None
+    dX_trace                  = np.load('dX_trace.npy')                  if rank == 0 else None
+    if UPDATE_Imputation:     Y_trace                   = np.load('Y_trace.npy')                   if rank == 0 else None    
+    if UPDATE_S:              S_trace_log               = np.load('S_trace_log.npy')               if rank == 0 else None
+    if UPDATE_phi:            phi_knots_trace           = np.load('phi_knots_trace.npy')           if rank == 0 else None
+    if UPDATE_rho:            rho_knots_trace           = np.load('rho_knots_trace.npy')           if rank == 0 else None
+    if UPDATE_GPD_sigma:      Beta_logsigma_trace       = np.load('Beta_logsigma_trace.npy')       if rank == 0 else None
+    if UPDATE_GPD_xi:         Beta_xi_trace             = np.load('Beta_xi_trace.npy')             if rank == 0 else None
+    if UPDATE_Regularization: sigma_Beta_logsigma_trace = np.load('sigma_Beta_logsigma_trace.npy') if rank == 0 else None
+    if UPDATE_Regularization: sigma_Beta_xi_trace       = np.load('sigma_Beta_xi_trace.npy')       if rank == 0 else None
+    if UPDATE_tau:            tau_trace                 = np.load('tau_trace.npy')                 if rank == 0 else None
+    if UPDATE_Z:              Z_trace                   = np.load('Z_trace.npy')                   if rank == 0 else None
+    if UPDATE_gamma_k:        gamma_k_vec_trace         = np.load('gamma_k_vec_trace.npy')         if rank == 0 else None
+    # X_star_trace              = np.load('X_star_trace.npy')              if rank == 0 else None
+    
     # check if we need to extend the trace
-    if n_iters <= loglik_trace.shape[0] - 1:
-        # no need to extend the trace
-        loglik_trace              = np.load('loglik_trace.npy')              if rank == 0 else None
-        loglik_detail_trace       = np.load('loglik_detail_trace.npy')       if rank == 0 else None
-        S_trace_log               = np.load('S_trace_log.npy')               if rank == 0 else None
-        phi_knots_trace           = np.load('phi_knots_trace.npy')           if rank == 0 else None
-        rho_knots_trace           = np.load('rho_knots_trace.npy')           if rank == 0 else None
-        Beta_logsigma_trace       = np.load('Beta_logsigma_trace.npy')       if rank == 0 else None
-        Beta_xi_trace             = np.load('Beta_xi_trace.npy')             if rank == 0 else None
-        sigma_Beta_logsigma_trace = np.load('sigma_Beta_logsigma_trace.npy') if rank == 0 else None
-        sigma_Beta_xi_trace       = np.load('sigma_Beta_xi_trace.npy')       if rank == 0 else None
-        Y_trace                   = np.load('Y_trace.npy')                   if rank == 0 else None
-        tau_trace                 = np.load('tau_trace.npy')                 if rank == 0 else None
-        Z_trace                   = np.load('Z_trace.npy')                   if rank == 0 else None
-        gamma_k_vec_trace         = np.load('gamma_k_vec_trace.npy')         if rank == 0 else None
-        # X_star_trace              = np.load('X_star_trace.npy')              if rank == 0 else None
-        X_trace                   = np.load('X_trace.npy')                   if rank == 0 else None
-        dX_trace                  = np.load('dX_trace.npy')                  if rank == 0 else None
-    else:
-        loglik_trace              = extend_trace(loglik_trace, n_iters)              if rank == 0 else None
-        loglik_detail_trace       = extend_trace(loglik_detail_trace, n_iters)       if rank == 0 else None
-        S_trace_log               = extend_trace(S_trace_log, n_iters)               if rank == 0 else None
-        phi_knots_trace           = extend_trace(phi_knots_trace, n_iters)           if rank == 0 else None
-        rho_knots_trace           = extend_trace(rho_knots_trace, n_iters)           if rank == 0 else None
-        Beta_logsigma_trace       = extend_trace(Beta_logsigma_trace, n_iters)       if rank == 0 else None
-        Beta_xi_trace             = extend_trace(Beta_xi_trace, n_iters)             if rank == 0 else None
-        sigma_Beta_logsigma_trace = extend_trace(sigma_Beta_logsigma_trace, n_iters) if rank == 0 else None
-        sigma_Beta_xi_trace       = extend_trace(sigma_Beta_xi_trace, n_iters)       if rank == 0 else None
-        Y_trace                   = extend_trace(Y_trace, n_iters)                   if rank == 0 else None
-        tau_trace                 = extend_trace(tau_trace, n_iters)                 if rank == 0 else None
-        Z_trace                   = extend_trace(Z_trace, n_iters)                   if rank == 0 else None
-        gamma_k_vec_trace         = extend_trace(gamma_k_vec_trace, n_iters)         if rank == 0 else None
-        # X_star_trace              = extend_trace(X_star_trace, n_iters)              if rank == 0 else None
-        X_trace                   = extend_trace(X_trace, n_iters)                   if rank == 0 else None
-        dX_trace                  = extend_trace(dX_trace, n_iters)                  if rank == 0 else None
-# Initialize Parameters for rank 0 worker only, other workers bcast later -----
+    if rank == 0:
+        if n_iters > loglik_trace.shape[0] - 1:
+            loglik_trace              = extend_trace(loglik_trace, n_iters)              
+            loglik_detail_trace       = extend_trace(loglik_detail_trace, n_iters)       
+            X_trace                   = extend_trace(X_trace, n_iters)                   
+            dX_trace                  = extend_trace(dX_trace, n_iters)                  
+            if UPDATE_Imputation:     Y_trace                   = extend_trace(Y_trace, n_iters)                   
+            if UPDATE_S:              S_trace_log               = extend_trace(S_trace_log, n_iters)               
+            if UPDATE_phi:            phi_knots_trace           = extend_trace(phi_knots_trace, n_iters)           
+            if UPDATE_rho:            rho_knots_trace           = extend_trace(rho_knots_trace, n_iters)           
+            if UPDATE_GPD_sigma:      Beta_logsigma_trace       = extend_trace(Beta_logsigma_trace, n_iters)       
+            if UPDATE_GPD_xi:         Beta_xi_trace             = extend_trace(Beta_xi_trace, n_iters)             
+            if UPDATE_Regularization: sigma_Beta_logsigma_trace = extend_trace(sigma_Beta_logsigma_trace, n_iters) 
+            if UPDATE_Regularization: sigma_Beta_xi_trace       = extend_trace(sigma_Beta_xi_trace, n_iters)       
+            if UPDATE_tau:            tau_trace                 = extend_trace(tau_trace, n_iters)                 
+            if UPDATE_Z:              Z_trace                   = extend_trace(Z_trace, n_iters)                   
+            if UPDATE_gamma_k:        gamma_k_vec_trace         = extend_trace(gamma_k_vec_trace, n_iters)         
+            # X_star_trace              = extend_trace(X_star_trace, n_iters)              
 
-if start_iter == 1:
-    # Initialize at the truth/at other values
-    S_matrix_init_log        = np.log(S_at_knots)  if rank == 0 else None
-    phi_knots_init           = phi_at_knots        if rank == 0 else None
-    rho_knots_init           = rho_at_knots        if rank == 0 else None
-    Beta_logsigma_init       = Beta_logsigma       if rank == 0 else None
-    Beta_xi_init             = Beta_xi             if rank == 0 else None
-    sigma_Beta_logsigma_init = sigma_Beta_logsigma if rank == 0 else None
-    sigma_Beta_xi_init       = sigma_Beta_xi       if rank == 0 else None
-    Y_matrix_init            = Y                   if rank == 0 else None
-    tau_init                 = tau                 if rank == 0 else None
-    Z_init                   = Z                   if rank == 0 else None
-    gamma_k_vec_init         = gamma_k_vec         if rank == 0 else None
-    # X_star_init              = X_star              if rank == 0 else None
-    X_init                   = X_matrix            if rank == 0 else None
-    dX_init                  = dX_matrix           if rank == 0 else None
+# Initialize ----------------------------------------------------------------------------------------------------------
 
-    if rank == 0: # store initial value into first row of traceplot
-        S_trace_log[0,:,:]             = S_matrix_init_log # matrix (k, Nt)
-        phi_knots_trace[0,:]           = phi_knots_init
-        rho_knots_trace[0,:]           = rho_knots_init
-        Beta_logsigma_trace[0,:]       = Beta_logsigma_init
-        Beta_xi_trace[0,:]             = Beta_xi_init
-        sigma_Beta_logsigma_trace[0,:] = sigma_Beta_logsigma_init
-        sigma_Beta_xi_trace[0,:]       = sigma_Beta_xi_init
-        Y_trace[0,:,:]                 = Y_matrix_init
-        tau_trace[0,:]                 = tau_init
-        Z_trace[0,:,:]                 = Z_init
-        gamma_k_vec_trace[0,:]         = gamma_k_vec_init
-        # X_star_trace[0,:,:]            = X_star_init
-        X_trace[0,:,:]                 = X_init
-        dX_trace[0,:,:]                = dX_init
+# Initialize Parameters for rank 0 worker only, other workers bcast "current value" later -----------------------------
 
-else: # start_iter != 1, load from last iter of saved traceplot
+# Initialize at the truth/estimated value from above code
+Y_matrix_init            = Y                   if rank == 0 else None
+X_init                   = X_matrix            if rank == 0 else None
+dX_init                  = dX_matrix           if rank == 0 else None
+S_matrix_init_log        = np.log(S_at_knots)  if rank == 0 else None
+phi_knots_init           = phi_at_knots        if rank == 0 else None
+rho_knots_init           = rho_at_knots        if rank == 0 else None
+Beta_logsigma_init       = Beta_logsigma       if rank == 0 else None
+Beta_xi_init             = Beta_xi             if rank == 0 else None
+sigma_Beta_logsigma_init = sigma_Beta_logsigma if rank == 0 else None
+sigma_Beta_xi_init       = sigma_Beta_xi       if rank == 0 else None
+tau_init                 = tau                 if rank == 0 else None
+Z_init                   = Z                   if rank == 0 else None
+gamma_k_vec_init         = gamma_k_vec         if rank == 0 else None
+# X_star_init              = X_star              if rank == 0 else None
+
+# Initialize from the last iteration of the saved traceplot
+if start_iter != 1:
     last_iter                = start_iter - 1
-    S_matrix_init_log        = S_trace_log[last_iter,:,:]             if rank == 0 else None
-    phi_knots_init           = phi_knots_trace[last_iter,:]           if rank == 0 else None
-    rho_knots_init           = rho_knots_trace[last_iter,:]           if rank == 0 else None
-    Beta_logsigma_init       = Beta_logsigma_trace[last_iter,:]       if rank == 0 else None
-    Beta_xi_init             = Beta_xi_trace[last_iter,:]             if rank == 0 else None
-    sigma_Beta_logsigma_init = sigma_Beta_logsigma_trace[last_iter,0] if rank == 0 else None # must be value, can't be array([value])
-    sigma_Beta_xi_init       = sigma_Beta_xi_trace[last_iter,0]       if rank == 0 else None # must be value, can't be array([value])
-    Y_matrix_init            = Y_trace[last_iter,:,:]                 if rank == 0 else None
-    tau_init                 = tau_trace[last_iter,:]                 if rank == 0 else None
-    Z_init                   = Z_trace[last_iter,:,:]                 if rank == 0 else None
-    gamma_k_vec_init         = gamma_k_vec_trace[last_iter,:]         if rank == 0 else None
-    # X_star_init              = X_star_trace[last_iter,:,:]            if rank == 0 else None
     X_init                   = X_trace[last_iter,:,:]                 if rank == 0 else None
     dX_init                  = dX_trace[last_iter,:,:]                if rank == 0 else None
+    if UPDATE_Imputation:     Y_matrix_init            = Y_trace[last_iter,:,:]                 if rank == 0 else None
+    if UPDATE_S:              S_matrix_init_log        = S_trace_log[last_iter,:,:]             if rank == 0 else None
+    if UPDATE_phi:            phi_knots_init           = phi_knots_trace[last_iter,:]           if rank == 0 else None
+    if UPDATE_rho:            rho_knots_init           = rho_knots_trace[last_iter,:]           if rank == 0 else None
+    if UPDATE_GPD_sigma:      Beta_logsigma_init       = Beta_logsigma_trace[last_iter,:]       if rank == 0 else None
+    if UPDATE_GPD_xi:         Beta_xi_init             = Beta_xi_trace[last_iter,:]             if rank == 0 else None
+    if UPDATE_Regularization: sigma_Beta_logsigma_init = sigma_Beta_logsigma_trace[last_iter,0] if rank == 0 else None # must be value, can't be array([value])
+    if UPDATE_Regularization: sigma_Beta_xi_init       = sigma_Beta_xi_trace[last_iter,0]       if rank == 0 else None # must be value, can't be array([value])
+    if UPDATE_tau:            tau_init                 = tau_trace[last_iter,:]                 if rank == 0 else None
+    if UPDATE_Z:              Z_init                   = Z_trace[last_iter,:,:]                 if rank == 0 else None
+    if UPDATE_gamma_k:        gamma_k_vec_init         = gamma_k_vec_trace[last_iter,:]         if rank == 0 else None
+    # X_star_init              = X_star_trace[last_iter,:,:]            if rank == 0 else None
 
-# Set Current Values using broadcast from worker 0
+# Store initial value into first row of traceplot
+if start_iter == 1: 
+    if rank == 0: 
+        X_trace[0,:,:]                 = X_init
+        dX_trace[0,:,:]                = dX_init
+        if UPDATE_Imputation:     Y_trace[0,:,:]                 = Y_matrix_init
+        if UPDATE_S:              S_trace_log[0,:,:]             = S_matrix_init_log # matrix (k, Nt)
+        if UPDATE_phi:            phi_knots_trace[0,:]           = phi_knots_init
+        if UPDATE_rho:            rho_knots_trace[0,:]           = rho_knots_init
+        if UPDATE_GPD_sigma:      Beta_logsigma_trace[0,:]       = Beta_logsigma_init
+        if UPDATE_GPD_xi:         Beta_xi_trace[0,:]             = Beta_xi_init
+        if UPDATE_Regularization: sigma_Beta_logsigma_trace[0,:] = sigma_Beta_logsigma_init
+        if UPDATE_Regularization: sigma_Beta_xi_trace[0,:]       = sigma_Beta_xi_init
+        if UPDATE_tau:            tau_trace[0,:]                 = tau_init
+        if UPDATE_Z:              Z_trace[0,:,:]                 = Z_init
+        if UPDATE_gamma_k:        gamma_k_vec_trace[0,:]         = gamma_k_vec_init
+        # X_star_trace[0,:,:]            = X_star_init
 
-## Marginal Model -------------------------------------------------------------------------------------------------
+# Set Current Values using broadcast from worker 0 --------------------------------------------------------------------
+
+## Marginal Model -----------------------------------------------------------------------------------------------------
 
 ## GPD covariate coefficients --> GPD surface ---------------------------------
 Beta_logsigma_current = comm.bcast(Beta_logsigma_init, root = 0)
@@ -1414,43 +1418,65 @@ miss_union_exceed_idx_1t_current = np.union1d(exceed_idx_1t_current, miss_idx_1t
 
 
 
-##################################
-# Metropolis-Hasting Update Loop #
-##################################
-
-
-
-
-
-
 
 
 
 
 # %% Metropolis-Hasting Updates -----------------------------------------------------------------------------------
-# Metropolis-Hasting Updates
+
 comm.Barrier() # Blocking before the update starts
 
 if rank == 0:
     start_time = time.time()
     print('started on:', strftime('%Y-%m-%d %H:%M:%S', localtime(time.time())))
 
+######################################################################
+#### ----- Checking log-likelihood before loops begin -----       ####
+######################################################################
+
+# Marginal ----------------------------------------------------------------
+
+if np.any(dCGP(Y_1t_current[exceed_idx_1t_current], p, u_vec[exceed_idx_1t_current], Scale_vec_current[exceed_idx_1t_current], Shape_vec_current[exceed_idx_1t_current]) == 0):
+    print('initial Y not possible', 'rank:', rank)
+    sys.exit()
+
+# Joint Likelihood --------------------------------------------------------
+
 # llik_1t_current = ll_1t(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
 #                         R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
 #                         S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current)
 
 llik_1t_current = ll_1t_qRWdRWout(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
-                                  R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
-                                  S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
-                                  X_1t_current, dX_1t_current, MVN_frozen_current)
+                                R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
+                                S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
+                                X_1t_current, dX_1t_current, MVN_frozen_current)
 
-if np.isfinite(llik_1t_current):
+censored_ll_1t, exceed_ll_1t, S_ll_1t, D_gauss_ll_1t = ll_1t_qRWdRWout_detail(Y_1t_current, p, u_vec, Scale_vec_current, Shape_vec_current,
+                                                                                R_vec_current, Z_1t_current, K_current, phi_vec_current, gamma_bar_vec_current, tau_current,
+                                                                                S_current_log, gamma_k_vec_current, censored_idx_1t_current, exceed_idx_1t_current,
+                                                                                X_1t_current, dX_1t_current, MVN_frozen_current)
+
+if not (np.isfinite(llik_1t_current) and np.isfinite(censored_ll_1t) and np.isfinite(exceed_ll_1t) and np.isfinite(S_ll_1t) and np.isfinite(D_gauss_ll_1t)):
+    print('initial likelihood not finite', 'rank:', rank)
+    sys.exit()
+else:
+    censored_ll_gathered     = comm.gather(censored_ll_1t, root = 0)
+    exceed_ll_gathered       = comm.gather(exceed_ll_1t,   root = 0)
+    S_ll_gathered            = comm.gather(S_ll_1t,        root = 0)
+    D_gauss_ll_gathered      = comm.gather(D_gauss_ll_1t,  root = 0)
     llik_1t_current_gathered = comm.gather(llik_1t_current, root = 0)
-    if rank == 0: loglik_trace[0, 0] = np.sum(llik_1t_current_gathered)
-else: print('initial likelihood non finite', 'rank:', rank)
 
-if np.any(dCGP(Y_1t_current[exceed_idx_1t_current], p, u_vec[exceed_idx_1t_current], Scale_vec_current[exceed_idx_1t_current], Shape_vec_current[exceed_idx_1t_current]) == 0):
-    print('initial Y not possible', 'rank:', rank)
+if start_iter == 1 and rank == 0:
+    loglik_trace[0, 0]                = np.sum(llik_1t_current_gathered)
+    loglik_detail_trace[0, [0,1,2,3]] = np.sum(np.array([censored_ll_gathered, 
+                                                            exceed_ll_gathered, 
+                                                            S_ll_gathered,
+                                                            D_gauss_ll_gathered]),
+                                                axis = 1)
+
+##################################
+# Metropolis-Hasting Update Loop #
+##################################
 
 for iter in range(start_iter, n_iters+1):
     # %% Update St ------------------------------------------------------------------------------------------------
@@ -2412,17 +2438,17 @@ for iter in range(start_iter, n_iters+1):
             np.save('loglik_detail_trace',       loglik_detail_trace)
             np.save('X_trace',                   X_trace)
             np.save('dX_trace',                  dX_trace)
-            if UPDATE_S:         np.save('S_trace_log',         S_trace_log)
-            if UPDATE_Z:         np.save('Z_trace',             Z_trace)
-            if UPDATE_phi:       np.save('phi_knots_trace',     phi_knots_trace)
-            if UPDATE_rho:       np.save('rho_knots_trace',     rho_knots_trace)
-            if UPDATE_tau:       np.save('tau_trace',           tau_trace)
-            if UPDATE_gamma_k:   np.save('gamma_k_vec_trace',   gamma_k_vec_trace)
-            if UPDATE_GPD_sigma: np.save('Beta_logsigma_trace', Beta_logsigma_trace)
-            if UPDATE_GPD_xi:    np.save('Beta_xi_trace',       Beta_xi_trace)
-            if UPDATE_Regularization:
-                np.save('sigma_Beta_logsigma_trace', sigma_Beta_logsigma_trace)
-                np.save('sigma_Beta_xi_trace',       sigma_Beta_xi_trace)
+            if UPDATE_Imputation:     np.save('Y_trace', Y_trace)
+            if UPDATE_S:              np.save('S_trace_log',               S_trace_log)
+            if UPDATE_Z:              np.save('Z_trace',                   Z_trace)
+            if UPDATE_phi:            np.save('phi_knots_trace',           phi_knots_trace)
+            if UPDATE_rho:            np.save('rho_knots_trace',           rho_knots_trace)
+            if UPDATE_tau:            np.save('tau_trace',                 tau_trace)
+            if UPDATE_gamma_k:        np.save('gamma_k_vec_trace',         gamma_k_vec_trace)
+            if UPDATE_GPD_sigma:      np.save('Beta_logsigma_trace',       Beta_logsigma_trace)
+            if UPDATE_GPD_xi:         np.save('Beta_xi_trace',             Beta_xi_trace)
+            if UPDATE_Regularization: np.save('sigma_Beta_logsigma_trace', sigma_Beta_logsigma_trace)
+            if UPDATE_Regularization: np.save('sigma_Beta_xi_trace',       sigma_Beta_xi_trace)
 
             # Save Adaptive tuning history ------------------------------------
 
