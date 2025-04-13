@@ -1185,6 +1185,20 @@ else: # start_iter != 1
     if UPDATE_GPD_sigma:      r_hat_Beta_logsigma_history = np.load('r_hat_Beta_logsigma_history.npy') if rank == 0 else None
     if UPDATE_GPD_xi:         r_hat_Beta_xi_history       = np.load('r_hat_Beta_xi_history.npy')       if rank == 0 else None
     if UPDATE_Regularization: r_hat_sigma_Beta_history    = np.load('r_hat_sigma_Beta_history.npy')    if rank == 0 else None
+    
+    if rank == 0: # check if we need to extend the trace of r_hat
+        N_ADAPTS = n_iters // ADAPT_SIZE
+        if N_ADAPTS > r_hat_S_history.shape[0]:
+            if UPDATE_S:              r_hat_S_history             = np.append(r_hat_S_history,             np.full((N_ADAPTS - r_hat_S_history.shape[0], Nt, k_S),                     fill_value = np.nan), axis = 0)
+            if UPDATE_Z:              r_hat_Z_history             = np.append(r_hat_Z_history,             np.full((N_ADAPTS - r_hat_Z_history.shape[0], Nt, len(Z_block_idx_dict)),   fill_value = np.nan), axis = 0)
+            if UPDATE_phi:            r_hat_phi_history           = np.append(r_hat_phi_history,           np.full((N_ADAPTS - r_hat_phi_history.shape[0], len(phi_block_idx_dict)),   fill_value = np.nan), axis = 0)
+            if UPDATE_rho:            r_hat_rho_history           = np.append(r_hat_rho_history,           np.full((N_ADAPTS - r_hat_rho_history.shape[0], len(rho_block_idx_dict)),   fill_value = np.nan), axis = 0)
+            if UPDATE_gamma_k:        r_hat_gamma_k_history       = np.append(r_hat_gamma_k_history,       np.full((N_ADAPTS - r_hat_gamma_k_history.shape[0], k_S),                   fill_value = np.nan), axis = 0)
+            if UPDATE_tau:            r_hat_tau_history           = np.append(r_hat_tau_history,           np.full((N_ADAPTS - r_hat_tau_history.shape[0], 1),                         fill_value = np.nan), axis = 0)
+            if UPDATE_GPD_sigma:      r_hat_Beta_logsigma_history = np.append(r_hat_Beta_logsigma_history, np.full((N_ADAPTS - r_hat_Beta_logsigma_history.shape[0], 1),               fill_value = np.nan), axis = 0)
+            if UPDATE_GPD_xi:         r_hat_Beta_xi_history       = np.append(r_hat_Beta_xi_history,       np.full((N_ADAPTS - r_hat_Beta_xi_history.shape[0], 1),                     fill_value = np.nan), axis = 0)
+            if UPDATE_Regularization: r_hat_sigma_Beta_history    = np.append(r_hat_sigma_Beta_history,    np.full((N_ADAPTS - r_hat_sigma_Beta_history.shape[0], 2),                  fill_value = np.nan), axis = 0)
+
 
 # %% STORAGE ----------------------------------------------------------------------------------------------------------
 
