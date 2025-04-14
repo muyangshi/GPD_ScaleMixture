@@ -2498,16 +2498,16 @@ for iter in range(start_iter, n_iters+1):
             xs_thin2 = np.arange(len(xs_thin)) # index 1, 2, 3, ...
             loglik_trace_thin              = loglik_trace[0:iter:THIN,:]
             loglik_detail_trace_thin       = loglik_detail_trace[0:iter:THIN,:]
-            S_trace_log_thin               = S_trace_log[0:iter:THIN,:,:]
-            Z_trace_thin                   = Z_trace[0:iter:THIN,:,:]
-            phi_knots_trace_thin           = phi_knots_trace[0:iter:THIN,:]
-            rho_knots_trace_thin         = rho_knots_trace[0:iter:THIN,:]
-            tau_trace_thin                 = tau_trace[0:iter:THIN,:]
-            gamma_k_vec_trace_thin         = gamma_k_vec_trace[0:iter:THIN,:]
-            Beta_logsigma_trace_thin       = Beta_logsigma_trace[0:iter:THIN,:]
-            Beta_xi_trace_thin             = Beta_xi_trace[0:iter:THIN,:]
-            sigma_Beta_logsigma_trace_thin = sigma_Beta_logsigma_trace[0:iter:THIN,:]
-            sigma_Beta_xi_trace_thin       = sigma_Beta_xi_trace[0:iter:THIN,:]
+            if UPDATE_S:               S_trace_log_thin               = S_trace_log[0:iter:THIN,:,:]
+            if UPDATE_Z:               Z_trace_thin                   = Z_trace[0:iter:THIN,:,:]
+            if UPDATE_phi:             phi_knots_trace_thin           = phi_knots_trace[0:iter:THIN,:]
+            if UPDATE_rho:             rho_knots_trace_thin           = rho_knots_trace[0:iter:THIN,:]
+            if UPDATE_tau:             tau_trace_thin                 = tau_trace[0:iter:THIN,:]
+            if UPDATE_gamma_k:         gamma_k_vec_trace_thin         = gamma_k_vec_trace[0:iter:THIN,:]
+            if UPDATE_GPD_sigma:       Beta_logsigma_trace_thin       = Beta_logsigma_trace[0:iter:THIN,:]
+            if UPDATE_GPD_xi:          Beta_xi_trace_thin             = Beta_xi_trace[0:iter:THIN,:]
+            if UPDATE_Regularization:  sigma_Beta_logsigma_trace_thin = sigma_Beta_logsigma_trace[0:iter:THIN,:]
+            if UPDATE_Regularization:  sigma_Beta_xi_trace_thin       = sigma_Beta_xi_trace[0:iter:THIN,:]
 
             # ---- log-likelihood ----
             plt.subplots()
