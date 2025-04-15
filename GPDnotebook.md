@@ -11,7 +11,7 @@
 
 # Meetings
 
-## April 15
+## April 18 (Friday) Muyang/Likun/Ben
 
 ## April 8 (Tuesday) Muyang/Likun/Ben
 
@@ -20,7 +20,9 @@
 MALA:
 - Ben: MALA could slightly help with mixing of univariate-ly proposed parameters; MALA mostly helps the mixing of block-updated parameters (like $Z_t$, eventually)
 - [ ] derive $\dfrac{\partial \log L}{\partial \phi}$
-- [ ] Block $Z_t$ in some better way (exceedance versus censored), apply MALA
+- [ ] code up these partial derivatives in `cpp`
+
+Block $Z_t$ in some better way (exceedance versus censored)
 
 Likelihood-free MCMC with Amortized Approximate Ratio Estimators
 
@@ -29,8 +31,9 @@ Emulate `dRW`
 ### Chain
 
 - [ ] keep running the $\phi, \rho, \tau, S, Z$ chain to ~20,000 iterations
-  - [ ] test the extend trace snippet
-  - [ ] see if the chain eventually converge to the correct value
+  - [x] test the extend trace snippet
+    - made a bunch coding changes/fixes
+  - see if the chain eventually converge to the correct value
     - if it does, following experiment could start at the true $\phi$ values
 - [ ] run $\phi, \rho, \tau, S, Z, \sigma, \xi$ chain
 
@@ -1329,10 +1332,10 @@ $$
 #### CDF `pRW(x, phi_j, gamma_j, tau)` with nugget
 
 $$
-1 - \left\{\bar{\Phi}(x) + \sqrt{\dfrac{1}{\pi}}\int_0^\infty\gamma\left(\dfrac{1}{2}, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\phi(x-t)dt + \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j} \int_0^\infty \dfrac{1}{t} \Gamma \left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}_j}{2t^{\phi_j}}\right)\phi(x-t)dt \right\}
+1 - \left\{\overline{\Phi_\tau}(x) + \sqrt{\dfrac{1}{\pi}}\int_0^\infty\gamma\left(\dfrac{1}{2}, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\varphi_\tau(x-t)dt + \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j} \int_0^\infty \dfrac{1}{t} \Gamma \left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\varphi_\tau(x-t)dt \right\}
 $$
 
-  - $\Phi$ and $\phi$ are the distribution and density functions of $N(0, \tau^2)$
+  - $\Phi$ and $\varphi$ are the distribution and density functions of $N(0, \tau^2)$
   - Details:
     - In Notability note page 63
 
@@ -1361,6 +1364,8 @@ $$
 $$
 f_{X_j}(x) = \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}}{2}\right)^\phi \int_0^\infty \dfrac{1}{t^2} \Gamma\left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}}{2t^{1/\phi_j}} \right) \phi(x -t) dt
 $$
+
+$\phi$ is $N(0, \tau^2)$
 
 - Details:
   $$
@@ -1523,3 +1528,26 @@ $$
 $$
 
 #### Derivative with respect to $\phi$:
+
+- censored:
+$$
+\begin{align*}
+\dfrac{\partial \log \Phi((F_X^{-1}(p) - R^\phi g(Z_t))/\tau)}{\partial \phi} :&= \dfrac{\partial \log \Phi((q(\phi) - \mu(\phi))/\tau)}{\partial \phi} \\
+&= \dfrac{1}{\Phi((q(\phi) - \mu(\phi)) / \tau)} \cdot \dfrac{\partial \Phi((q(\phi) - \mu(\phi))/\tau)}{\partial \phi} \\
+&= \dfrac{\varphi((q(\phi) - \mu(\phi))/\tau)}{\Phi((q(\phi) - \mu(\phi)) / \tau)} \cdot \dfrac{1}{\tau} \cdot \left(\textcolor{blue}{\dfrac{\partial q(\phi)}{\partial \phi}} - \textcolor{green}{\dfrac{\partial \mu(\phi)}{\partial \phi}} \right) \\
+\textcolor{green}{\dfrac{\partial \mu(\phi)}{\partial \phi}} &= \dfrac{\partial R^\phi g(Z)}{\partial \phi} \\
+&= \log R \cdot R^\phi \cdot g(Z) \\
+\textcolor{blue}{\dfrac{\partial q(\phi)}{\partial \phi}} &\Rightarrow \text{CDF is } F(x; \phi),  \text{ quantile function is } q(\phi) := F^{-1}(p; \phi) \\
+&\Rightarrow F(\underset{=x}{q(\phi)};\phi) = p \\
+\text{(take derivative with respect to $\phi$)} &\Rightarrow \dfrac{\partial F(x)}{\partial q(\phi)} \cdot \dfrac{dq(\phi)}{d\phi} + \dfrac{\partial F(x)}{\partial \phi} = 0 \\
+& \Rightarrow \textcolor{blue}{\dfrac{d q(\phi)}{d \phi}} = -\dfrac{\partial F(x) / \partial \phi}{\partial F(x) / \partial x} \\
+&= -\dfrac{\textcolor{yellow}{\partial F(x) / \partial \phi}}{f(x)} \text{ where } x = F^{-1}(p)\\
+\textcolor{yellow}{\dfrac{\partial F}{\partial \phi}} &= -\left( \textcolor{orange}{\dfrac{\partial A}{\partial \phi}} + \textcolor{pink}{\dfrac{\partial B}{\partial \phi}}\right) \\
+\textcolor{orange}{\text{where } \dfrac{\partial A}{\partial \phi}} &= \dfrac{\partial \sqrt{\dfrac{1}{\pi}} \int_0^\infty \gamma\left(\dfrac{1}{2},\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\varphi_\tau(x-t)dt }{\partial \phi} \\
+&= \sqrt{\dfrac{1}{\pi}}\int_0^\infty \dfrac{\partial}{\partial \phi}\left[\gamma\left(\dfrac{1}{2}, \dfrac{\bar{\gamma}_j}{2t^{1/\phi}}\right)\right] \varphi_\tau(x-t)dt \\
+\left(\dfrac{\partial \gamma(a, z)}{\partial z} = z^{a-1}e^{-z}\right) &= \sqrt{\dfrac{1}{\pi}}\int_0^\infty\left(\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)^{-1/2}e^{-\frac{\bar{\gamma}_j}{2t^{1/\phi_j}}} \cdot \dfrac{\partial}{\partial \phi}\left[\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right] \varphi_\tau(x-t)dt \\
+&= \sqrt{\dfrac{1}{\pi}}\int_0^\infty\left(\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)^{-1/2}e^{-\frac{\bar{\gamma}_j}{2t^{1/\phi_j}}} \cdot  \dfrac{\bar{\gamma}_j}{2} t^{-1/\phi} \dfrac{\log t}{\phi^2}\cdot \varphi_\tau(x-t)dt \\
+\textcolor{pink}{\text{and } \dfrac{\partial B}{\partial \phi}} &= 
+
+\end{align*}
+$$
