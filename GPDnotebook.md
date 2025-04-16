@@ -20,6 +20,8 @@
 MALA:
 - Ben: MALA could slightly help with mixing of univariate-ly proposed parameters; MALA mostly helps the mixing of block-updated parameters (like $Z_t$, eventually)
 - [ ] derive $\dfrac{\partial \log L}{\partial \phi}$
+  - quite complex
+  - numerical approximate some pieces?
 - [ ] code up these partial derivatives in `cpp`
 
 Block $Z_t$ in some better way (exceedance versus censored)
@@ -34,6 +36,10 @@ Emulate `dRW`
   - [x] test the extend trace snippet
     - made a bunch coding changes/fixes
   - see if the chain eventually converge to the correct value
+    - unfortunately, still not converged?
+      - ![alt text](image-137.png)
+      - ![alt text](image-138.png)
+      - ![alt text](image-139.png)
     - if it does, following experiment could start at the true $\phi$ values
 - [ ] run $\phi, \rho, \tau, S, Z, \sigma, \xi$ chain
 
@@ -1514,7 +1520,8 @@ $$
 &= \dfrac{\partial \left(-\dfrac{1}{2}\log(2\pi\tau^2) - \dfrac{(X_t - X_t^*)^2}{2\tau^2} \right)}{\partial Z_t}\\
 &= \dfrac{\partial \left(-\dfrac{1}{2}\log(2\pi\tau^2) - \dfrac{(X_t - X_t^*)^2}{2\tau^2} \right)}{\partial X_t^*} \cdot \dfrac{\partial X_t^*}{\partial Z_t} \\
 &= \dfrac{X_t - X_t^*}{\tau^2} \cdot R^\phi \dfrac{\varphi(Z_t)}{(1-\Phi(Z_t))^2} \\
-\textcolor{orange}{\dfrac{\partial \log f_X(X_t)}{\partial Z_t}} &= \dfrac{1}{f_X(X_t)} \cdot \dfrac{\partial f_X(X_t)}{\partial Z_t} \\
+\textcolor{orange}{\dfrac{\partial \log f_X(X_t)}{\partial Z_t}} &\textcolor{orange}{= 0 \quad \text{Likun: X is constant w.r.t Z}}\\
+&= \dfrac{1}{f_X(X_t)} \cdot \dfrac{\partial f_X(X_t)}{\partial Z_t} \\
 &= \dfrac{1}{f_X(X_t)}\cdot \dfrac{\partial f_X(X_t)}{\partial X_t} \cdot \dfrac{\partial X_t}{\partial Z_t} \\
 &= \dfrac{1}{f_X(X_t)}\cdot \dfrac{\partial}{\partial X_t} \left(\sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \int_0^\infty \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right) \varphi(X_t - t)dt \right) \cdot \dfrac{\partial X_t}{\partial Z_t} \\
 \text{(move inside)} &= \dfrac{1}{f_X(X_t)}\cdot \sqrt{\dfrac{1}{\pi}} \left(\dfrac{\bar{\gamma}}{2}\right)^\phi \left(\int_0^\infty \dfrac{\partial}{\partial X_t} \left[ \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right) \varphi(X_t - t) \right) dt \right] \cdot \dfrac{\partial X_t}{\partial Z_t} \\
@@ -1547,7 +1554,18 @@ $$
 &= \sqrt{\dfrac{1}{\pi}}\int_0^\infty \dfrac{\partial}{\partial \phi}\left[\gamma\left(\dfrac{1}{2}, \dfrac{\bar{\gamma}_j}{2t^{1/\phi}}\right)\right] \varphi_\tau(x-t)dt \\
 \left(\dfrac{\partial \gamma(a, z)}{\partial z} = z^{a-1}e^{-z}\right) &= \sqrt{\dfrac{1}{\pi}}\int_0^\infty\left(\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)^{-1/2}e^{-\frac{\bar{\gamma}_j}{2t^{1/\phi_j}}} \cdot \dfrac{\partial}{\partial \phi}\left[\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right] \varphi_\tau(x-t)dt \\
 &= \sqrt{\dfrac{1}{\pi}}\int_0^\infty\left(\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)^{-1/2}e^{-\frac{\bar{\gamma}_j}{2t^{1/\phi_j}}} \cdot  \dfrac{\bar{\gamma}_j}{2} t^{-1/\phi} \dfrac{\log t}{\phi^2}\cdot \varphi_\tau(x-t)dt \\
-\textcolor{pink}{\text{and } \dfrac{\partial B}{\partial \phi}} &= 
+\textcolor{pink}{\text{and } \dfrac{\partial B}{\partial \phi}} &= \dfrac{\partial }{\partial \phi} \left[\sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j} \int_0^\infty \dfrac{1}{t}\Gamma\left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\varphi_\tau(x-t)dt \right] \\
+&= \sqrt{\dfrac{1}{\pi}} \left\{\dfrac{\partial }{\partial \phi}\left[\left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j}\right] \int_0^\infty \dfrac{1}{t}\Gamma\left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\varphi_\tau(x-t)dt \right. \\
+&\quad \quad + \left.\left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j}\dfrac{\partial}{\partial \phi}\left[\int_0^\infty \dfrac{1}{t}\Gamma\left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\varphi_\tau(x-t)dt\right]\right\} \\
+&= \sqrt{\dfrac{1}{\pi}} \left\{ \left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j}\log\left(\dfrac{\bar{\gamma}_j}{2}\right) \int_0^\infty \dfrac{1}{t}\Gamma\left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\varphi_\tau(x-t)dt \right. \\
+&\quad \quad + \left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j} \int_0^\infty \dfrac{1}{t} \dfrac{\partial}{\partial \phi} \left[ \Gamma\left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\right] \varphi(x-t)dt \\
+\left(\text{denote } a(\phi_j) := \dfrac{1}{2} - \phi_j, z(\phi_j,t) := \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)&\Rightarrow \dfrac{\partial}{\partial \phi}\left[\Gamma\left(a(\phi_j), z(\phi_j, t)\right)\right] = \dfrac{\partial \Gamma(a,z)}{\partial a}\cdot a'(\phi_j) + \dfrac{\partial \Gamma(a,z)}{\partial Z} \cdot z'(\phi_j) \\
+&\Rightarrow a'(\phi_j) = -1, \quad z'(\phi_j) = \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\cdot\dfrac{\log t}{\phi_j^2} \\
+&\Rightarrow \dfrac{\partial \Gamma(a,z)}{\partial a} = \int_z^\infty s^{a-1}\cdot \log s \cdot e^{-s} ds = \int_{\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}}^\infty s^{-\phi-1/2}\cdot \log s \cdot e^{-s} ds \\
+&\Rightarrow \dfrac{\partial \Gamma(a,z)}{\partial z} = -z^{a-1}e^{-z} = -\left(\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)^{-\phi-1/2} \cdot e^{-\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}}\\
+\textcolor{pink}{\text{Thus }\dfrac{\partial B}{\partial \phi}} &= \sqrt{\dfrac{1}{\pi}} \left\{ \left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j}\log\left(\dfrac{\bar{\gamma}_j}{2}\right) \int_0^\infty \dfrac{1}{t}\Gamma\left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\varphi_\tau(x-t)dt \right. \\
+&\quad \quad + \left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j} \int_0^\infty \dfrac{1}{t} \cdot \left[-\dfrac{\partial \Gamma}{\partial a} + z^{a-1}e^{-z}\cdot z'(\phi_j)\right]\cdot \varphi(x-t)dt
+
 
 \end{align*}
 $$
