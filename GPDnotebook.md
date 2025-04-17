@@ -13,15 +13,21 @@
 
 ## April 18 (Friday) Muyang/Likun/Ben
 
+### Prelim
+- Dissertation outline (third project?)
+- Schedule a time to go over it with Ben (Dan says it's ok XD)
+
 ## April 8 (Tuesday) Muyang/Likun/Ben
 
 ### Sampler
 
 MALA:
 - Ben: MALA could slightly help with mixing of univariate-ly proposed parameters; MALA mostly helps the mixing of block-updated parameters (like $Z_t$, eventually)
-- [ ] derive $\dfrac{\partial \log L}{\partial \phi}$
-  - quite complex
-  - numerical approximate some pieces?
+- derive $\dfrac{\partial \log L}{\partial \phi}$
+  - [x]censored
+    - quite complex
+    - numerical approximate some pieces?
+  - exceedance
 - [ ] code up these partial derivatives in `cpp`
 
 Block $Z_t$ in some better way (exceedance versus censored)
@@ -1256,7 +1262,7 @@ f(\bm{Y}_t \mid \bm{S}_t, \bm{Z}_t, \bm{\phi}, \bm{\gamma}, \bm{\rho}, \bm{\tau}
   p(\bm{S}_t \mid \bm{\gamma}) &= f_{\text{Stable(0.5, 1, $\bm{\gamma}$, 0)}}(\bm{S}_t) \\
   \text{ as we propose and update $\log(\bm{S}_t)$ in MCMC}: & \\
   p(\bm{S}_t \mid \bm{\gamma}) d(\bm{S}_t) &= f_{\text{Stable(0.5, 1, $\bm{\gamma}$, 0)}}(\exp [\log (\bm{S}_t)]) \cdot \left\lvert \dfrac{d\bm{S}_t}{d\log\bm{S}_t} \right\rvert \cdot d(\log \bm{S}_t) \\
-  &= f_{\text{Stable(0.5, 1, $\bm{\gamma}$, 0)}}(\bm{S}_t) \cdot \bm{S}_t\\
+  &= f_{\text{Stable(0.5, 1, $\bm{\gamma}$, 0)}}(\bm{S}_t) \cdot \bm{S}_t \cdot d(\log S_t)\\
   p(\bm{Z}_t \mid \bm{\rho}) &= f_{\text{MVN}(\bm{0}, \bm{\Sigma}_{\bm{\rho}})}(\bm{Z}_t)
 \end{align*}
 $$
@@ -1536,7 +1542,8 @@ $$
 
 #### Derivative with respect to $\phi$:
 
-- censored:
+##### censored:
+
 $$
 \begin{align*}
 \dfrac{\partial \log \Phi((F_X^{-1}(p) - R^\phi g(Z_t))/\tau)}{\partial \phi} :&= \dfrac{\partial \log \Phi((q(\phi) - \mu(\phi))/\tau)}{\partial \phi} \\
@@ -1565,7 +1572,74 @@ $$
 &\Rightarrow \dfrac{\partial \Gamma(a,z)}{\partial z} = -z^{a-1}e^{-z} = -\left(\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)^{-\phi-1/2} \cdot e^{-\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}}\\
 \textcolor{pink}{\text{Thus }\dfrac{\partial B}{\partial \phi}} &= \sqrt{\dfrac{1}{\pi}} \left\{ \left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j}\log\left(\dfrac{\bar{\gamma}_j}{2}\right) \int_0^\infty \dfrac{1}{t}\Gamma\left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\varphi_\tau(x-t)dt \right. \\
 &\quad \quad + \left(\dfrac{\bar{\gamma}_j}{2}\right)^{\phi_j} \int_0^\infty \dfrac{1}{t} \cdot \left[-\dfrac{\partial \Gamma}{\partial a} + z^{a-1}e^{-z}\cdot z'(\phi_j)\right]\cdot \varphi(x-t)dt
+\end{align*}
+$$
+    
+- Maybe we should numerically approximate 
+  - $\dfrac{\partial \Gamma}{\partial a} \approx \dfrac{\Gamma(a + \epsilon, z) - \Gamma(a-\epsilon,z)}{2\epsilon}$
 
+- <mark> should there be additional chain and/or product rule </mark> for the $x$ in side $\varphi_t(x-t)$ inside the integral?
+  - Probably should, because $X$ is also a function of $\phi$ so we need partial with respect to that too.
 
+##### Censored (again)
+
+##### Exceedance(non-censored) likelihood:
+
+$$
+\varphi\left(X_t(\bm{s}_j) \mid X^*_t(\bm{s}_j),\tau\right)\frac{f_Y(Y_t(\bm{s}_j))}{f_X\left(X_t(\bm{s}_j)\right)}
+$$
+
+$$
+\begin{align*}
+\dfrac{\partial \log \left(\varphi\left(X_t(\bm{s}_j) \mid X^*_t(\bm{s}_j),\tau\right)\frac{f_Y(Y_t(\bm{s}_j))}{f_X\left(X_t(\bm{s}_j)\right)}) \right)}{\partial \phi} 
+&= \dfrac{\partial}{\partial \phi} \left[\log(\varphi(X_t(s_j))\mid X_t^*(s_j), \tau) + \log f_Y(Y_t(s_j)) - \log f_X(X_t(s_j))\right] \\
+&= \dfrac{\partial}{\partial \phi} \left[\log(\varphi(X_t(s_j))\mid X_t^*(s_j), \tau) - \log f_X(X_t(s_j))\right] \\
+\text{ \textcolor{yellow}{Question}}&= \dfrac{\partial \log \varphi(X \mid X^*, \tau)}{\partial X} \cdot \dfrac{\partial X}{\partial \phi} + \dfrac{\partial \log \varphi(X \mid X^*, \tau)}{\partial X^*} \cdot \dfrac{\partial X^*}{\partial \phi} \\
+&\quad - \dfrac{\partial \log f_X(X; \phi)}{\partial X} \cdot \dfrac{\partial X}{\partial \phi} - \dfrac{\partial \log f_X(X; \phi)}{\partial \phi}
+\end{align*}
+$$
+
+- [x] $\dfrac{\partial \log \varphi(X \mid X^*, \tau)}{\partial X}$
+
+$$\dfrac{\partial \log \varphi(X \mid X^*, \tau)}{\partial X} = -\dfrac{X-X^*}{\tau^2}$$
+
+- [ ] $\dfrac{\partial X}{\partial \phi}$
+
+see note book
+
+- [x] $\dfrac{\partial \log \varphi(X \mid X^*, \tau)}{\partial X^*}$
+
+$$\dfrac{\partial \log \varphi(X \mid X^*, \tau)}{\partial X^*} = \dfrac{X-X^*}{\tau^2}$$
+
+- [x] $\dfrac{\partial X^*}{\partial \phi}$
+
+$$\dfrac{\partial X^*}{\partial \phi} = R^\phi g(Z) \cdot \log R$$
+
+- [ ] $\dfrac{\partial \log f_X(X; \phi)}{\partial X}$
+
+see note book
+
+- [x] $\dfrac{\partial \log f_X(X; \phi)}{\partial \phi}$
+
+$$
+\begin{align*}
+\dfrac{\partial \log f_X(X; \phi)}{\partial \phi} &= \dfrac{1}{f_X(X)} \cdot \dfrac{\partial f_X(X)}{\partial \phi} \\
+\text{Denote} \quad \quad \quad \quad & \\
+C(\phi) &:= \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}}{2}\right)^{\phi} \\
+I(\phi) &:= \int_0^\infty \dfrac{1}{t^2}\Gamma \left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right) \varphi(x-t)dt \\
+a(\phi) &:= \dfrac{1}{2} - \phi \\
+z(\phi, t) &:= \dfrac{\bar{\gamma}}{2t^{1/\phi}} \\
+\text{Then,} \quad \quad \quad \quad& \\
+\dfrac{\partial f_X(X)}{\partial \phi} &= \dfrac{d C(\phi)}{d \phi} \cdot I(\phi) + C(\phi) \cdot \dfrac{\partial I(\phi)}{\partial \phi} \\
+\dfrac{dC(\phi)}{d\phi} &= C(\phi)\log(\dfrac{\bar{\gamma}}{2}) \\
+\dfrac{\partial I(\phi)}{\partial \phi} &= \int_0^\infty \dfrac{1}{t^2} \cdot \dfrac{\partial}{\partial \phi}[\Gamma(a(\phi), z(\phi, t))] \cdot \varphi(x-t)dt \\
+&= \int_0^\infty \dfrac{1}{t^2}\left[\dfrac{\partial \Gamma(a,z)}{\partial a(\phi)}\cdot \dfrac{da(\phi)}{d\phi} + \dfrac{\partial \Gamma(a,z)}{\partial z}\cdot \dfrac{z(\phi)}{\phi}\right] \cdot \varphi(x-t)dt \\
+\text{where} \quad \quad \quad \quad& \\
+\dfrac{\partial \Gamma(a,z)}{\partial a(\phi)} &= \int_z^\infty \log s \cdot s^{a-1} e^{-s} ds \\
+\dfrac{da(\phi)}{d\phi} &= -1 \\
+\dfrac{\partial \Gamma(a,z)}{\partial z} &= -z^{a-1}e^{-z} \\
+\dfrac{\partial z(\phi)}{\partial \phi} &= \dfrac{\bar{\gamma}\log t}{2t^{1/\phi}}\cdot \dfrac{1}{\phi^2} \\
+\text{All together} \quad \quad \quad \quad & \\
+\dfrac{\partial \log f_X(X; \phi)}{\partial \phi} &= \log\left(\dfrac{\bar{\gamma}}{2}\right) + \dfrac{\int_0^\infty \dfrac{1}{t^2} \left[-\left(\int_z^\infty \log s \cdot s^{a-1}e^{-s}ds - \left(\dfrac{\bar{\gamma}\log t}{2t^{1/\phi}\phi^2}\right)\left(z^{a-1}e^{-z}\right)\right)\right]\varphi(x-t)dt}{\int_0^\infty \dfrac{1}{t^2}\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)\varphi(x-t)dt}
 \end{align*}
 $$
