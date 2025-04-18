@@ -14,8 +14,27 @@
 ## April 18 (Friday) Muyang/Likun/Ben
 
 ### Prelim
-- Dissertation outline (third project?)
-- Schedule a time to go over it with Ben (Dan says it's ok XD)
+- [x] Dissertation outline (third project?)
+- [x] Schedule a time to go over it with Ben (Dan says it's ok XD)
+
+### Sampler
+
+#### Emulation
+
+- [ ] Likun: implement a `dRW` emulator, so PyTorch can use autodiff for MALA
+
+#### MALA
+
+- use the implicit function theorem to derive the quantile wrt $\sigma^2$ in Gaussian; verify the method
+
+- use some numerical results to verify the derived partial derivative
+
+### Chains
+
+- keep running the current $\phi, \rho, \tau, S, Z$ chain
+- [ ] Setup Alpine environment
+  - start a chain with $\phi$ starting at truth
+
 
 ## April 8 (Tuesday) Muyang/Likun/Ben
 
@@ -28,7 +47,7 @@ MALA:
     - quite complex
     - numerical approximate some pieces?
   - exceedance
-- [ ] code up these partial derivatives in `cpp`
+- [-] code up these partial derivatives in `cpp`
 
 Block $Z_t$ in some better way (exceedance versus censored)
 
@@ -1553,7 +1572,7 @@ $$
 &= \log R \cdot R^\phi \cdot g(Z) \\
 \textcolor{blue}{\dfrac{\partial q(\phi)}{\partial \phi}} &\Rightarrow \text{CDF is } F(x; \phi),  \text{ quantile function is } q(\phi) := F^{-1}(p; \phi) \\
 &\Rightarrow F(\underset{=x}{q(\phi)};\phi) = p \\
-\text{(take derivative with respect to $\phi$)} &\Rightarrow \dfrac{\partial F(x)}{\partial q(\phi)} \cdot \dfrac{dq(\phi)}{d\phi} + \dfrac{\partial F(x)}{\partial \phi} = 0 \\
+\text{(both sides take derivative with respect to $\phi$)} &\Rightarrow \dfrac{\partial F(x)}{\partial q(\phi)} \cdot \dfrac{dq(\phi)}{d\phi} + \dfrac{\partial F(x)}{\partial \phi} = 0 \\
 & \Rightarrow \textcolor{blue}{\dfrac{d q(\phi)}{d \phi}} = -\dfrac{\partial F(x) / \partial \phi}{\partial F(x) / \partial x} \\
 &= -\dfrac{\textcolor{yellow}{\partial F(x) / \partial \phi}}{f(x)} \text{ where } x = F^{-1}(p)\\
 \textcolor{yellow}{\dfrac{\partial F}{\partial \phi}} &= -\left( \textcolor{orange}{\dfrac{\partial A}{\partial \phi}} + \textcolor{pink}{\dfrac{\partial B}{\partial \phi}}\right) \\
@@ -1578,9 +1597,6 @@ $$
 - Maybe we should numerically approximate 
   - $\dfrac{\partial \Gamma}{\partial a} \approx \dfrac{\Gamma(a + \epsilon, z) - \Gamma(a-\epsilon,z)}{2\epsilon}$
 
-- <mark> should there be additional chain and/or product rule </mark> for the $x$ in side $\varphi_t(x-t)$ inside the integral?
-  - Probably should, because $X$ is also a function of $\phi$ so we need partial with respect to that too.
-
 ##### Censored (again)
 
 ##### Exceedance(non-censored) likelihood:
@@ -1594,7 +1610,7 @@ $$
 \dfrac{\partial \log \left(\varphi\left(X_t(\bm{s}_j) \mid X^*_t(\bm{s}_j),\tau\right)\frac{f_Y(Y_t(\bm{s}_j))}{f_X\left(X_t(\bm{s}_j)\right)}) \right)}{\partial \phi} 
 &= \dfrac{\partial}{\partial \phi} \left[\log(\varphi(X_t(s_j))\mid X_t^*(s_j), \tau) + \log f_Y(Y_t(s_j)) - \log f_X(X_t(s_j))\right] \\
 &= \dfrac{\partial}{\partial \phi} \left[\log(\varphi(X_t(s_j))\mid X_t^*(s_j), \tau) - \log f_X(X_t(s_j))\right] \\
-\text{ \textcolor{yellow}{Question}}&= \dfrac{\partial \log \varphi(X \mid X^*, \tau)}{\partial X} \cdot \dfrac{\partial X}{\partial \phi} + \dfrac{\partial \log \varphi(X \mid X^*, \tau)}{\partial X^*} \cdot \dfrac{\partial X^*}{\partial \phi} \\
+\text{ \textcolor{yellow}{ASK QUESTION DOUBLE CHECK}}&= \dfrac{\partial \log \varphi(X \mid X^*, \tau)}{\partial X} \cdot \dfrac{\partial X}{\partial \phi} + \dfrac{\partial \log \varphi(X \mid X^*, \tau)}{\partial X^*} \cdot \dfrac{\partial X^*}{\partial \phi} \\
 &\quad - \dfrac{\partial \log f_X(X; \phi)}{\partial X} \cdot \dfrac{\partial X}{\partial \phi} - \dfrac{\partial \log f_X(X; \phi)}{\partial \phi}
 \end{align*}
 $$
@@ -1617,7 +1633,12 @@ $$\dfrac{\partial X^*}{\partial \phi} = R^\phi g(Z) \cdot \log R$$
 
 - [ ] $\dfrac{\partial \log f_X(X; \phi)}{\partial X}$
 
-see note book
+$$
+\begin{align*}
+\dfrac{\partial \log f_X(X; \phi)}{\partial X} &= \dfrac{1}{f_X(X)}\cdot \dfrac{\partial f_X(X)}{\partial X} \\
+&= \dfrac{1}{f_X(X)} \cdot \dfrac{\partial}{\partial X}\left[\sqrt{\dfrac{1}{\pi}}\right]
+\end{align*}
+$$
 
 - [x] $\dfrac{\partial \log f_X(X; \phi)}{\partial \phi}$
 
