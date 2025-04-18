@@ -1393,10 +1393,10 @@ $$
 #### pdf `dRW(x, phi_j, gamma_j, tau)` with nugget
 
 $$
-f_{X_j}(x) = \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}}{2}\right)^\phi \int_0^\infty \dfrac{1}{t^2} \Gamma\left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}}{2t^{1/\phi_j}} \right) \phi(x -t) dt
+f_{X_j}(x) = \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}}{2}\right)^\phi \int_0^\infty \dfrac{1}{t^2} \Gamma\left(\dfrac{1}{2} - \phi_j, \dfrac{\bar{\gamma}}{2t^{1/\phi_j}} \right) \varphi_{\tau}(x -t) dt
 $$
 
-$\phi$ is $N(0, \tau^2)$
+$\varphi_\tau$ is $N(0, \tau^2)$
 
 - Details:
   $$
@@ -1540,8 +1540,8 @@ $$
 $$
 \begin{align*}
 \dfrac{\partial \log \left(\varphi(X_t \mid X_t^*, \tau) \dfrac{f_Y(Y_t)}{f_X(X_t)} \right)}{\partial Z_t} &= \dfrac{\partial \log\varphi(X_t \mid X_t^*, \tau)}{\partial Z_t} + \dfrac{\partial \log f_Y(Y_t)}{\partial Z_t} - \dfrac{\partial \log f_X(X)}{\partial Z_t} \\
-\left(f_Y(Y_t) \text{ is constant w.r.t. } Z_t \right)&= \textcolor{yellow}{\dfrac{\partial \log\varphi(X_t \mid X_t^*, \tau)}{\partial Z_t}} - \textcolor{orange}{\dfrac{\partial \log f_X(X)}{\partial Z_t}} \\
-\textcolor{yellow}{\dfrac{\partial \log\varphi(X_t \mid X_t^*, \tau)}{\partial Z_t}}
+\left(f_Y(Y_t) \text{ is constant w.r.t. } Z_t \right)&= \textcolor{red}{\dfrac{\partial \log\varphi(X_t \mid X_t^*, \tau)}{\partial Z_t}} - \textcolor{orange}{\dfrac{\partial \log f_X(X)}{\partial Z_t}} \\
+\textcolor{red}{\dfrac{\partial \log\varphi(X_t \mid X_t^*, \tau)}{\partial Z_t}}
 &= \dfrac{\partial \left(-\dfrac{1}{2}\log(2\pi\tau^2) - \dfrac{(X_t - X_t^*)^2}{2\tau^2} \right)}{\partial Z_t}\\
 &= \dfrac{\partial \left(-\dfrac{1}{2}\log(2\pi\tau^2) - \dfrac{(X_t - X_t^*)^2}{2\tau^2} \right)}{\partial X_t^*} \cdot \dfrac{\partial X_t^*}{\partial Z_t} \\
 &= \dfrac{X_t - X_t^*}{\tau^2} \cdot R^\phi \dfrac{\varphi(Z_t)}{(1-\Phi(Z_t))^2} \\
@@ -1574,8 +1574,8 @@ $$
 &\Rightarrow F(\underset{=x}{q(\phi)};\phi) = p \\
 \text{(both sides take derivative with respect to $\phi$)} &\Rightarrow \dfrac{\partial F(x)}{\partial q(\phi)} \cdot \dfrac{dq(\phi)}{d\phi} + \dfrac{\partial F(x)}{\partial \phi} = 0 \\
 & \Rightarrow \textcolor{blue}{\dfrac{d q(\phi)}{d \phi}} = -\dfrac{\partial F(x) / \partial \phi}{\partial F(x) / \partial x} \\
-&= -\dfrac{\textcolor{yellow}{\partial F(x) / \partial \phi}}{f(x)} \text{ where } x = F^{-1}(p)\\
-\textcolor{yellow}{\dfrac{\partial F}{\partial \phi}} &= -\left( \textcolor{orange}{\dfrac{\partial A}{\partial \phi}} + \textcolor{pink}{\dfrac{\partial B}{\partial \phi}}\right) \\
+&= -\dfrac{\textcolor{red}{\partial F(x) / \partial \phi}}{f(x)} \text{ where } x = F^{-1}(p)\\
+\textcolor{red}{\dfrac{\partial F}{\partial \phi}} &= -\left( \textcolor{orange}{\dfrac{\partial A}{\partial \phi}} + \textcolor{pink}{\dfrac{\partial B}{\partial \phi}}\right) \\
 \textcolor{orange}{\text{where } \dfrac{\partial A}{\partial \phi}} &= \dfrac{\partial \sqrt{\dfrac{1}{\pi}} \int_0^\infty \gamma\left(\dfrac{1}{2},\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)\varphi_\tau(x-t)dt }{\partial \phi} \\
 &= \sqrt{\dfrac{1}{\pi}}\int_0^\infty \dfrac{\partial}{\partial \phi}\left[\gamma\left(\dfrac{1}{2}, \dfrac{\bar{\gamma}_j}{2t^{1/\phi}}\right)\right] \varphi_\tau(x-t)dt \\
 \left(\dfrac{\partial \gamma(a, z)}{\partial z} = z^{a-1}e^{-z}\right) &= \sqrt{\dfrac{1}{\pi}}\int_0^\infty\left(\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right)^{-1/2}e^{-\frac{\bar{\gamma}_j}{2t^{1/\phi_j}}} \cdot \dfrac{\partial}{\partial \phi}\left[\dfrac{\bar{\gamma}_j}{2t^{1/\phi_j}}\right] \varphi_\tau(x-t)dt \\
@@ -1597,8 +1597,6 @@ $$
 - Maybe we should numerically approximate 
   - $\dfrac{\partial \Gamma}{\partial a} \approx \dfrac{\Gamma(a + \epsilon, z) - \Gamma(a-\epsilon,z)}{2\epsilon}$
 
-##### Censored (again)
-
 ##### Exceedance(non-censored) likelihood:
 
 $$
@@ -1619,9 +1617,37 @@ $$
 
 $$\dfrac{\partial \log \varphi(X \mid X^*, \tau)}{\partial X} = -\dfrac{X-X^*}{\tau^2}$$
 
-- [ ] $\dfrac{\partial X}{\partial \phi}$
+- [x] $\dfrac{\partial X}{\partial \phi}$
 
-see note book
+Likun said this application of <mark>the implicit function theorem here is questionable</mark>:
+$$
+\begin{align*}
+X = F_X^{-1}(p; \phi) &\Leftrightarrow F_X(X; \phi) = p \\
+&\Rightarrow \dfrac{d}{d\phi} F_X(X; \phi) = 0 \\
+&\Rightarrow \dfrac{\partial F_X(X; \phi)}{\partial X} \cdot \dfrac{\partial X}{\partial \phi} + \dfrac{\partial F_X(X; \phi)}{\partial \phi} = 0 \\
+\dfrac{\partial X}{\partial \phi} &= -\dfrac{\partial F_X(X;\phi) / \partial \phi}{\partial F_X(X;\phi)/\partial X} = -\dfrac{\partial F_X(X;\phi) / \partial \phi}{f_X(X)}
+\end{align*}
+$$
+
+Assuming we can use it like this, then (the derivation will resemble those we did for the censored pieces):
+
+$$
+\begin{align*}
+\dfrac{\partial F_X(X;\phi)}{\partial \phi} &= \dfrac{\partial}{\partial \phi}\left[1 - \left\{\overline{\Phi_\tau}(X) + \sqrt{\dfrac{1}{\pi}}\int_0^\infty \gamma\left(\dfrac{1}{2}, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)\varphi_\tau(x-t)dt + \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}}{2}\right)^\phi\int_0^\infty \dfrac{1}{t} \Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)\varphi_\tau(x-t)dt\right\}\right] \\
+\text{Denote } B &:= \sqrt{\dfrac{1}{\pi}}\int_0^\infty \gamma\left(\dfrac{1}{2}, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)\varphi_\tau(x-t)dt\\
+C &:= \sqrt{\dfrac{1}{\pi}}\int_0^\infty \dfrac{1}{t} \Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)\varphi_\tau(x-t)dt\\
+a &:= \dfrac{1}{2} - \phi \\
+z &:= \dfrac{\bar{\gamma}}{2t^{1/\phi}} \\
+\dfrac{\partial F_X(X;\phi)}{\partial \phi} &= -\left(\dfrac{\partial B}{\partial \phi} + \dfrac{\partial C}{\partial \phi}\right) \\
+\dfrac{\partial B}{\partial \phi} &= \sqrt{\dfrac{1}{\pi}}\int_0^\infty \dfrac{\partial}{\partial z}\left[\gamma\left(\dfrac{1}{2}, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)\right]\dfrac{\partial z}{\partial \phi} \cdot \varphi_\tau(x-t)dt \\
+\left(\dfrac{\partial \gamma(a,z)}{\partial z} = z^{a-1}e^{-z}, \dfrac{\partial z}{\partial \phi} = \dfrac{\bar{\gamma}\log t}{2\phi^2t^{1/\phi}}\right) &= \sqrt{\dfrac{1}{\pi}}\int_0^\infty z^{-\frac{1}{2}}e^{-z}\cdot \dfrac{\bar{\gamma}\log t}{2\phi^2 t^{1/\phi}} \cdot \varphi_\tau(x-t)dt\\
+\dfrac{\partial C}{\partial \phi} &= \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}}{2}\right)^\phi \log\left(\dfrac{\bar{\gamma}}{2}\right)\int_0^\infty\dfrac{1}{t} \Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)\varphi_\tau(x-t)dt \\
+&\quad  + \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}}{2}\right)^\phi\int_0^\infty \dfrac{1}{t} \cdot \dfrac{\partial}{\partial \phi}\left[\Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)\right]\cdot \varphi_\tau(x-t)dt \\
+&= \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}}{2}\right)^\phi \log\left(\dfrac{\bar{\gamma}}{2}\right)\int_0^\infty\dfrac{1}{t} \Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)\varphi_\tau(x-t)dt \\
+&\quad  + \sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}}{2}\right)^\phi\int_0^\infty \dfrac{1}{t} \cdot \left[-\dfrac{\partial \Gamma(a,z)}{\partial a} + \left(\dfrac{\bar{\gamma}\log t}{2\phi^2t^{1/\phi}}\right)\cdot \dfrac{\partial \Gamma}{\partial z}\right]\cdot \varphi_\tau(x-t)dt
+\end{align*}
+$$
+
 
 - [x] $\dfrac{\partial \log \varphi(X \mid X^*, \tau)}{\partial X^*}$
 
@@ -1631,12 +1657,17 @@ $$\dfrac{\partial \log \varphi(X \mid X^*, \tau)}{\partial X^*} = \dfrac{X-X^*}{
 
 $$\dfrac{\partial X^*}{\partial \phi} = R^\phi g(Z) \cdot \log R$$
 
-- [ ] $\dfrac{\partial \log f_X(X; \phi)}{\partial X}$
+- [x] $\dfrac{\partial \log f_X(X; \phi)}{\partial X}$
 
 $$
 \begin{align*}
 \dfrac{\partial \log f_X(X; \phi)}{\partial X} &= \dfrac{1}{f_X(X)}\cdot \dfrac{\partial f_X(X)}{\partial X} \\
-&= \dfrac{1}{f_X(X)} \cdot \dfrac{\partial}{\partial X}\left[\sqrt{\dfrac{1}{\pi}}\right]
+&= \dfrac{1}{f_X(X)} \cdot \dfrac{\partial}{\partial X}\left[\sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}}{2}\right)^\phi \int_0^\infty \dfrac{1}{t^2} \Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)\varphi(x-t)dt\right] \\
+&= \dfrac{1}{f_X(X)}\sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}}{2}\right)^\phi \int_0^\infty \dfrac{1}{t^2} \Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)\dfrac{\partial}{\partial X}\left[\varphi(x-t)\right]dt \\
+& \quad \quad \text{note } \dfrac{\partial}{\partial X}\left[\varphi(x-t)\right] = \dfrac{\partial}{\partial X}\left[\dfrac{1}{\sqrt{2\pi \tau^2}}\exp\left(-\dfrac{(x-t)^2}{2\tau^2}\right)\right] \\
+& \quad \quad \quad \quad \quad \quad \quad \quad \quad \quad \  = \dfrac{1}{\sqrt{2\pi \tau^2}}\exp\left(-\dfrac{(x-t)^2}{2\tau^2}\right)\left(-\dfrac{x-t}{\tau^2}\right) \\
+&= \dfrac{1}{f_X(X)}\sqrt{\dfrac{1}{\pi}}\left(\dfrac{\bar{\gamma}}{2}\right)^\phi \int_0^\infty \dfrac{1}{t^2} \Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)\varphi(x-t)\left(-\dfrac{x-t}{\tau^2}\right)dt \\
+&= \dfrac{\int_0^\infty \dfrac{1}{t^2} \Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)\varphi(x-t)\left(-\dfrac{x-t}{\tau^2}\right)dt}{\int_0^\infty \dfrac{1}{t^2} \Gamma\left(\dfrac{1}{2} - \phi, \dfrac{\bar{\gamma}}{2t^{1/\phi}}\right)\varphi(x-t)dt}
 \end{align*}
 $$
 
